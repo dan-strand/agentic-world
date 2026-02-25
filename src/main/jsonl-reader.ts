@@ -74,3 +74,55 @@ export function readLastJsonlLine(
     }
   }
 }
+
+/**
+ * Extract the most recent tool_use name from JSONL progress entries.
+ * Scans backward through the tail buffer for a progress entry containing
+ * a tool_use content block with a name field.
+ *
+ * Uses 8KB buffer (vs 4KB for status) since progress entries with tool_use
+ * content may be further from the file tail during rapid tool sequences.
+ */
+export function readLastToolUse(
+  filePath: string,
+  bufferSize: number = 8192
+): string | null {
+  let fd: number | null = null;
+  try {
+    fd = fs.openSync(filePath, 'r');
+    const stat = fs.fstatSync(fd);
+    if (stat.size === 0) return null;
+
+    const readSize = Math.min(bufferSize, stat.size);
+    const buffer = Buffer.alloc(readSize);
+    fs.readSync(fd, buffer, 0, readSize, stat.size - readSize);
+
+    const text = buffer.toString('utf-8');
+    const lines = text.split('\n').filter(l => l.trim().length > 0);
+
+    // Scan backward for a progress entry with tool_use content
+    for (let i = lines.length - 1; i >= 0; i--) {
+      try {
+        const obj = JSON.parse(lines[i]);
+        if (obj.type !== 'progress') continue;
+        const content = obj.data?.message?.message?.content;
+        if (!Array.isArray(content)) continue;
+        // Look for tool_use blocks in content array
+        for (const c of content) {
+          if (c.type === 'tool_use' && typeof c.name === 'string') {
+            return c.name;
+          }
+        }
+      } catch {
+        continue; // Parse failed -- try previous line
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  } finally {
+    if (fd !== null) {
+      try { fs.closeSync(fd); } catch { /* ignore */ }
+    }
+  }
+}

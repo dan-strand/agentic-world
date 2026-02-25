@@ -1,9 +1,9 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { SessionInfo, SessionStatus } from '../shared/types';
-import { IDLE_THRESHOLD_MS } from '../shared/constants';
-import { readLastJsonlLine, JsonlEntry } from './jsonl-reader';
+import { SessionInfo, SessionStatus, ActivityType } from '../shared/types';
+import { IDLE_THRESHOLD_MS, TOOL_TO_ACTIVITY } from '../shared/constants';
+import { readLastJsonlLine, readLastToolUse, JsonlEntry } from './jsonl-reader';
 
 /**
  * Abstract interface for session detection.
@@ -131,6 +131,12 @@ export class FilesystemSessionDetector implements SessionDetector {
       const lastEntryType = lastEntry?.type ?? 'unknown';
       const status = this.determineStatus(lastEntryType, stat.mtimeMs, now);
 
+      // Extract activity type from last tool_use in JSONL progress entries
+      const lastToolName = readLastToolUse(filePath);
+      const activityType: ActivityType = lastToolName
+        ? (TOOL_TO_ACTIVITY[lastToolName] ?? 'coding')
+        : 'idle';
+
       // Extract project path from JSONL cwd field, or use cached value, or fall back to dir name
       let projectPath: string;
       let projectName: string;
@@ -161,6 +167,7 @@ export class FilesystemSessionDetector implements SessionDetector {
         status,
         lastModified: stat.mtimeMs,
         lastEntryType,
+        activityType,
       };
 
       // Update mtime cache
