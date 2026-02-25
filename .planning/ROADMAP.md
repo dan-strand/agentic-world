@@ -12,7 +12,7 @@ Agent World goes from zero to a working always-on desktop visualizer in three ph
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Foundation and Detection** - Electron app with session detection, IPC bridge, and adaptive game loop
+- [x] **Phase 1: Foundation and Detection** - Electron app with session detection, IPC bridge, and adaptive game loop
 - [ ] **Phase 2: Visual World** - PixiJS scene with animated spy agents, world locations, labels, and speech bubbles
 - [ ] **Phase 3: Status and Lifecycle** - Visual status states, celebration animation, and walk-back-to-HQ completion flow
 
@@ -32,8 +32,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 Plans:
 - [x] 01-01-PLAN.md -- Scaffold Electron app, shared types/constants, IPC bridge
-- [ ] 01-02-PLAN.md -- Session detection pipeline (filesystem scanning, JSONL reading, status determination, polling store)
-- [ ] 01-03-PLAN.md -- PixiJS world with placeholder agents, adaptive game loop, visual verification
+- [x] 01-02-PLAN.md -- Session detection pipeline (filesystem scanning, JSONL reading, status determination, polling store)
+- [x] 01-03-PLAN.md -- PixiJS world with placeholder agents, adaptive game loop, visual verification
 
 ### Phase 2: Visual World
 **Goal**: User sees a living 2D pixel art spy world where each session is a distinct animated agent character working at themed locations
@@ -70,6 +70,6 @@ Phases execute in numeric order: 1 -> 2 -> 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation and Detection | 1/3 | In Progress | - |
+| 1. Foundation and Detection | 3/3 | Complete (awaiting verification) | 2026-02-25 |
 | 2. Visual World | 0/0 | Not started | - |
 | 3. Status and Lifecycle | 0/0 | Not started | - |

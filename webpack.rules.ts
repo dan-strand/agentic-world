@@ -1,10 +1,22 @@
 import type { ModuleOptions } from 'webpack';
 
-export const rules: Required<ModuleOptions>['rules'] = [
-  // Add support for native node modules
+type Rules = Required<ModuleOptions>['rules'];
+
+// TypeScript loader — shared by all targets
+const tsRule = {
+  test: /\.tsx?$/,
+  exclude: /(node_modules|\.webpack)/,
+  use: {
+    loader: 'ts-loader',
+    options: {
+      transpileOnly: true,
+    },
+  },
+};
+
+// Native module support — only for main process (uses __dirname at runtime)
+const nativeRules: Rules = [
   {
-    // We're specifying native_modules in the test because the asset relocator loader generates a
-    // "fake" .node file which is really a cjs file.
     test: /native_modules[/\\].+\.node$/,
     use: 'node-loader',
   },
@@ -18,14 +30,13 @@ export const rules: Required<ModuleOptions>['rules'] = [
       },
     },
   },
-  {
-    test: /\.tsx?$/,
-    exclude: /(node_modules|\.webpack)/,
-    use: {
-      loader: 'ts-loader',
-      options: {
-        transpileOnly: true,
-      },
-    },
-  },
 ];
+
+// Main process rules: native modules + TypeScript
+export const mainRules: Rules = [...nativeRules, tsRule];
+
+// Renderer rules: TypeScript only (no native modules, no __dirname)
+export const rendererRules: Rules = [tsRule];
+
+// Keep backward compat export (used by main config)
+export const rules = mainRules;

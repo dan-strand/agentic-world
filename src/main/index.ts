@@ -31,9 +31,14 @@ const createWindow = (): void => {
 
   mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
 
+  // Log renderer console output to main process stdout
+  mainWindow.webContents.on('console-message', (_event, _level, message) => {
+    console.log(`[renderer] ${message}`);
+  });
+
   // Open DevTools in development for debugging
-  if (process.env.NODE_ENV === 'development' || !app.isPackaged) {
-    mainWindow.webContents.openDevTools();
+  if (!app.isPackaged) {
+    mainWindow.webContents.openDevTools({ mode: 'detach' });
   }
 
   // Start session polling after the renderer has finished loading
