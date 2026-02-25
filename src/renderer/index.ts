@@ -1,6 +1,9 @@
 import { World } from './world';
 import { GameLoop } from './game-loop';
 import { SessionInfo } from '../shared/types';
+import { installPixelFont } from './bitmap-font';
+import { initAgentSprites } from './agent-sprites';
+import { initActivityIcons } from './activity-icons';
 
 async function main(): Promise<void> {
   console.log('[renderer] main() starting...');
@@ -10,6 +13,12 @@ async function main(): Promise<void> {
   if (!appContainer) {
     throw new Error('#app container not found');
   }
+
+  // Initialize sprite systems before world init (required for BitmapText, Agent, SpeechBubble)
+  installPixelFont();
+  initAgentSprites();
+  initActivityIcons();
+  console.log('[renderer] Sprites, fonts, and icons initialized');
 
   console.log('[renderer] Creating World...');
   const world = new World();

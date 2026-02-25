@@ -1,19 +1,68 @@
 import { Application, Container, Graphics } from 'pixi.js';
-import { SessionInfo } from '../shared/types';
-import { BACKGROUND_COLOR } from '../shared/constants';
-import { PlaceholderAgent } from './placeholder-agent';
-import { calculateAgentPositions } from './agent-layout';
+import type { SessionInfo, ActivityType } from '../shared/types';
+import {
+  BACKGROUND_COLOR,
+  COMPOUND_INNER_RADIUS,
+  COMPOUND_OUTER_RADIUS,
+  COMPOUND_WIDTH,
+} from '../shared/constants';
+import { Agent } from './agent';
+import { AgentFactory } from './agent-factory';
+import { HQ } from './hq';
+import { Compound } from './compound';
+import { calculateCompoundPositions } from './compound-layout';
+import type { CompoundPosition } from './compound-layout';
+import { SpeechBubble } from './speech-bubble';
+
+/** Compound lifecycle tracking for fade-in/fade-out. */
+interface CompoundEntry {
+  compound: Compound;
+  position: CompoundPosition;
+  /** Target alpha for fade transitions. 1 = visible, 0 = removing. */
+  targetAlpha: number;
+  /** Whether this compound is being removed (fading out). */
+  removing: boolean;
+}
 
 /**
- * World -- PixiJS Application with spy compound background,
- * agent container management, and session-to-visual mapping.
+ * World -- PixiJS Application composing HQ, dynamic project compounds,
+ * agents, vehicles, speech bubbles, and road spokes into a living spy world.
+ *
+ * Scene hierarchy:
+ *   app.stage
+ *   +-- backgroundContainer (ground fill)
+ *   +-- roadsContainer (radial road spokes from HQ to compounds)
+ *   +-- hq (HQ Container)
+ *   +-- compoundsContainer (dynamic Compound children)
+ *   +-- agentsContainer (dynamic Agent children)
  */
 export class World {
   private app!: Application;
-  private agents: Map<string, PlaceholderAgent> = new Map();
-  private agentContainer!: Container;
+
+  // Scene containers (z-order: background, roads, HQ, compounds, agents)
   private backgroundContainer!: Container;
-  private lastAgentCount = 0;
+  private roadsContainer!: Container;
+  private hq!: HQ;
+  private compoundsContainer!: Container;
+  private agentsContainer!: Container;
+
+  // State tracking
+  private agents: Map<string, Agent> = new Map();
+  private compounds: Map<string, CompoundEntry> = new Map();
+  private agentFactory: AgentFactory = new AgentFactory();
+
+  // Speech bubbles managed per-agent
+  private speechBubbles: Map<string, SpeechBubble> = new Map();
+  // Track last known activity per agent for change detection
+  private lastActivity: Map<string, ActivityType> = new Map();
+
+  // Track which compound each agent is assigned to
+  private agentCompoundAssignment: Map<string, string> = new Map();
+
+  // Layout cache
+  private lastProjectSet = '';
+  private centerX = 0;
+  private centerY = 0;
 
   async init(container: HTMLElement): Promise<void> {
     this.app = new Application();
@@ -27,196 +76,80 @@ export class World {
 
     container.appendChild(this.app.canvas);
 
-    // Background renders behind everything
+    // Create scene containers in z-order
     this.backgroundContainer = new Container();
     this.app.stage.addChild(this.backgroundContainer);
 
-    // Agents render on top
-    this.agentContainer = new Container();
-    this.app.stage.addChild(this.agentContainer);
+    this.roadsContainer = new Container();
+    this.app.stage.addChild(this.roadsContainer);
 
-    this.drawCompoundBackground();
+    this.hq = new HQ();
+    this.app.stage.addChild(this.hq);
+
+    this.compoundsContainer = new Container();
+    this.app.stage.addChild(this.compoundsContainer);
+
+    this.agentsContainer = new Container();
+    this.app.stage.addChild(this.agentsContainer);
+
+    // Position HQ at center
+    this.centerX = this.app.screen.width / 2;
+    this.centerY = this.app.screen.height / 2;
+    this.hq.position.set(this.centerX, this.centerY);
+
+    // Draw ground
+    this.drawGround();
   }
 
   /**
-   * Draw the bird's-eye spy compound background.
-   * Uses muted, dark colors so agents remain the focal point.
-   */
-  private drawCompoundBackground(): void {
-    // Clear previous background
-    this.backgroundContainer.removeChildren();
-
-    const w = this.app.screen.width;
-    const h = this.app.screen.height;
-    const bg = new Graphics();
-
-    // 1. Ground fill -- dark green-gray (grass/concrete)
-    bg.rect(0, 0, w, h);
-    bg.fill(0x2a3a2a);
-
-    // 2. Perimeter fence -- subtle border
-    bg.rect(20, 20, w - 40, h - 40);
-    bg.stroke({ color: 0x555555, width: 2 });
-
-    // 3. Buildings -- positioned around edges, leaving center open as courtyard
-
-    // HQ -- main building, top-center
-    const hqW = 180;
-    const hqH = 80;
-    const hqX = (w - hqW) / 2;
-    const hqY = 40;
-    bg.rect(hqX, hqY, hqW, hqH);
-    bg.fill(0x3a3a50);
-    bg.rect(hqX, hqY, hqW, hqH);
-    bg.stroke({ color: 0x50506a, width: 1.5 });
-    // HQ label accent -- small lighter strip on top
-    bg.rect(hqX + 10, hqY + 5, hqW - 20, 8);
-    bg.fill(0x50506a);
-
-    // Comms building -- left side
-    const commsW = 100;
-    const commsH = 60;
-    const commsX = 40;
-    const commsY = h * 0.25;
-    bg.rect(commsX, commsY, commsW, commsH);
-    bg.fill(0x3a4a3a);
-    bg.rect(commsX, commsY, commsW, commsH);
-    bg.stroke({ color: 0x506050, width: 1.5 });
-
-    // Barracks -- right side
-    const barracksW = 100;
-    const barracksH = 70;
-    const barracksX = w - 40 - barracksW;
-    const barracksY = h * 0.25;
-    bg.rect(barracksX, barracksY, barracksW, barracksH);
-    bg.fill(0x3a3a40);
-    bg.rect(barracksX, barracksY, barracksW, barracksH);
-    bg.stroke({ color: 0x505060, width: 1.5 });
-
-    // Armory -- bottom-left
-    const armoryW = 90;
-    const armoryH = 55;
-    const armoryX = 50;
-    const armoryY = h - 40 - armoryH;
-    bg.rect(armoryX, armoryY, armoryW, armoryH);
-    bg.fill(0x403030);
-    bg.rect(armoryX, armoryY, armoryW, armoryH);
-    bg.stroke({ color: 0x604545, width: 1.5 });
-
-    // Garage -- bottom-right
-    const garageW = 110;
-    const garageH = 55;
-    const garageX = w - 50 - garageW;
-    const garageY = h - 40 - garageH;
-    bg.rect(garageX, garageY, garageW, garageH);
-    bg.fill(0x3a3530);
-    bg.rect(garageX, garageY, garageW, garageH);
-    bg.stroke({ color: 0x554a40, width: 1.5 });
-
-    // 4. Paths -- lighter colored strips connecting buildings
-    const pathColor = 0x4a4a3a;
-    const pathWidth = 10;
-
-    // Vertical path from HQ down to courtyard center
-    bg.rect(w / 2 - pathWidth / 2, hqY + hqH, pathWidth, h / 2 - hqY - hqH);
-    bg.fill(pathColor);
-
-    // Horizontal path across middle
-    bg.rect(commsX + commsW, h * 0.45 - pathWidth / 2, barracksX - commsX - commsW, pathWidth);
-    bg.fill(pathColor);
-
-    // Path from comms to center
-    bg.rect(commsX + commsW, commsY + commsH / 2 - pathWidth / 2, w / 2 - commsX - commsW, pathWidth);
-    bg.fill(pathColor);
-
-    // Path from barracks to center
-    bg.rect(w / 2, barracksY + barracksH / 2 - pathWidth / 2, barracksX - w / 2, pathWidth);
-    bg.fill(pathColor);
-
-    // Vertical path from center down to bottom buildings
-    bg.rect(w / 2 - pathWidth / 2, h * 0.5, pathWidth, armoryY - h * 0.5);
-    bg.fill(pathColor);
-
-    // 5. Open courtyard -- lighter ground area in center
-    const courtW = w * 0.4;
-    const courtH = h * 0.3;
-    const courtX = (w - courtW) / 2;
-    const courtY = (h - courtH) / 2;
-    bg.rect(courtX, courtY, courtW, courtH);
-    bg.fill(0x354535);
-
-    // 6. Small accent details -- crates and guard posts
-    // Guard post near gate (bottom-center)
-    bg.rect(w / 2 - 8, h - 50, 16, 16);
-    bg.fill(0x444444);
-    bg.rect(w / 2 - 8, h - 50, 16, 16);
-    bg.stroke({ color: 0x606060, width: 1 });
-
-    // Crates near armory
-    bg.rect(armoryX + armoryW + 10, armoryY + 10, 12, 12);
-    bg.fill(0x5a4a30);
-    bg.rect(armoryX + armoryW + 10, armoryY + 25, 10, 10);
-    bg.fill(0x5a4a30);
-
-    // Vehicle near garage
-    bg.rect(garageX - 25, garageY + 15, 20, 12);
-    bg.fill(0x3a5040);
-    bg.rect(garageX - 25, garageY + 15, 20, 12);
-    bg.stroke({ color: 0x4a6050, width: 1 });
-
-    this.backgroundContainer.addChild(bg);
-  }
-
-  /**
-   * Update agents from session data. Creates new agents, updates existing.
-   * Recalculates positions only when agent count changes.
+   * Core logic -- called on every IPC session update.
+   * Groups sessions by project, manages compound lifecycle,
+   * creates/updates/transitions agents.
    */
   updateSessions(sessions: SessionInfo[]): void {
-    const currentIds = new Set<string>();
-
-    for (const session of sessions) {
-      currentIds.add(session.sessionId);
-      const existing = this.agents.get(session.sessionId);
-
-      if (existing) {
-        existing.updateStatus(session.status);
-        existing.updateName(session.projectName);
-      } else {
-        const agent = new PlaceholderAgent(session.projectName, session.status);
-        this.agents.set(session.sessionId, agent);
-        this.agentContainer.addChild(agent);
-      }
+    // a. Group sessions by projectName
+    const projectSessions = new Map<string, SessionInfo[]>();
+    for (const s of sessions) {
+      const list = projectSessions.get(s.projectName) ?? [];
+      list.push(s);
+      projectSessions.set(s.projectName, list);
     }
 
-    // Note: completed sessions persist (per user decision) -- we don't remove them.
-    // We only add new ones and update existing.
+    // b. Manage compounds -- spawn/despawn based on active projects
+    this.manageCompounds(projectSessions);
 
-    // Recalculate positions if agent count changed
-    if (this.agents.size !== this.lastAgentCount) {
-      this.repositionAgents();
-      this.lastAgentCount = this.agents.size;
-    }
-  }
-
-  private repositionAgents(): void {
-    const w = this.app.screen.width;
-    const h = this.app.screen.height;
-    const positions = calculateAgentPositions(this.agents.size, w, h);
-    let i = 0;
-    for (const agent of this.agents.values()) {
-      if (i < positions.length) {
-        agent.setBasePosition(positions[i].x, positions[i].y);
-      }
-      i++;
-    }
+    // c. Manage agents -- create/update/transition
+    this.manageAgents(sessions, projectSessions);
   }
 
   /**
-   * Tick all agent animations.
+   * Tick all agents and speech bubbles. Handle compound fade transitions.
    */
   tick(deltaMs: number): void {
+    // Tick agents (state machine + animation)
     for (const agent of this.agents.values()) {
-      agent.animate(deltaMs);
+      agent.tick(deltaMs);
+    }
+
+    // Tick speech bubbles
+    for (const bubble of this.speechBubbles.values()) {
+      bubble.tick(deltaMs);
+    }
+
+    // Handle compound fade-in/fade-out
+    for (const [projectName, entry] of this.compounds) {
+      if (entry.removing) {
+        // Fade out over 500ms
+        entry.compound.alpha = Math.max(0, entry.compound.alpha - deltaMs / 500);
+        if (entry.compound.alpha <= 0) {
+          this.compoundsContainer.removeChild(entry.compound);
+          entry.compound.destroy();
+          this.compounds.delete(projectName);
+        }
+      } else if (entry.compound.alpha < 1) {
+        // Fade in over 500ms
+        entry.compound.alpha = Math.min(1, entry.compound.alpha + deltaMs / 500);
+      }
     }
   }
 
@@ -225,11 +158,327 @@ export class World {
   }
 
   resize(): void {
-    this.drawCompoundBackground();
-    this.repositionAgents();
+    this.centerX = this.app.screen.width / 2;
+    this.centerY = this.app.screen.height / 2;
+
+    // Recenter HQ
+    this.hq.position.set(this.centerX, this.centerY);
+
+    // Redraw ground
+    this.drawGround();
+
+    // Recalculate compound positions
+    this.recalculateCompoundPositions();
+
+    // Redraw roads
+    this.drawRoads();
+
+    // Update idle agent HQ positions
+    this.repositionIdleAgents();
   }
 
   destroy(): void {
     this.app.destroy(true);
+  }
+
+  // --- Private: Ground & Roads ---
+
+  private drawGround(): void {
+    this.backgroundContainer.removeChildren();
+    const w = this.app.screen.width;
+    const h = this.app.screen.height;
+
+    const bg = new Graphics();
+    // Dark green-gray ground fill
+    bg.rect(0, 0, w, h).fill(0x2a3a2a);
+    this.backgroundContainer.addChild(bg);
+  }
+
+  /**
+   * Draw radial road spokes from HQ center to each compound entrance.
+   * Roads are 10px wide filled rects, drawn as angled lines.
+   */
+  private drawRoads(): void {
+    this.roadsContainer.removeChildren();
+
+    const roads = new Graphics();
+    const pathColor = 0x4a4a3a;
+
+    for (const entry of this.compounds.values()) {
+      if (entry.removing) continue;
+
+      // Road from HQ center to compound entrance (top-center of compound)
+      const compX = entry.compound.x + COMPOUND_WIDTH / 2;
+      const compY = entry.compound.y;
+
+      const dx = compX - this.centerX;
+      const dy = compY - this.centerY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < 1) continue;
+
+      // Calculate perpendicular offset for road width
+      const nx = -dy / dist; // normal x
+      const ny = dx / dist;  // normal y
+      const halfW = 5; // half road width
+
+      // Draw road as a polygon (rectangle along the angle)
+      roads.moveTo(this.centerX + nx * halfW, this.centerY + ny * halfW);
+      roads.lineTo(compX + nx * halfW, compY + ny * halfW);
+      roads.lineTo(compX - nx * halfW, compY - ny * halfW);
+      roads.lineTo(this.centerX - nx * halfW, this.centerY - ny * halfW);
+      roads.closePath();
+      roads.fill(pathColor);
+    }
+
+    this.roadsContainer.addChild(roads);
+  }
+
+  // --- Private: Compound Management ---
+
+  /**
+   * Spawn/despawn compounds based on active projects.
+   * A compound is created when a project has at least one non-idle session.
+   * A compound is removed (faded out) when all sessions for the project are idle
+   * or the project disappears.
+   */
+  private manageCompounds(projectSessions: Map<string, SessionInfo[]>): void {
+    // Determine which projects need compounds (at least one non-idle session)
+    const activeProjects = new Set<string>();
+    for (const [projectName, sessions] of projectSessions) {
+      const hasNonIdle = sessions.some(s => s.activityType !== 'idle');
+      if (hasNonIdle) {
+        activeProjects.add(projectName);
+      }
+    }
+
+    // Mark compounds for removal if project no longer active
+    for (const [projectName, entry] of this.compounds) {
+      if (!activeProjects.has(projectName) && !entry.removing) {
+        entry.removing = true;
+        entry.targetAlpha = 0;
+      }
+    }
+
+    // Create new compounds for newly active projects
+    let needsRepositioning = false;
+    for (const projectName of activeProjects) {
+      const existing = this.compounds.get(projectName);
+      if (existing && existing.removing) {
+        // Reactivate compound that was being removed
+        existing.removing = false;
+        existing.targetAlpha = 1;
+      } else if (!existing) {
+        // Create new compound
+        const compound = new Compound(projectName);
+        compound.alpha = 0; // Start invisible, fade in
+        this.compoundsContainer.addChild(compound);
+        this.compounds.set(projectName, {
+          compound,
+          position: { x: 0, y: 0, angle: 0 },
+          targetAlpha: 1,
+          removing: false,
+        });
+        needsRepositioning = true;
+      }
+    }
+
+    // Check if active project set changed (for repositioning)
+    const sortedProjects = [...activeProjects].sort().join(',');
+    if (sortedProjects !== this.lastProjectSet) {
+      needsRepositioning = true;
+      this.lastProjectSet = sortedProjects;
+    }
+
+    if (needsRepositioning) {
+      this.recalculateCompoundPositions();
+      this.drawRoads();
+    }
+  }
+
+  /**
+   * Recalculate all compound positions using radial layout algorithm.
+   * Smoothly transitions compounds to new positions.
+   */
+  private recalculateCompoundPositions(): void {
+    // Get only non-removing compounds
+    const activeEntries: [string, CompoundEntry][] = [];
+    for (const [name, entry] of this.compounds) {
+      if (!entry.removing) {
+        activeEntries.push([name, entry]);
+      }
+    }
+
+    if (activeEntries.length === 0) return;
+
+    const positions = calculateCompoundPositions(
+      activeEntries.length,
+      this.centerX,
+      this.centerY,
+      COMPOUND_INNER_RADIUS,
+      COMPOUND_OUTER_RADIUS,
+    );
+
+    for (let i = 0; i < activeEntries.length; i++) {
+      const [, entry] = activeEntries[i];
+      const pos = positions[i];
+      entry.position = pos;
+
+      // Position compound so its top-left is offset from the calculated center
+      entry.compound.x = pos.x - COMPOUND_WIDTH / 2;
+      entry.compound.y = pos.y - COMPOUND_WIDTH / 2;
+    }
+  }
+
+  // --- Private: Agent Management ---
+
+  /**
+   * Create, update, and transition agents based on session data.
+   */
+  private manageAgents(
+    sessions: SessionInfo[],
+    projectSessions: Map<string, SessionInfo[]>,
+  ): void {
+    const currentIds = new Set<string>();
+
+    for (const session of sessions) {
+      currentIds.add(session.sessionId);
+      let agent = this.agents.get(session.sessionId);
+
+      if (!agent) {
+        // Create new agent
+        const slot = this.agentFactory.getSlot(session.sessionId);
+        agent = new Agent(session.sessionId, slot);
+        this.agents.set(session.sessionId, agent);
+        this.agentsContainer.addChild(agent);
+
+        // Create speech bubble for the agent
+        const bubble = new SpeechBubble();
+        this.speechBubbles.set(session.sessionId, bubble);
+        agent.addChild(bubble);
+      }
+
+      // Determine the compound for this session's project
+      const compoundEntry = this.compounds.get(session.projectName);
+      const agentState = agent.getState();
+      const prevAssignment = this.agentCompoundAssignment.get(session.sessionId);
+
+      if (compoundEntry && !compoundEntry.removing) {
+        // Project has an active compound
+        if (agentState === 'idle_at_hq' && session.activityType !== 'idle') {
+          // Agent is at HQ but session is active -- send to compound
+          const entrance = this.getGlobalCompoundEntrance(compoundEntry);
+          const subLoc = this.getGlobalSubLocation(compoundEntry, session.activityType);
+          agent.assignToCompound(entrance, subLoc);
+          this.agentCompoundAssignment.set(session.sessionId, session.projectName);
+        } else if (
+          agentState === 'working' &&
+          prevAssignment === session.projectName
+        ) {
+          // Agent is working -- check for activity change
+          const prevActivity = this.lastActivity.get(session.sessionId);
+          if (prevActivity && prevActivity !== session.activityType && session.activityType !== 'idle') {
+            const subLoc = this.getGlobalSubLocation(compoundEntry, session.activityType);
+            agent.updateActivity(subLoc);
+            // Show speech bubble on activity change
+            const bubble = this.speechBubbles.get(session.sessionId);
+            if (bubble) {
+              bubble.show(session.activityType);
+            }
+          }
+        }
+      }
+
+      // If compound was removed (all idle) and agent is at compound, send back to HQ
+      if (
+        !compoundEntry || compoundEntry.removing
+      ) {
+        if (
+          agentState !== 'idle_at_hq' &&
+          agentState !== 'driving_to_hq' &&
+          agentState !== 'walking_to_entrance'
+        ) {
+          const idlePos = this.getGlobalHQIdlePosition(session.sessionId);
+          agent.assignToHQ(idlePos);
+          this.agentCompoundAssignment.delete(session.sessionId);
+        }
+      }
+
+      // Track activity
+      this.lastActivity.set(session.sessionId, session.activityType);
+    }
+
+    // Reposition idle agents at HQ
+    this.repositionIdleAgents();
+  }
+
+  /**
+   * Reposition all idle agents in front of HQ.
+   */
+  private repositionIdleAgents(): void {
+    const idleAgents: Agent[] = [];
+    for (const agent of this.agents.values()) {
+      if (agent.getState() === 'idle_at_hq') {
+        idleAgents.push(agent);
+      }
+    }
+
+    for (let i = 0; i < idleAgents.length; i++) {
+      const localPos = this.hq.getIdlePosition(i, idleAgents.length);
+      // Convert HQ-local position to global position
+      const globalPos = {
+        x: this.hq.x + localPos.x,
+        y: this.hq.y + localPos.y,
+      };
+      idleAgents[i].setHQPosition(globalPos);
+    }
+  }
+
+  // --- Private: Position Helpers ---
+
+  /**
+   * Get compound entrance position in global (world) coordinates.
+   */
+  private getGlobalCompoundEntrance(entry: CompoundEntry): { x: number; y: number } {
+    const local = entry.compound.getEntrancePosition();
+    return {
+      x: entry.compound.x + local.x,
+      y: entry.compound.y + local.y,
+    };
+  }
+
+  /**
+   * Get sub-location position in global (world) coordinates.
+   */
+  private getGlobalSubLocation(
+    entry: CompoundEntry,
+    activity: ActivityType,
+  ): { x: number; y: number } {
+    const local = entry.compound.getSubLocationPosition(activity);
+    return {
+      x: entry.compound.x + local.x,
+      y: entry.compound.y + local.y,
+    };
+  }
+
+  /**
+   * Get a global idle position at HQ for a specific agent.
+   * Used when sending an agent back to HQ.
+   */
+  private getGlobalHQIdlePosition(sessionId: string): { x: number; y: number } {
+    // Count current idle agents + this one
+    let idleCount = 1;
+    let thisIndex = 0;
+    for (const agent of this.agents.values()) {
+      if (agent.sessionId === sessionId) continue;
+      if (agent.getState() === 'idle_at_hq') {
+        idleCount++;
+        thisIndex++;
+      }
+    }
+    const localPos = this.hq.getIdlePosition(thisIndex, idleCount);
+    return {
+      x: this.hq.x + localPos.x,
+      y: this.hq.y + localPos.y,
+    };
   }
 }
