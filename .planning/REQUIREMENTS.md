@@ -73,28 +73,28 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DETECT-01 | — | Pending |
-| DETECT-02 | — | Pending |
-| DETECT-03 | — | Pending |
-| DETECT-04 | — | Pending |
-| WORLD-01 | — | Pending |
-| WORLD-02 | — | Pending |
-| WORLD-03 | — | Pending |
-| WORLD-04 | — | Pending |
-| WORLD-05 | — | Pending |
-| WORLD-06 | — | Pending |
-| STATUS-01 | — | Pending |
-| STATUS-02 | — | Pending |
-| STATUS-03 | — | Pending |
-| APP-01 | — | Pending |
-| APP-02 | — | Pending |
-| APP-03 | — | Pending |
+| DETECT-01 | Phase 1 | Pending |
+| DETECT-02 | Phase 1 | Pending |
+| DETECT-03 | Phase 1 | Pending |
+| DETECT-04 | Phase 1 | Pending |
+| WORLD-01 | Phase 2 | Pending |
+| WORLD-02 | Phase 2 | Pending |
+| WORLD-03 | Phase 2 | Pending |
+| WORLD-04 | Phase 2 | Pending |
+| WORLD-05 | Phase 2 | Pending |
+| WORLD-06 | Phase 2 | Pending |
+| STATUS-01 | Phase 3 | Pending |
+| STATUS-02 | Phase 3 | Pending |
+| STATUS-03 | Phase 3 | Pending |
+| APP-01 | Phase 1 | Pending |
+| APP-02 | Phase 1 | Pending |
+| APP-03 | Phase 1 | Pending |
 
 **Coverage:**
 - v1 requirements: 16 total
-- Mapped to phases: 0
-- Unmapped: 16 ⚠️
+- Mapped to phases: 16
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-25*
-*Last updated: 2026-02-25 after initial definition*
+*Last updated: 2026-02-25 after roadmap creation*
