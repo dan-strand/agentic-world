@@ -60,10 +60,11 @@ Plans:
   1. User can visually distinguish active, waiting, idle, and error agents through distinct appearance or animation differences
   2. When a session completes its task, the corresponding agent plays a celebration animation
   3. After celebrating, the agent walks back to the HQ building and remains there
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 03-01: TBD
+- [ ] 03-01-PLAN.md -- Status constants, agent visual differentiation (tint/breathing/shake/speed), fireworks particle class
+- [ ] 03-02-PLAN.md -- World integration: status debouncing, completion detection, celebration trigger, compound lifecycle, visual verification
 
 ## Progress
 
@@ -74,4 +75,4 @@ Phases execute in numeric order: 1 -> 2 -> 3
 |-------|----------------|--------|-----------|
 | 1. Foundation and Detection | 3/3 | Complete | 2026-02-25 |
 | 2. Visual World | 4/4 | Complete    | 2026-02-25 |
-| 3. Status and Lifecycle | 0/0 | Not started | - |
+| 3. Status and Lifecycle | 0/2 | Planning complete | - |
