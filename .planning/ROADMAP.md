@@ -1,8 +1,9 @@
 # Roadmap: Agent World
 
-## Overview
+## Milestones
 
-Agent World goes from zero to a working always-on desktop visualizer in three phases. Phase 1 builds the Electron shell, session detection pipeline, and resource-safe game loop -- the highest-risk work and the foundation everything else depends on. Phase 2 layers in the PixiJS visual world with animated spy agents, locations, labels, and speech bubbles. Phase 3 completes the experience with visual status differentiation, celebration animations, and the walk-back-to-HQ lifecycle.
+- ✅ **v1.0 MVP** - Phases 1-3 (shipped 2026-02-25)
+- 🚧 **v1.1 Fantasy RPG Aesthetic** - Phases 4-7 (in progress)
 
 ## Phases
 
@@ -12,11 +13,12 @@ Agent World goes from zero to a working always-on desktop visualizer in three ph
 
 Decimal phases appear between their surrounding integers in numeric order.
 
+<details>
+<summary>v1.0 MVP (Phases 1-3) - SHIPPED 2026-02-25</summary>
+
 - [x] **Phase 1: Foundation and Detection** - Electron app with session detection, IPC bridge, and adaptive game loop
 - [x] **Phase 2: Visual World** - PixiJS scene with animated spy agents, world locations, labels, and speech bubbles (completed 2026-02-25)
 - [x] **Phase 3: Status and Lifecycle** - Visual status states, celebration animation, and walk-back-to-HQ completion flow (completed 2026-02-25)
-
-## Phase Details
 
 ### Phase 1: Foundation and Detection
 **Goal**: User can launch a lightweight desktop app that automatically discovers all running Claude Code sessions and displays their project names and status data
@@ -66,13 +68,76 @@ Plans:
 - [x] 03-01-PLAN.md -- Status constants, agent visual differentiation (tint/breathing/shake/speed), fireworks particle class
 - [x] 03-02-PLAN.md -- World integration: status debouncing, completion detection, celebration trigger, compound lifecycle, visual verification
 
+</details>
+
+### v1.1 Fantasy RPG Aesthetic (In Progress)
+
+**Milestone Goal:** Replace the spy/secret agent theme with a Fantasy RPG aesthetic -- guild hall, quest zones, 32x32 sprite sheets, tilemap environment, level-up celebrations, and a clean fixed-size window.
+
+- [ ] **Phase 4: Asset Pipeline and World Ground** - Sprite atlas loading, tilemap ground with paths, fixed 1024x768 window with hidden title bar
+- [ ] **Phase 5: Buildings and World Layout** - Guild Hall and four quest zone buildings positioned as one cohesive connected world
+- [ ] **Phase 6: Agent Sprite Overhaul** - AnimatedSprite adventurers with character classes, vehicle system removed, walk/idle/work animations
+- [ ] **Phase 7: Effects and Atmosphere** - Level-up celebration, ambient particles, zone glow highlights, warm lighting tint
+
+## Phase Details
+
+### Phase 4: Asset Pipeline and World Ground
+**Goal**: User sees a pixel-art tilemap world with grass terrain and dirt paths in a clean fixed-size window, with all sprite assets loaded and rendering crisply
+**Depends on**: Phase 3
+**Requirements**: ENV-01, ENV-02, THEME-05
+**Success Criteria** (what must be TRUE):
+  1. User sees a 1024x768 window with no menus and only native minimize/close buttons in a hidden title bar
+  2. User sees a grass tilemap ground with visible tile variation (not wallpaper repetition) and dirt paths connecting location areas
+  3. All pixel art renders crisp at integer scaling with no blurriness at any Windows DPI setting (100%, 125%, 150%)
+  4. The world layout feels like one connected environment with paths leading between defined areas, not isolated floating regions
+**Plans**: TBD
+
+### Phase 5: Buildings and World Layout
+**Goal**: User sees a cohesive Fantasy RPG world with a central Guild Hall and four distinct quest zone buildings connected by the path network
+**Depends on**: Phase 4
+**Requirements**: THEME-02, THEME-03
+**Success Criteria** (what must be TRUE):
+  1. User sees a Guild Hall building sprite at the world center where idle agents gather
+  2. User sees four visually distinct quest zone buildings: Wizard Tower, Training Grounds, Ancient Library, and Tavern
+  3. Buildings are positioned along the dirt path network so the world reads as one connected village, not scattered boxes
+  4. The old dynamic compound system and HQ are fully replaced -- no spy-themed visuals remain in the world
+**Plans**: TBD
+
+### Phase 6: Agent Sprite Overhaul
+**Goal**: User sees Fantasy RPG adventurer characters walking between locations with smooth sprite-sheet animations, replacing the old code-drawn spy agents and vehicles
+**Depends on**: Phase 5
+**Requirements**: THEME-01, THEME-04, AGENT-01, AGENT-02, AGENT-03
+**Success Criteria** (what must be TRUE):
+  1. Each agent appears as a 32x32 sprite-sheet adventurer character (not code-drawn Graphics) with distinct walk, idle, and working animation states
+  2. Different agents display as different character classes (mage, warrior, ranger, rogue) so they are visually distinguishable
+  3. Agents walk/run between the Guild Hall and quest zones with no vehicles -- movement animation speed matches travel speed (no sliding)
+  4. Multiple agents animate naturally with staggered frame offsets rather than moving in lockstep synchronization
+  5. Status tint system (active/waiting/idle/error colors) works correctly on sprite-based agents
+**Plans**: TBD
+
+### Phase 7: Effects and Atmosphere
+**Goal**: User sees polished visual effects that complete the RPG atmosphere -- level-up celebrations, ambient particles, zone highlights, and warm lighting
+**Depends on**: Phase 6
+**Requirements**: FX-01, FX-02, FX-03, ENV-03, ENV-04
+**Success Criteria** (what must be TRUE):
+  1. When a session completes a task, the agent's celebration displays a golden light column with sparkle shower (not the old fireworks explosion)
+  2. The level-up light column has a visible glow halo effect for visual impact
+  3. Ambient floating particles (fireflies or magic dust) drift through the world adding atmosphere
+  4. Quest zones show a glow or highlight effect when an agent is actively working at that location
+  5. The entire world has a warm ambient color tint that gives it a cohesive RPG feel
+**Plans**: TBD
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3
+Phases execute in numeric order: 4 -> 5 -> 6 -> 7
 
-| Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 1. Foundation and Detection | 3/3 | Complete | 2026-02-25 |
-| 2. Visual World | 4/4 | Complete    | 2026-02-25 |
-| 3. Status and Lifecycle | 2/2 | Complete | 2026-02-25 |
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 1. Foundation and Detection | v1.0 | 3/3 | Complete | 2026-02-25 |
+| 2. Visual World | v1.0 | 4/4 | Complete | 2026-02-25 |
+| 3. Status and Lifecycle | v1.0 | 2/2 | Complete | 2026-02-25 |
+| 4. Asset Pipeline and World Ground | v1.1 | 0/? | Not started | - |
+| 5. Buildings and World Layout | v1.1 | 0/? | Not started | - |
+| 6. Agent Sprite Overhaul | v1.1 | 0/? | Not started | - |
+| 7. Effects and Atmosphere | v1.1 | 0/? | Not started | - |

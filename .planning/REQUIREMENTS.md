@@ -103,6 +103,8 @@ Requirements for the Fantasy RPG Aesthetic milestone. Each maps to roadmap phase
 
 Which phases cover which requirements. Updated during roadmap creation.
 
+### v1.0 (Phases 1-3)
+
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | DETECT-01 | Phase 1 | Complete |
@@ -122,11 +124,30 @@ Which phases cover which requirements. Updated during roadmap creation.
 | APP-02 | Phase 1 | Complete |
 | APP-03 | Phase 1 | Complete |
 
+### v1.1 (Phases 4-7)
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| ENV-01 | Phase 4 | Pending |
+| ENV-02 | Phase 4 | Pending |
+| THEME-05 | Phase 4 | Pending |
+| THEME-02 | Phase 5 | Pending |
+| THEME-03 | Phase 5 | Pending |
+| THEME-01 | Phase 6 | Pending |
+| THEME-04 | Phase 6 | Pending |
+| AGENT-01 | Phase 6 | Pending |
+| AGENT-02 | Phase 6 | Pending |
+| AGENT-03 | Phase 6 | Pending |
+| FX-01 | Phase 7 | Pending |
+| FX-02 | Phase 7 | Pending |
+| FX-03 | Phase 7 | Pending |
+| ENV-03 | Phase 7 | Pending |
+| ENV-04 | Phase 7 | Pending |
+
 **Coverage:**
-- v1 requirements: 16 total
-- Mapped to phases: 16
-- Unmapped: 0
+- v1.0 requirements: 16 total, 16 mapped, 0 unmapped
+- v1.1 requirements: 15 total, 15 mapped, 0 unmapped
 
 ---
 *Requirements defined: 2026-02-25*
-*Last updated: 2026-02-25 after v1.1 requirements added*
+*Last updated: 2026-02-25 after v1.1 roadmap created*
