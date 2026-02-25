@@ -25,8 +25,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Status & Lifecycle
 
-- [ ] **STATUS-01**: Active, waiting, idle, and error states are visually distinct through agent appearance or animation
-- [ ] **STATUS-02**: Agents play a celebration animation when their session completes a task
+- [x] **STATUS-01**: Active, waiting, idle, and error states are visually distinct through agent appearance or animation
+- [x] **STATUS-02**: Agents play a celebration animation when their session completes a task
 - [ ] **STATUS-03**: After celebration, agents walk back to the HQ building and remain there
 
 ### Desktop Application
@@ -83,8 +83,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | WORLD-04 | Phase 2 | Complete |
 | WORLD-05 | Phase 2 | Complete |
 | WORLD-06 | Phase 2 | Complete |
-| STATUS-01 | Phase 3 | Pending |
-| STATUS-02 | Phase 3 | Pending |
+| STATUS-01 | Phase 3 | Complete |
+| STATUS-02 | Phase 3 | Complete |
 | STATUS-03 | Phase 3 | Pending |
 | APP-01 | Phase 1 | Complete |
 | APP-02 | Phase 1 | Complete |
