@@ -35,6 +35,37 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **APP-02**: App uses under 100MB RAM and under 2% CPU when agents are idle (adaptive frame rate)
 - [x] **APP-03**: App starts cleanly and shuts down without orphaned processes
 
+## v1.1 Requirements
+
+Requirements for the Fantasy RPG Aesthetic milestone. Each maps to roadmap phases.
+
+### Visual Theme
+
+- [ ] **THEME-01**: Agents display as Fantasy RPG adventurer characters using 32x32 sprite sheet animations from CC0 public packs
+- [ ] **THEME-02**: Central HQ is replaced with a Guild Hall building sprite where idle agents rest
+- [ ] **THEME-03**: Mission locations are replaced with 4 themed quest zone buildings: Wizard Tower (coding), Training Grounds (testing), Ancient Library (reading), Tavern (comms)
+- [ ] **THEME-04**: Each agent has a distinct character class appearance (mage, warrior, ranger, rogue) based on slot assignment
+- [ ] **THEME-05**: Buildings feel connected as part of one cohesive world layout, not disjointed isolated boxes
+
+### World Environment
+
+- [ ] **ENV-01**: Ground is rendered as a tilemap with grass tile variants and dirt paths connecting the Guild Hall to each quest zone
+- [ ] **ENV-02**: Window is fixed at 1024x768 with no resize, no menus, hidden title bar with native minimize/close buttons
+- [ ] **ENV-03**: Ambient floating particles (fireflies, magic dust) add atmosphere to the world
+- [ ] **ENV-04**: Quest zones show a glow/highlight effect when an agent is actively working there
+
+### Agent System
+
+- [ ] **AGENT-01**: Agents use AnimatedSprite with walk, idle, and working animation states replacing Graphics frame-swapping
+- [ ] **AGENT-02**: Vehicle system is removed entirely — agents walk/run between all locations
+- [ ] **AGENT-03**: Each agent starts on a randomized animation frame offset for natural, non-synchronized movement
+
+### Celebration & Effects
+
+- [ ] **FX-01**: Task completion triggers a golden light column + sparkle shower effect replacing the fireworks explosion
+- [ ] **FX-02**: Level-up light column has a GlowFilter halo effect for visual impact
+- [ ] **FX-03**: World has a warm ambient lighting tint (ColorMatrixFilter) for RPG atmosphere
+
 ## v2 Requirements
 
 ### Enhanced Detection
@@ -66,6 +97,7 @@ Requirements for initial release. Each maps to roadmap phases.
 | 3D graphics | Strictly 2D pixel art |
 | Mobile support | Desktop-only tool |
 | Transparent/click-through window | Windows Electron bugs; opaque window for v1 |
+| Custom/hand-drawn pixel art | Using public CC0 packs only for v1.1 |
 
 ## Traceability
 
@@ -97,4 +129,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-02-25*
-*Last updated: 2026-02-25 after roadmap creation*
+*Last updated: 2026-02-25 after v1.1 requirements added*
