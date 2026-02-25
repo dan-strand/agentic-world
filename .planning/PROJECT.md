@@ -8,26 +8,41 @@ A locally-run animated 2D visualizer that shows your active Claude Code sessions
 
 Instantly see the status of all Claude Code sessions so you know which one needs attention next.
 
+## Current Milestone: v1.1 Fantasy RPG Aesthetic
+
+**Goal:** Replace the spy/secret agent theme with a Fantasy RPG aesthetic — guild hall, quest zones, 32x32 sprite sheets, tilemap environment, level-up celebrations, and a clean fixed-size window.
+
+**Target features:**
+- Fantasy RPG theme: adventurers at a guild hall, questing at themed locations
+- 32x32 pixel art sprite sheets from public packs (replacing code-drawn Graphics primitives)
+- Tilemap ground with grass tiles and dirt paths between locations
+- Quest zone locations: Wizard Tower (coding), Training Grounds (testing), Ancient Library (reading), Tavern (comms)
+- Level-up celebration effect replacing fireworks (golden light column, sparkles)
+- No vehicles — adventurers walk/run everywhere
+- Fixed 1024x768 window with no menus, just title bar with minimize/close
+- Ambient lighting and particle effects
+
 ## Requirements
 
 ### Validated
 
-(None yet — ship to validate)
+- ✓ Auto-detect running Claude Code sessions — v1.0 Phase 1
+- ✓ Display each session as an animated character in a 2D world — v1.0 Phase 2
+- ✓ Status visual differentiation (active/waiting/idle/error) — v1.0 Phase 3
+- ✓ Celebration animation on task completion — v1.0 Phase 3
+- ✓ Walk-back-to-HQ lifecycle — v1.0 Phase 3
+- ✓ Always-on lightweight desktop application — v1.0 Phase 1
 
 ### Active
 
-- [ ] Auto-detect running Claude Code sessions from local system
-- [ ] Display each session as an animated pixel-art spy agent in a 2D world
-- [ ] Show agent info: project name, current activity, duration, status (active/waiting/idle/error)
-- [ ] Agents work at different locations based on their activity
-- [ ] Celebration animation when a session completes its task
-- [ ] Completed agents walk back to HQ building
-- [ ] Agents waiting for user input visually distinguished (so you know where to go)
-- [ ] Spy/secret agent theme — trenchcoats, briefcases, sunglasses
-- [ ] Speech bubbles or labels showing what the agent is currently doing
-- [ ] Always-on local desktop application (no browser/hosting required)
-- [ ] Support 2-4 simultaneous sessions comfortably, scale to more
-- [ ] View-only — no click interaction needed, pure visual dashboard
+- [ ] Fantasy RPG theme: adventurers, guild hall, quest zones
+- [ ] 32x32 pixel art sprite sheets from public packs (replacing code-drawn primitives)
+- [ ] Tilemap ground with grass tiles and dirt paths
+- [ ] Quest zone locations: Wizard Tower, Training Grounds, Ancient Library, Tavern
+- [ ] Level-up celebration effect (golden light column, sparkles)
+- [ ] Remove vehicle system — adventurers walk/run everywhere
+- [ ] Fixed 1024x768 window, no menus, title bar with minimize/close only
+- [ ] Ambient lighting and particle effects
 
 ### Out of Scope
 
@@ -36,6 +51,7 @@ Instantly see the status of all Claude Code sessions so you know which one needs
 - Sound effects or audio
 - 3D graphics — strictly 2D pixel art
 - Mobile support
+- Custom/hand-drawn pixel art — using public packs only for v1.1
 
 ## Context
 
@@ -58,10 +74,13 @@ Instantly see the status of all Claude Code sessions so you know which one needs
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| View-only (no interaction) | Keeps scope manageable, user just needs visual status | — Pending |
-| Spy/agent theme | Fits the "Agent World" concept, makes it fun and distinctive | — Pending |
-| Local desktop app (not terminal UI) | Needed for rich 2D animation and pixel art rendering | — Pending |
-| Auto-detect sessions | Hands-free operation, no manual registration | — Pending |
+| View-only (no interaction) | Keeps scope manageable, user just needs visual status | ✓ Good |
+| Spy/agent theme | Fits the "Agent World" concept, makes it fun and distinctive | ⚠️ Revisit — switching to Fantasy RPG in v1.1 |
+| Local desktop app (not terminal UI) | Needed for rich 2D animation and pixel art rendering | ✓ Good |
+| Auto-detect sessions | Hands-free operation, no manual registration | ✓ Good |
+| Fantasy RPG theme (v1.1) | More engaging, better visual vocabulary for quest/mission metaphor | — Pending |
+| 32x32 public sprite packs (v1.1) | Faster than hand-drawing, higher quality than code-drawn primitives | — Pending |
+| Fixed 1024x768 window (v1.1) | Clean look, no resize complexity, fits as always-on dashboard | — Pending |
 
 ---
-*Last updated: 2026-02-25 after initialization*
+*Last updated: 2026-02-25 after v1.1 milestone start*
