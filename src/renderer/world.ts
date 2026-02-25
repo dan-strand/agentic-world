@@ -1,10 +1,11 @@
 import { Application, Container, Graphics } from 'pixi.js';
-import type { SessionInfo, ActivityType } from '../shared/types';
+import type { SessionInfo, ActivityType, SessionStatus } from '../shared/types';
 import {
   BACKGROUND_COLOR,
   COMPOUND_INNER_RADIUS,
   COMPOUND_OUTER_RADIUS,
   COMPOUND_WIDTH,
+  STATUS_DEBOUNCE_MS,
 } from '../shared/constants';
 import { Agent } from './agent';
 import { AgentFactory } from './agent-factory';
@@ -22,6 +23,18 @@ interface CompoundEntry {
   targetAlpha: number;
   /** Whether this compound is being removed (fading out). */
   removing: boolean;
+}
+
+/** Per-agent status debounce tracking to prevent jittery visual flickering. */
+interface StatusDebounce {
+  /** The raw status we're waiting to commit. */
+  pendingStatus: SessionStatus;
+  /** Milliseconds the pending status has been stable. */
+  timer: number;
+  /** The last committed (visual) status. */
+  committedStatus: SessionStatus;
+  /** Whether this is the first status ever received for this agent (suppress false celebrations on startup). */
+  isFirstUpdate: boolean;
 }
 
 /**
@@ -58,6 +71,15 @@ export class World {
 
   // Track which compound each agent is assigned to
   private agentCompoundAssignment: Map<string, string> = new Map();
+
+  // Status debouncing (tracks raw -> committed status per agent)
+  private statusDebounce: Map<string, StatusDebounce> = new Map();
+
+  // Last committed status per agent (for active->idle completion detection)
+  private lastCommittedStatus: Map<string, SessionStatus> = new Map();
+
+  // Track last raw status received per agent (for tick-based debounce advancement)
+  private lastRawStatus: Map<string, SessionStatus> = new Map();
 
   // Layout cache
   private lastProjectSet = '';
@@ -126,9 +148,27 @@ export class World {
    * Tick all agents and speech bubbles. Handle compound fade transitions.
    */
   tick(deltaMs: number): void {
-    // Tick agents (state machine + animation)
+    // Tick agents (state machine + animation) and advance status debouncing
     for (const agent of this.agents.values()) {
       agent.tick(deltaMs);
+
+      // Capture previous committed status before debounce may update it
+      const prevCommitted = this.lastCommittedStatus.get(agent.sessionId);
+
+      // Advance status debounce and check for committed changes
+      const newStatus = this.advanceStatusDebounce(agent.sessionId, deltaMs);
+      if (newStatus !== null) {
+        // Status just committed -- apply visuals
+        agent.applyStatusVisuals(newStatus);
+
+        // Check for completion (active -> idle)
+        if (this.checkForCompletion(agent.sessionId, newStatus, prevCommitted)) {
+          // Only celebrate if agent is currently working at a compound
+          if (agent.getState() === 'working') {
+            agent.startCelebration();
+          }
+        }
+      }
     }
 
     // Tick speech bubbles
@@ -139,8 +179,8 @@ export class World {
     // Handle compound fade-in/fade-out
     for (const [projectName, entry] of this.compounds) {
       if (entry.removing) {
-        // Fade out over 500ms
-        entry.compound.alpha = Math.max(0, entry.compound.alpha - deltaMs / 500);
+        // Fade out over 2500ms (slow fade per user decision)
+        entry.compound.alpha = Math.max(0, entry.compound.alpha - deltaMs / 2500);
         if (entry.compound.alpha <= 0) {
           this.compoundsContainer.removeChild(entry.compound);
           entry.compound.destroy();
@@ -246,7 +286,14 @@ export class World {
     const activeProjects = new Set<string>();
     for (const [projectName, sessions] of projectSessions) {
       const hasNonIdle = sessions.some(s => s.activityType !== 'idle');
-      if (hasNonIdle) {
+      // Also check if any agent at this compound is still celebrating
+      const hasCelebrating = sessions.some(s => {
+        const agent = this.agents.get(s.sessionId);
+        if (!agent) return false;
+        const state = agent.getState();
+        return state === 'celebrating' || state === 'walking_to_entrance';
+      });
+      if (hasNonIdle || hasCelebrating) {
         activeProjects.add(projectName);
       }
     }
@@ -355,7 +402,23 @@ export class World {
         const bubble = new SpeechBubble();
         this.speechBubbles.set(session.sessionId, bubble);
         agent.addChild(bubble);
+
+        // Initialize debounce for new agent
+        this.statusDebounce.set(session.sessionId, {
+          pendingStatus: session.status,
+          timer: 0,
+          committedStatus: session.status,
+          isFirstUpdate: true,
+        });
+        this.lastCommittedStatus.set(session.sessionId, session.status);
+        this.lastRawStatus.set(session.sessionId, session.status);
+
+        // Apply initial visual status immediately (no debounce needed for first)
+        agent.applyStatusVisuals(session.status);
       }
+
+      // Store raw status for tick-based debounce advancement
+      this.lastRawStatus.set(session.sessionId, session.status);
 
       // Determine the compound for this session's project
       const compoundEntry = this.compounds.get(session.projectName);
@@ -407,6 +470,15 @@ export class World {
       this.lastActivity.set(session.sessionId, session.activityType);
     }
 
+    // Clean up debounce state for removed sessions
+    for (const [sessionId] of this.statusDebounce) {
+      if (!currentIds.has(sessionId)) {
+        this.statusDebounce.delete(sessionId);
+        this.lastCommittedStatus.delete(sessionId);
+        this.lastRawStatus.delete(sessionId);
+      }
+    }
+
     // Reposition idle agents at HQ
     this.repositionIdleAgents();
   }
@@ -431,6 +503,71 @@ export class World {
       };
       idleAgents[i].setHQPosition(globalPos);
     }
+  }
+
+  // --- Private: Status Debouncing & Completion Detection ---
+
+  /**
+   * Debounce status changes -- only commit a visual status change if the
+   * new status holds for STATUS_DEBOUNCE_MS. Prevents jittery flickering.
+   * Called per-agent in tick() for smooth timing.
+   */
+  private advanceStatusDebounce(sessionId: string, deltaMs: number): SessionStatus | null {
+    const debounce = this.statusDebounce.get(sessionId);
+    if (!debounce) return null;
+
+    const rawStatus = this.lastRawStatus.get(sessionId);
+    if (!rawStatus) return debounce.committedStatus;
+
+    if (rawStatus === debounce.committedStatus) {
+      // Status unchanged from committed -- reset pending
+      debounce.pendingStatus = rawStatus;
+      debounce.timer = 0;
+      return null; // no change
+    }
+
+    if (rawStatus === debounce.pendingStatus) {
+      // Same pending status -- accumulate time
+      debounce.timer += deltaMs;
+      if (debounce.timer >= STATUS_DEBOUNCE_MS) {
+        // Debounce threshold met -- commit the change
+        debounce.committedStatus = rawStatus;
+        debounce.timer = 0;
+        this.lastCommittedStatus.set(sessionId, rawStatus);
+        return rawStatus; // signal: new committed status
+      }
+    } else {
+      // Different pending status -- reset debounce
+      debounce.pendingStatus = rawStatus;
+      debounce.timer = 0;
+    }
+
+    return null; // no change yet
+  }
+
+  /**
+   * Detect task completion: session was active, now committed to idle.
+   * Returns true only on the transition, not on sustained idle.
+   * Suppresses false positives on app startup (first update per agent).
+   *
+   * @param prevCommitted - The committed status BEFORE advanceStatusDebounce updated it
+   */
+  private checkForCompletion(
+    sessionId: string,
+    newCommittedStatus: SessionStatus,
+    prevCommitted: SessionStatus | undefined,
+  ): boolean {
+    const debounce = this.statusDebounce.get(sessionId);
+    if (!debounce) return false;
+
+    // Suppress false celebrations on app startup
+    if (debounce.isFirstUpdate) {
+      debounce.isFirstUpdate = false;
+      return false;
+    }
+
+    // Completion = was active, now idle
+    return prevCommitted === 'active' && newCommittedStatus === 'idle';
   }
 
   // --- Private: Position Helpers ---
