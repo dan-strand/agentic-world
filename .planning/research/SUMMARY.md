@@ -1,232 +1,278 @@
 # Project Research Summary
 
-**Project:** Agent World
-**Domain:** Animated 2D pixel-art desktop process visualizer (Windows, always-on)
+**Project:** Agent World v1.1 — Fantasy RPG Aesthetic Overhaul
+**Domain:** Animated 2D pixel-art desktop process visualizer (Electron + PixiJS 8, Windows)
 **Researched:** 2026-02-25
 **Confidence:** HIGH
 
 ## Executive Summary
 
-Agent World is an always-on desktop companion app that transforms abstract Claude Code session data into a living, spatial world of animated spy agents. The product sits at the intersection of three established domains -- system process monitors, desktop pet apps, and gamified productivity tools -- but no existing product combines all three. The recommended approach is a thin Electron shell housing a PixiJS WebGL renderer, driven by a main-process polling loop that reads Claude Code session state from the filesystem and pushes it to the renderer via IPC. This is a well-understood architecture for desktop data visualization apps with one unique complication: the data source (Claude Code session files) has no public API and can break silently on any Claude Code update.
+Agent World v1.1 is a focused aesthetic overhaul of a fully working v1.0 system — not a rewrite. The core Electron + PixiJS 8 + TypeScript architecture remains intact; the work is replacing code-drawn `Graphics` primitives with real sprite-sheet art, swapping the flat-color background for a `@pixi/tilemap` tilemap, replacing dynamic project compounds with four fixed-position fantasy quest zones, and upgrading the celebration effect from Fireworks to a golden light column. This scope is well-defined, all required libraries are confirmed PixiJS 8 compatible, and the build order follows clear layer-by-layer dependencies. The single most consequential upstream decision is committing to an atlas-first asset pipeline from day one — every critical pitfall around VRAM, scale mode, and particle rendering flows from whether assets are packed into atlases or loaded as individual files.
 
-The core technical bet is Electron over Tauri. Tauri has documented GPU/canvas hardware acceleration failures on Windows WebView2 (GitHub issues #4891, #5037) that are fatal for an always-on animated app. Electron's bundled Chromium guarantees WebGL acceleration. PixiJS is the clear rendering choice: purpose-built for 2D sprites, handles 1000+ elements at 60fps via WebGL batching, and has native spritesheet animation support. The entire rendering stack (Electron + PixiJS + TypeScript) is high-confidence with stable, current versions available.
+The recommended stack adds exactly two new npm packages: `@pixi/tilemap@^5.0.2` (tilemap rendering, confirmed PixiJS 8.16.0 compatible) and optionally `pixi-filters@^6.1.5` (GlowFilter for the level-up celebration only). All other v1.1 features — sprite animation, ambient lighting, particle effects — are implemented with PixiJS 8 built-in APIs. Two commonly attempted libraries are confirmed incompatible with PixiJS 8: `pixi-lights` (last release July 2023, targets v7) and `@pixi/particle-emitter` (GitHub issue #211 open since March 2024, no v8 support). Using either would cause integration failures. Assets should be exclusively CC0-licensed (Kenney.nl, OpenGameArt CC0 packs) and packed with Free Texture Packer before integration.
 
-The biggest risk is not technical complexity but resource discipline. An Electron app running continuous canvas animation can idle at 10-15% CPU and 150-300MB RAM, which will cause users to close it permanently. The architecture must build adaptive frame rate and dirty-flag rendering from day one -- it cannot be retrofitted. The second risk is session detection fragility: Claude Code's internal file format is not a public API. The detection layer must be abstracted behind an interface from the start so it can be swapped when the format changes. If these two concerns are addressed in the foundation phase, the remaining work is well-understood game development and UI polish.
+The key risk is not technical — it is asset visual cohesion and the ordering of rendering setup. All sprite assets must be sourced and packed into atlases before any code integration begins, because the `TextureStyle.defaultOptions.scaleMode = 'nearest'` call must be placed before the first `Assets.load()`, and the VRAM behavior (known PixiJS 8 regression, issue #11331) is undetectable if you only load a few test textures with individual files. The eight-phase build order defined in ARCHITECTURE.md (assets first, tilemap second, buildings third, agent sprites fourth, cleanup fifth, effects sixth, world simplification seventh, polish last) is the correct approach and should be followed without reordering. Each phase produces a runnable, testable app state.
 
 ## Key Findings
 
 ### Recommended Stack
 
-The stack is decisive. Electron ^40.0.0 (bundled with Chromium 144 and Node.js 24.13.1) is the only viable desktop shell for this project given Windows WebGL requirements. PixiJS ^8.16.0 handles 2D rendering with hardware acceleration, native AnimatedSprite support, and pixel-art-friendly nearest-neighbor scaling via `SCALE_MODES.NEAREST`. Session detection uses two complementary mechanisms: chokidar ^4.0.3 watches `~/.claude/projects/` for new/modified JSONL files, and systeminformation ^5.31.1 enumerates `claude.exe` processes with PIDs and command-line args. No frontend framework (React/Vue) is needed or wanted -- this is a view-only canvas app, and DOM frameworks add overhead for zero benefit. Build tooling is Electron Forge ^7.11.1 with the TypeScript-Webpack template.
+The validated v1.0 stack (Electron 40.6.1, PixiJS 8.16.0, TypeScript 5.7, Webpack/Electron Forge) is unchanged. V1.1 adds minimal new dependencies, relying on PixiJS 8 built-in APIs for the majority of new features. See `STACK.md` for full code patterns and alternatives considered.
 
 **Core technologies:**
-- **Electron ^40.0.0**: Desktop shell — only option with guaranteed WebGL acceleration on Windows (Tauri's WebView2 has known canvas GPU bugs)
-- **PixiJS ^8.16.0**: 2D WebGL renderer — industry standard for sprite animation, handles 1000+ sprites at 60fps, native spritesheet support
-- **TypeScript ^5.7**: Type safety — essential for multiple system boundaries (process monitoring, IPC, rendering)
-- **chokidar ^4.0.3**: File watching — normalizes Windows `fs.watch` quirks; use v4 (not v5, which is ESM-only and complicates Electron main process)
-- **systeminformation ^5.31.1**: Process enumeration — lists `claude.exe` processes with PIDs; Windows support is labeled "partial" but works in practice
-- **electron-store ^10.0.0**: Persistent config — user preferences (window position, animation speed) with schema validation
-- **Electron Forge ^7.11.1**: Build tooling — officially recommended, handles Electron's dual-process webpack configuration correctly
+- **Electron 40.6.1**: Desktop shell — `titleBarStyle: 'hidden'` with `titleBarOverlay` for native Windows controls; `resizable: false` plus `min/maxWidth/Height` for reliable fixed-size window at 1024x768
+- **PixiJS 8.16.0**: Rendering engine — `AnimatedSprite` (sprite sheet animation), `ParticleContainer` + `Particle` (level-up effects), `FillGradient` + ADD blend mode (ambient lighting), all built-in; no separate packages needed for these features
+- **@pixi/tilemap ^5.0.2**: Tilemap rendering — `CompositeTilemap` batches ~768 grass/dirt tiles into a single draw call; the only new required npm package for this milestone
+- **pixi-filters ^6.1.5**: GlowFilter for level-up column (optional; add only if celebration glow is required); confirmed PixiJS 8 compatible via official GitHub compatibility table
+- **Free Texture Packer** (free-tex-packer.com): Asset pipeline tool for packing CC0 sprites into PixiJS JSON atlases; no npm install needed
+
+**What NOT to use:**
+- `pixi-lights`: PixiJS 7 only (v4.1.0, July 2023). No v8 path. Use native `FillGradient` radial gradients with ADD blend mode instead.
+- `@pixi/particle-emitter`: No PixiJS 8 support as of February 2026 (GitHub issue #211, open since March 2024). Use native `ParticleContainer` + `Particle`.
+- `@barvynkoa/particle-emitter`: Unofficial unmaintained community fork. Same verdict as above.
+- `pixi-tilemap` (old package name): Incompatible with PixiJS 8. Must use `@pixi/tilemap`.
 
 ### Expected Features
 
-No existing product combines session monitoring with animated character visualization. The feature set is validated by analogy: system monitors (detection/status), desktop pets (animation/always-on), and gamified productivity tools (theming/celebration). The spy/secret agent theme is the core identity differentiator.
+V1.1 is not adding new functional features to the Claude Code session monitoring system — it is replacing the visual layer. Session detection, IPC pipeline, agent FSM, and status display are all unchanged. See `FEATURES.md` for the full v1.0 feature analysis.
 
-**Must have (table stakes):**
-- Auto-detect running Claude Code sessions — hands-free, no user registration required
-- Display each session as a distinct animated agent — 1:1 session-to-agent mapping
-- Show session status (active/waiting/idle/error) — the primary glanceable information
-- Show project name above each agent — essential for distinguishing multiple sessions
-- Always-on-top opaque window — desktop companion behavior; skip transparency to avoid Windows bugs
-- Smooth sprite animation (idle, walking, working) — 8-12 frames at 10-20 FPS, nearest-neighbor scaling
-- Lightweight resource usage — target under 100MB RAM and under 2% CPU at idle
+**Must have (table stakes for v1.1 milestone):**
+- Real sprite-sheet characters replacing code-drawn `Graphics` agents — the visual identity of the product
+- Grass/dirt tilemap ground replacing the solid-color background — world feel instead of dashboard feel
+- Four fixed themed quest zone buildings (Wizard Tower, Training Grounds, Ancient Library, Tavern) replacing dynamic project compounds
+- Guild Hall building sprite replacing the Graphics-drawn spy HQ
+- Golden light column celebration replacing the Fireworks particle explosion
 
-**Should have (differentiators):**
-- Spy/secret agent theming — custom pixel art; what makes this "Agent World" vs "Session Monitor v2"
-- Location-based activity mapping — agents work at different locations (Lab, Server Room, Library) based on current tool usage
-- Needs-attention visual alarm — flashing/bouncing agent when waiting on permission prompt; this is the "killer utility" feature
-- Celebration animation on completion — visual closure when a session finishes
-- Walk-back-to-HQ on completion — spatial meaning to session lifecycle
-- Speech bubbles with current activity — "Writing src/index.ts", "Running tests..." (activity type, never actual content)
-- Session duration display — elapsed time badge per agent
-- Multiple distinguishable agent sprites — different spy characters so agents are visually distinguishable
+**Should have (quality threshold):**
+- At least 2-3 grass tile variants for visual texture (no wallpaper tiling)
+- Walk animation speed tied to movement speed (no character sliding)
+- Status tint system verified working with sprite art (critical regression risk from v1.0)
+- Agents rendered at 2x or 3x integer scale (32x32 source at 64-96px display size for visibility)
 
-**Defer (v2+):**
-- Day/night ambient cycle — cosmetic, no functional value
-- Scaling for 6+ agents (scrollable/zoomable world)
-- Custom themes beyond spy
-- System tray icon integration
-- Tooltip with session details (token count, files changed)
+**Defer (post-v1.1):**
+- Ambient particle effects (fireflies, dust) — architecture supports it, Phase 8 item if time allows
+- Quest zone "active" glow aura when agent is present — Phase 8 polish
+- Day/night ambient cycle — v2+ feature from original FEATURES.md
 
-**Hard anti-features (never build):**
-- Click-to-interact/terminal switching — window management APIs differ per terminal emulator; massive scope increase
-- Audio/sound effects — annoying in always-on apps; users close apps that make noise
-- Token/cost tracking overlay — duplicates existing tools; distracts from visual status purpose
-- Session control (start/stop/restart) — transforms visualizer into session manager; different product
+**Anti-features (confirmed out of scope — do not build):**
+- Click-to-interact with sessions
+- Audio/sound effects
+- 3D graphics
+- Token/cost tracking overlay
+- Session control (start/stop/restart)
+- Plugin/extension system
+- Web-hosted or remote access
 
 ### Architecture Approach
 
-The architecture follows Electron's enforced process boundary: the main process owns all system access (process detection, file watching, Claude session parsing) and the renderer process owns all visualization (PixiJS, game loop, agent entities). These communicate via IPC push -- the main process polls on a 3-second timer, diffs state, and pushes `SessionsUpdate` objects to the renderer via `webContents.send()`. The renderer never requests data; it reacts to pushes. This separation is not optional -- it prevents the renderer from having filesystem access (security boundary) and keeps animations smooth even during detection polling.
+V1.1 is a renderer-only change. `src/main/`, `src/preload/`, and the IPC boundary (SessionInfo, SessionStatus, ActivityType interfaces) are all unchanged. All work is in `src/renderer/`. The existing 7-state Agent FSM is preserved; only state names change (`driving_to_compound` → `walking_to_zone`, `driving_to_hq` → `walking_to_guild`) and the visual rendering layer changes (GraphicsContext frame-swapping → AnimatedSprite). See `ARCHITECTURE.md` for the complete file-by-file migration map.
+
+**Scene hierarchy change (the core structural shift):**
+```
+Before: backgroundContainer → roadsContainer → hq → compoundsContainer → agentsContainer
+After:  tilemapLayer → buildingsLayer → agentsLayer → particlesLayer → uiLayer
+```
 
 **Major components:**
-1. **Session Detector (main process)** — polls `wmic`/`tasklist` + `~/.claude/projects/` JSONL file modification times; reconciles into `SessionInfo[]`; housed behind an abstraction interface for future format changes
-2. **Session Store (main process)** — canonical state of all sessions; fires IPC push on any change; diffs to send only `added`, `removed`, `changed` session IDs
-3. **IPC Bridge (preload)** — strict contextBridge API: `onSessionsUpdate(callback)` and `getInitialSessions()`; no raw filesystem access exposed to renderer
-4. **World State Manager (renderer)** — maps sessions to agent entities; spawns agents on new sessions, triggers FSM transitions on status changes, despawns on session end
-5. **Agent FSM + Sprite (renderer)** — per-agent finite state machine driving animation state selection and position interpolation; states: `idle-at-hq`, `walking-to-mission`, `working`, `waiting-for-input`, `celebrating`, `walking-to-hq`
-6. **PixiJS Scene Graph (renderer)** — four explicit z-ordered layers: background, buildings, agents (y-sorted for depth), UI overlay (labels, bubbles)
-7. **Game Loop (renderer)** — fixed-timestep at 10 Hz logic with display-rate rendering and position interpolation; adaptive: drops to 2-5 FPS when all agents are idle
 
-**Build order (enforced by dependencies):**
-1. Electron shell + window (everything requires this)
-2. PixiJS renderer + static scene (prove pixel art renders in Electron)
-3. Game loop (fixed-timestep, adaptive frame rate -- must be built correctly from day one)
-4. Agent entity + FSM + animation (mock data, no real sessions yet)
-5. Session detector in main process (independent, testable in isolation)
-6. IPC bridge (connect the two halves)
-7. World state manager (map live sessions to agents)
-8. Polish (speech bubbles, locations, celebration, multiple building sites)
+1. **asset-loader.ts (new)** — Centralizes `Assets.load()` for all four sprite atlases (characters, buildings, tiles, particles) before game starts; all other modules receive textures from cache synchronously after this runs
+2. **tilemap-builder.ts (new)** — Generates `CompositeTilemap` once at `World.init()` with grass field, seeded random variants, and Bresenham dirt paths from Guild Hall to each quest zone; static after creation
+3. **sprite-loader.ts (new, replaces agent-sprites.ts)** — Extracts LPC-format texture arrays per direction and state from character atlas; provides `AnimatedSprite`-ready arrays keyed by `(colorIndex, state, direction)`
+4. **quest-zone.ts (new, replaces compound.ts)** — Four fixed-position themed building sprites; positions hardcoded in `constants.ts` for fixed 1024x768 window; same `getEntrancePosition()` / `getSubLocationPosition()` API as Compound
+5. **guild-hall.ts (new, replaces hq.ts)** — Guild Hall building sprite with identical `getIdlePosition()` API
+6. **level-up-effect.ts (new, replaces fireworks.ts)** — Golden light column + sparkle shower via `ParticleContainer`; same 2500ms duration lifecycle as Fireworks
+7. **agent.ts (significant modification)** — `bodyGfx`/`accessoryGfx` → `sprite: AnimatedSprite`; Vehicle import removed; container hierarchy preserved for tint inheritance
+8. **world.ts (significant modification)** — `manageCompounds()` / `recalculateCompoundPositions()` replaced by `initQuestZones()` / `routeAgentToQuestZone()`; `resize()` removed; `particlesLayer` added
+
+**Files deleted in this milestone:** `vehicle.ts`, `fireworks.ts`, `agent-sprites.ts`, `compound.ts`, `hq.ts`, `compound-layout.ts`
+
+**Key routing simplification:** Dynamic compound lifecycle (does a compound exist for this project?) is replaced by fixed zone routing (every `activityType` always has a corresponding quest zone). Simpler, no edge cases.
 
 ### Critical Pitfalls
 
-1. **Idle CPU/Memory burn destroys always-on viability** — A naive 60fps canvas loop consumes 5-15% CPU even when nothing changes. Build adaptive frame rate and dirty-flag rendering into the game loop from day one. When all agents are idle, drop to 2-5 FPS or pause entirely. Retrofitting this is a near-rewrite. Recovery cost: HIGH.
+1. **TextureStyle.defaultOptions.scaleMode must be set before any Assets.load call** — Set `TextureStyle.defaultOptions.scaleMode = 'nearest'` as the very first line after PixiJS import, before `Application.init()` or any `Assets.load()`. Setting it after any texture loads silently has no effect on those textures, producing blurry pixel art that is hard to diagnose because it may appear correct for some textures and not others.
 
-2. **Session detection fragility** — Claude Code's JSONL format and `~/.claude/projects/` directory structure are internal, undocumented, and can change without notice. The feature request for session lock files (#19364) is stale. Abstract the detection layer behind a `SessionDetector` interface immediately. Use file modification time as the primary signal (most stable heuristic). Layer process detection + file watching + JSONL tail-reading for cross-validation. Recovery cost: MEDIUM if abstracted; HIGH if scattered.
+2. **VRAM explosion from per-frame individual texture loading** — PixiJS 8 has a known regression (issue #11331) where loading sprites as individual files causes VRAM up to 28x higher than expected. Commit to atlas-first loading from Phase 1: all frames packed into atlases, all loading through `Assets.load([atlas.json, ...])`, never through per-frame `Texture.from()` calls. Validate with GPU memory in Chrome DevTools after loading all assets — target under 50MB.
 
-3. **Blurry pixel art from anti-aliasing** — Canvas uses bilinear interpolation by default; high-DPI Windows scaling compounds this. Set `imageSmoothingEnabled = false`, apply CSS `image-rendering: pixelated`, use `Math.floor()` for all sprite positions, and use only integer scale factors. This must be set up correctly in a shared utility from the first draw call. Recovery cost: LOW once identified.
+3. **AnimatedSprite.destroy() texture leak on older PixiJS 8 releases** — `AnimatedSprite.destroy()` in some v8 versions does not destroy its frame textures (issue #11407, fixed in PR #11544). Always use `sprite.destroy({ texture: true, textureSource: false })` — destroys the texture slice but not the shared atlas source. Wrap in a `destroyAnimatedSprite()` helper used everywhere. Validate by cycling 10 agents through creation/destruction and confirming GPU memory returns to baseline.
 
-4. **Spawning `wmic`/`tasklist` blocks or stalls** — Windows process creation is 100-200x slower than macOS/Linux (documented Node.js issue #21632). `wmic` initializes a WMI connection on each invocation. Use `tasklist` (faster), always async, cache results aggressively, poll at 5-10 second intervals. Detection poll must complete in under 100ms. Recovery cost: MEDIUM.
+4. **Tint system breaks if sprite hierarchy is restructured** — The existing `Container.tint` status color system (active/waiting/idle/error) works through parent-chain tint inheritance. If `AnimatedSprite` is moved to a separate top-level layer instead of remaining a child of the Agent Container, tint inheritance silently breaks and all agents show the wrong status color. Keep the sprite as a child of the Agent Container (not a sibling on a separate sprites layer). Test all four status states explicitly after sprite replacement.
 
-5. **Transparent window bugs on Windows** — Combining `transparent: true`, `alwaysOnTop: true`, and `frame: false` triggers documented Electron bugs on Windows (#9357, #23042). Skip transparency entirely for v1. Use an opaque, frameless window with a themed dark background. The view-only nature means click-through is not needed. Recovery cost: LOW to remove transparency, but time-consuming to debug if already integrated.
+5. **Electron DPI scaling causes PixiJS dimension mismatch on Windows** — At 125%-175% display scaling (common on Windows laptops), `BrowserWindow` dimensions may be in physical vs. logical pixels, causing scene clipping or black borders. Use `resolution: window.devicePixelRatio` in PixiJS init, set `minWidth/minHeight/maxWidth/maxHeight` equal to target size (more reliable than `resizable: false` alone on Windows), and test at 100%, 125%, and 150% DPI before declaring rendering complete.
+
+6. **@pixi/tilemap requires version lock and renderGroup notification after mutation** — Install as `npm install @pixi/tilemap@^5.0.2` (not unpinned, not the old `pixi-tilemap` package name). After any `tilemap.clean()` call, `app.stage.renderGroup.onChildUpdate(tilemap)` must be called or tiles will not appear (WebGL GL_INVALID_OPERATION error). Since the tilemap is static in v1.1, wrap all tilemap mutation in a helper that includes this notification call.
+
+7. **ParticleContainer requires all particles to share one TextureSource** — All particles in a `ParticleContainer` must reference textures from the same atlas PNG. If the level-up effect uses textures from two different source files, only one particle type renders. Design the effects atlas in Phase 1 to include all particle frame types (column slice, sparkle, glow dot) in a single PNG.
+
+8. **Visual style clash from mixing incompatible pixel art packs** — Characters, tiles, and buildings from different artists will clash visually (different outline weights, color counts, shading directions) even at the same 32x32 pixel grid size. Commit to a single source pack family (LPC characters on OpenGameArt, Kenney fantasy tilesets) and verify visual compatibility before integration. Use only CC0-licensed packs — GPL packs carry share-alike obligations that are legally ambiguous for shipped software.
 
 ## Implications for Roadmap
 
-The ARCHITECTURE.md build order and PITFALLS.md phase warnings strongly align on a 4-phase structure. Phases 1 and 2 do the heavy lifting; Phases 3 and 4 are polish and expansion.
+The ARCHITECTURE.md build order is grounded in dependency analysis, tested against phase deliverables, and should be adopted directly as the phase structure. Each phase produces a runnable app. Reordering breaks the dependency chain: assets must exist before anything renders; tilemap must exist before buildings are placed on top; buildings must exist before agent navigation targets are defined.
 
-### Phase 1: Foundation and Core Detection
+### Phase 1: Asset Pipeline and Foundation
 
-**Rationale:** Session detection is the highest-risk component and the root of the entire feature dependency tree. Nothing can be built without it. Simultaneously, the Electron window and game loop must establish resource-safe patterns before any visual work begins -- the idle CPU pitfall is near-impossible to retrofit.
+**Rationale:** Every subsequent phase depends on assets being available and correctly configured. The most dangerous pitfalls (scale mode timing, VRAM, DPI, tilemap version, backgroundThrottling architecture) are all Phase 1 concerns. Getting the foundation wrong cascades through all later phases at increasing cost.
 
-**Delivers:** A working Electron app that detects active Claude Code sessions, displays agent placeholders (even as colored rectangles), and runs a resource-efficient game loop under 2% CPU idle.
+**Delivers:** All four sprite atlases loading correctly in Electron DevTools, `TextureStyle.defaultOptions.scaleMode = 'nearest'` confirmed before any load call, DPI validated at 125%+ on actual hardware, Electron window config locked (`titleBarStyle: 'hidden'` + `titleBarOverlay`), `asset-loader.ts` written and tested, asset license audit complete (`ASSET_CREDITS.md`), state polling loop confirmed independent from render loop.
 
-**Addresses (from FEATURES.md):** Auto-detect sessions, always-on window, lightweight resource usage, clean startup/shutdown.
+**Addresses:** Table-stakes sprite art sourcing, visual identity foundation, Electron window fixed-size configuration
 
-**Avoids (from PITFALLS.md):** Idle CPU burn (adaptive game loop built here), session detection fragility (abstraction layer built here), file watcher exhaustion (polling strategy decided here), transparent window bugs (opaque window decision made here), process spawn blocking (async detection with caching built here).
+**Avoids:** Blurry sprites (Pitfall 1 — scale mode config), VRAM explosion (Pitfall 2 — atlas-first commitment), DPI mismatch on Windows (Pitfall 9), GPL license exposure (Pitfall 8), visual style clash (Pitfall 7), backgroundThrottling/minimize loop coupling (Pitfall 10)
 
-**Research flag:** NEEDS RESEARCH -- Claude Code session file format details and Windows process detection reliability need validation against the actual filesystem before committing to an implementation.
+**Research flag:** STANDARD — all patterns documented with code examples in STACK.md and ARCHITECTURE.md. No additional research needed.
 
-### Phase 2: Visual Core and Sprite Rendering
+### Phase 2: Tilemap Ground Layer
 
-**Rationale:** With session data flowing reliably, the next dependency is a working visual system: PixiJS scene graph, sprite animation, agent FSM, and HQ world. This is where pixel art must be set up correctly -- blurry sprites are caught and fixed here, not in Phase 3. Mock data can drive this phase before full IPC integration.
+**Rationale:** The background tilemap must exist before buildings are positioned on top of it. This phase confirms `@pixi/tilemap` integration works before any other rendering changes compound the complexity.
 
-**Delivers:** Animated agents moving across a spy HQ background, with correct pixel art rendering at all Windows DPI settings, driven by agent FSMs responding to session status changes.
+**Delivers:** `tilemap-builder.ts`, grass field with seeded random variants (minimum 2-3 types), dirt paths from Guild Hall to four zone quadrant positions, existing `drawGround()` and `drawRoads()` removed from `world.ts`. App shows the tilemap world instead of a solid-color background.
 
-**Addresses (from FEATURES.md):** Display each session as a distinct animated agent, smooth sprite animation (idle/walking/working), basic 2D world with HQ and mission locations, project name labels.
+**Uses:** `@pixi/tilemap@^5.0.2`, `CompositeTilemap`, hardcoded zone positions from `constants.ts`, Bresenham line path generation
 
-**Avoids (from PITFALLS.md):** Blurry pixel art (canvas setup utility built here), sprite re-creation each frame (pooling strategy built here), agent flicker on poll boundaries (debounce logic built here).
+**Avoids:** Tilemap renderGroup notification omission (Pitfall 4), pixi-tilemap wrong package name (Pitfall 5), wallpaper grass tiling (UX pitfall)
 
-**Uses (from STACK.md):** PixiJS ^8.16.0 with `SCALE_MODES.NEAREST`, spritesheet atlas JSON+PNG, Electron Forge webpack for asset bundling.
+**Research flag:** STANDARD — tilemap pattern fully documented with code in STACK.md.
 
-**Research flag:** STANDARD PATTERNS -- PixiJS sprite animation and game loop patterns are well-documented in official sources; no additional research needed.
+### Phase 3: Guild Hall and Quest Zone Buildings
 
-### Phase 3: Session Status and Differentiating Polish
+**Rationale:** Buildings define the landmark positions that agent navigation targets. Agent movement cannot be correctly tested until destination coordinates come from `QuestZone.getEntrancePosition()` calls against real building positions.
 
-**Rationale:** With the foundation and visual core working, this phase layers in all the features that distinguish Agent World from "just another session monitor." Status is the core utility; spy theming and activity mapping create the identity.
+**Delivers:** `guild-hall.ts`, `quest-zone.ts` with all four themed zones (Wizard Tower, Training Grounds, Ancient Library, Tavern), `World.initQuestZones()` replacing `manageCompounds()`, positions finalized in `constants.ts`. App shows all buildings at correct positions on the tilemap.
 
-**Delivers:** Full status display (active/waiting/idle/error with visual states), needs-attention alarm for waiting agents, speech bubbles showing current activity type, location-based activity mapping (agents at Lab/Server Room/Library based on tool usage), celebration animation, walk-back-to-HQ on completion, session duration badges.
+**Implements:** Fixed-layout quest zone architecture pattern; eliminates dynamic compound lifecycle from `world.ts`
 
-**Addresses (from FEATURES.md):** Status display, needs-attention alarm, speech bubbles, location mapping, celebration animation, walk-back animation, session duration, spy theming.
+**Avoids:** Re-implementing dynamic compound layout for quest zones (architecture anti-pattern — quest zones are map features, not per-project allocations)
 
-**Avoids (from PITFALLS.md):** Exposing session content in speech bubbles (show activity type, never raw JSONL content), stale agent cleanup (timeout logic added here).
+**Research flag:** STANDARD — building sprite integration is straightforward. Positions are hardcoded constants for the fixed 1024x768 window.
 
-**Research flag:** STANDARD PATTERNS -- Hook event parsing and FSM transition patterns are well-established; Claude Code hooks documentation is official and stable.
+### Phase 4: Agent Sprite Replacement
 
-### Phase 4: Hardening and Long-Running Stability
+**Rationale:** Agent visual swap is the highest-risk code change because it must preserve the FSM, status tint system, and movement math while replacing the entire rendering layer. Isolating it in its own phase enables clean rollback if needed and clear attribution in git history.
 
-**Rationale:** Always-on apps have failure modes that only appear after hours of continuous use: memory leaks from uncleaned event listeners, detection breaking after Claude Code updates, edge cases with 4+ simultaneous sessions. This phase validates long-running stability and adds missing robustness before any wider use.
+**Delivers:** `sprite-loader.ts`, `Agent` class updated with `sprite: AnimatedSprite`, walk/idle/work animation states per LPC format (64x64 frames, 8 walk frames per direction), agents navigating between Guild Hall and quest zones with walking animation. Vehicle references removed from Agent class (but `vehicle.ts` file deletion is Phase 5).
 
-**Delivers:** Clean 8-hour soak test passing (stable memory, CPU under 1%), correct behavior with 4+ simultaneous sessions across different projects, graceful degradation when detection fails, verified behavior after sleep/wake and monitor disconnect/reconnect, correct path encoding for unusual project directory names.
+**Implements:** LPC spritesheet frame extraction (compute texture sub-rects from known grid layout); AnimatedSprite as leaf node within Agent Container (not as parent with children — PixiJS 8 breaking change)
 
-**Addresses (from PITFALLS.md):** Memory leaks from timers/listeners, multiple session edge cases, sub-agent detection, path encoding for special characters, cleanup on exit.
+**Avoids:** AnimatedSprite texture leak (Pitfall 3 — write `destroyAnimatedSprite()` helper before any agent creation), tint system breakage (Pitfall 6 — test all four status states before declaring phase complete), AnimatedSprite-with-children mistake (Anti-Pattern 3 from ARCHITECTURE.md)
 
-**Avoids:** All items on PITFALLS.md "Looks Done But Isn't" checklist.
+**Research flag:** STANDARD — migration path fully documented in ARCHITECTURE.md with before/after code. One empirical validation needed: verify the downloaded LPC spritesheet matches the documented row/column layout before writing `sprite-loader.ts`.
 
-**Research flag:** STANDARD PATTERNS -- Memory profiling and Electron lifecycle patterns are well-documented.
+### Phase 5: Vehicle System Removal
+
+**Rationale:** Clean deletion of dead code after Phase 4 confirms sprite replacement works correctly. Separating deletion from replacement makes Phase 4 rollback cleaner and produces a clear, reviewable diff for the vehicle removal.
+
+**Delivers:** `vehicle.ts` deleted, all vehicle imports removed from `agent.ts`, state machine renamed to 6-state FSM (`walking_to_zone` / `walking_to_guild` instead of `driving_to_compound` / `driving_to_hq`), `AgentSlot` type updated (`vehicleType` removed, `characterClass` added), `AGENT_DRIVE_SPEED` constant removed.
+
+**Avoids:** Dead code confusion in FSM state handling (Anti-Pattern 5 from ARCHITECTURE.md)
+
+**Research flag:** STANDARD — straightforward deletion with no new patterns or libraries.
+
+### Phase 6: Level-Up Celebration Effect
+
+**Rationale:** Self-contained visual feature with no upstream dependencies beyond the agent system working. Replacing Fireworks with the golden light column is the last new visual component.
+
+**Delivers:** `level-up-effect.ts` using `ParticleContainer` (native PixiJS 8), golden column + sparkle shower effect, `Agent.startCelebration()` using `LevelUpEffect` instead of `Fireworks`, `particlesLayer` added to World scene hierarchy above agents layer.
+
+**Uses:** Native PixiJS 8 `ParticleContainer` + `Particle` (NOT `@pixi/particle-emitter` — incompatible with PixiJS 8), optionally `pixi-filters` GlowFilter for the halo effect
+
+**Avoids:** ParticleContainer TextureSource mismatch (Pitfall 11 — all particle textures must be in the same atlas PNG, designed in Phase 1), `boundsArea` omission on ParticleContainer (performance trap), using `@pixi/particle-emitter`
+
+**Research flag:** STANDARD — ParticleContainer v8 API documented with working code examples in STACK.md and ARCHITECTURE.md.
+
+### Phase 7: World Simplification
+
+**Rationale:** Architectural cleanup that is safe only after all prior phases are verified working. Removing the dynamic compound lifecycle from `world.ts` is a refactor enabled by the fixed quest zones already in place from Phase 3.
+
+**Delivers:** `manageCompounds()`, `recalculateCompoundPositions()`, `CompoundEntry` interface, `compounds` Map, and `resize()` all removed from `world.ts`. Agent routing uses simplified `agentZoneAssignment: Map<string, ActivityType>`. Session-to-zone routing verified end-to-end with real Claude Code sessions. `compound-layout.ts` file deleted.
+
+**Avoids:** Stale compound lifecycle code persisting as dead branches; `resize()` method that is meaningless on a fixed-size window
+
+**Research flag:** STANDARD — cleanup follows naturally from Phase 3 architectural decisions. No new patterns.
+
+### Phase 8: Polish and Ambient Effects (Conditional)
+
+**Rationale:** Ambient visual polish that is purely additive — no architecture changes. Only pursue if Phase 7 is complete and milestone scope allows. All patterns are documented; this phase has no research dependency.
+
+**Delivers (if pursued):** Ambient particle effect (floating fireflies or magical dust motes), quest zone "active" aura sprite when an agent is present, optional `ColorMatrixFilter` for warm color tone on the whole scene, final DPI and frame-rate verification, end-to-end test with real Claude Code sessions at 30fps and 5fps adaptive rates.
+
+**Research flag:** LOW PRIORITY — defer if milestone scope is tight. No blocking decisions required.
 
 ### Phase Ordering Rationale
 
-- Detection before rendering: The feature dependency tree roots in session detection. Nothing else makes sense without it.
-- Resource safety before visual richness: The idle CPU pitfall has the highest recovery cost. It must be designed correctly in the game loop before adding rendering complexity.
-- Mock data enables parallel development: Phases 1 and 2 can share development time because the game loop and agent FSM can run on hardcoded mock sessions before real IPC is connected.
-- Polish after validation: Phase 3 features (theming, speech bubbles, celebration) are cosmetic enhancements to a working core. They should not block the core from being usable.
-- Hardening last: Long-running stability issues only become visible after the core works. Soak testing requires a functioning app to soak.
+- **Assets before everything**: Scale mode config, VRAM behavior, and atlas structure problems are cheapest to discover in Phase 1. A texture atlas format mismatch discovered in Phase 4 requires retroactive changes to every module that loaded textures.
+- **Tilemap before buildings**: Z-order dependency — the ground layer must exist before buildings are placed on top of it.
+- **Buildings before agents**: Agents navigate to building positions. Without `questZone.getEntrancePosition()` returning real coordinates, agent movement targets are undefined.
+- **Sprite replacement before cleanup**: Confirm the AnimatedSprite system works before deleting the vehicle system that previously coexisted with agents. Clean rollback path if Phase 4 hits an unexpected issue.
+- **Effects after agents**: The celebration effect fires from an Agent; the agent system must be complete and verified first.
+- **World simplification before polish**: World.ts refactor is a behavior change and should be verified with real sessions before adding cosmetic layers.
 
 ### Research Flags
 
-Phases needing deeper research during planning:
-- **Phase 1:** Claude Code session file format and Windows process detection need verification against the live filesystem before implementation decisions are locked in. The JSONL field schema, sub-agent directory structure, and `wmic`/`tasklist` output format on the target machine should be inspected and documented before writing parser code.
+No phase requires `/gsd:research-phase` during planning. All patterns are documented with working code examples in STACK.md and ARCHITECTURE.md. The two major dead ends (pixi-lights, @pixi/particle-emitter) are identified and their alternatives are specified.
 
-Phases with standard patterns (skip research-phase):
-- **Phase 2:** PixiJS sprite animation and fixed-timestep game loops are thoroughly documented in official sources and canonical references (Fix Your Timestep!, PixiJS guides).
-- **Phase 3:** Claude Code hooks documentation is official and stable. FSM patterns and IPC event handling are well-understood.
-- **Phase 4:** Memory profiling with Chrome DevTools, Electron lifecycle events, and long-running app stability patterns are well-documented.
+Empirical validation needed during execution (not research, but testing gates):
+
+- **Phase 1**: DPI behavior at 125%+ must be tested on actual Windows hardware. VRAM after loading all four atlases must be measured in Chrome DevTools (target: under 50MB).
+- **Phase 4**: Verify downloaded LPC spritesheet frame layout matches the documented 64x64 grid (row 2 = walk, 9 columns, 4 directions) before writing `sprite-loader.ts`.
+- **Phase 4**: AnimatedSprite destroy memory baseline — cycle 10 agents through creation/destruction and confirm GPU memory returns to baseline.
+- **Phase 6**: Confirm the effects atlas (designed in Phase 1) has all particle frame types needed for the level-up effect before starting ParticleContainer implementation.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | Electron and PixiJS are verified current versions. Tauri exclusion is backed by multiple GitHub issues. chokidar and systeminformation are verified. The only medium-confidence item is systeminformation Windows "partial" support for process listing, which requires local verification. |
-| Features | MEDIUM-HIGH | Table stakes and anti-features are well-reasoned from adjacent product domains. Differentiators are validated by competitor analysis. Feature dependency tree is sound. Primary uncertainty: whether Claude Code hooks provide reliable enough events (vs. file-polling fallback) to drive agent state transitions. |
-| Architecture | HIGH | Electron main/renderer separation is mandated by the platform. IPC patterns, game loop structure, FSM per agent, and layered scene graph are all canonical patterns with official documentation. Build order is logically sound. |
-| Pitfalls | HIGH | Most pitfalls are backed by official Electron GitHub issues, MDN documentation, and Node.js issues with issue numbers. Session detection fragility is verified via direct filesystem inspection and the open/stale GitHub feature request #19364. |
+| Stack | HIGH | All library versions confirmed via official GitHub releases and npm. Two incompatible libraries (pixi-lights, @pixi/particle-emitter) confirmed dead via GitHub issues with open dates and maintainer non-response. PixiJS 8 built-in APIs confirmed via official documentation. @pixi/tilemap v5.0.2 confirmed compatible with PixiJS 8.16.0 via GitHub release notes (released July 2025). |
+| Features | MEDIUM-HIGH | V1.1 feature scope is clearly defined (aesthetic overhaul — replace Graphics with sprites). Functional feature set (session detection, status display) is unchanged from validated v1.0 baseline. Main uncertainty is exact building sprite availability in consistent CC0 packs — requires art curation, not research. |
+| Architecture | HIGH | Comprehensive file-by-file migration plan grounded in direct analysis of the existing codebase. Build order tested against dependency graph. Anti-patterns identified with specific PixiJS 8 breaking changes (AnimatedSprite leaf node constraint, tint inheritance behavior). All new module APIs defined with signatures. |
+| Pitfalls | HIGH | All critical pitfalls sourced from official PixiJS 8 GitHub issues with issue numbers (VRAM #11331, AnimatedSprite destroy #11407, tilemap renderGroup #164). Electron DPI issues sourced from official Electron issue tracker (#10659, #20463, #31016). Asset license guidance from OpenGameArt FAQ. No single-source pitfalls in the critical tier. |
 
 **Overall confidence:** HIGH
 
 ### Gaps to Address
 
-- **Claude Code hooks vs. filesystem-polling reliability for status transitions:** FEATURES.md recommends hooks as primary detection; ARCHITECTURE.md recommends filesystem polling as primary. These need reconciliation. During Phase 1 planning, decide: do hooks write to a shared JSON file, do we poll JSONL files directly, or both? The STACK.md notes suggest a layered approach but the implementation details need a decision.
+- **LPC spritesheet exact frame layout**: ARCHITECTURE.md documents the standard LPC layout (64x64 per frame, walk row at row 2, 9 columns, 4 directions). Verify the specific downloaded sheet matches this layout before writing `sprite-loader.ts` — different LPC generator outputs vary slightly. This is a 10-minute verification at the start of Phase 4, not a research task.
 
-- **systeminformation Windows process listing accuracy:** STACK.md rates this MEDIUM confidence. Before committing to it as a required dependency, run a local test: does `systeminformation.processes()` reliably return `claude.exe` with the working directory? If not, fall back to `tasklist` / `wmic` parsed directly via `child_process.exec`.
+- **Free Texture Packer PixiJS JSON output format**: Confirmed it exports PixiJS JSON format, but the exact `animations` key format (whether it auto-generates the `animations` block or requires manual definition) should be validated with a test export before committing to it as the asset pipeline tool. One test export and `Assets.load()` in DevTools resolves this.
 
-- **Pixel art asset source:** Research notes Aseprite ($20) or Piskel (free) for sprite creation and TexturePacker for spritesheet packing. Neither is a code dependency -- but the asset pipeline needs a decision before Phase 2. Who creates the sprites, at what resolution (16x16 vs 32x32), and in how many animation states? This is a design/art decision that blocks Phase 2.
+- **Building sprite availability in consistent CC0 packs**: STACK.md identifies CC0 character and tile packs but does not confirm that all four quest zone building types (Wizard Tower, Training Grounds, Ancient Library, Tavern) exist in visually compatible packs. This may require art curation or simple asset editing during Phase 3. Plan for it; do not assume all four building types are immediately available.
 
-- **Electron transparent window final decision:** PITFALLS.md strongly recommends skipping transparency for v1. The always-on-top opaque window is a deliberate downgrade from the "ideal" desktop pet aesthetic. This should be explicitly accepted in requirements so it doesn't become a scope argument later.
+- **titleBarOverlay behavior at non-100% DPI**: The `titleBarStyle: 'hidden'` + `titleBarOverlay` approach is documented for Windows. The exact behavior of `titleBarOverlay: { height: 28 }` at 125%+ DPI is not confirmed in sources. Validate during Phase 1 DPI testing alongside the canvas dimension check.
 
 ## Sources
 
 ### Primary (HIGH confidence)
 
-- [Electron releases page](https://releases.electronjs.org/) — Electron 40.6.1, Node.js 24 bundled
-- [PixiJS blog: v8.16.0](https://pixijs.com/blog/8.16.0) — latest version, canvas fallback renderer
-- [Electron Process Model](https://www.electronjs.org/docs/latest/tutorial/process-model) — main/renderer separation
-- [Electron IPC Tutorial](https://www.electronjs.org/docs/latest/tutorial/ipc) — push vs. pull IPC patterns
-- [Electron Performance Guide](https://www.electronjs.org/docs/latest/tutorial/performance) — CPU/memory optimization
-- [Tauri GitHub issue #4891](https://github.com/tauri-apps/tauri/issues/4891) — canvas hardware acceleration failure on WebView2
-- [Tauri GitHub issue #5037](https://github.com/tauri-apps/tauri/issues/5037) — GPU canvas acceleration bug
-- [Electron GitHub Issue #9357](https://github.com/electron/electron/issues/9357) — alwaysOnTop + transparent bugs
-- [Electron GitHub Issue #23042](https://github.com/electron/electron/issues/23042) — click-through transparent regression
-- [Claude Code Hooks Reference](https://code.claude.com/docs/en/hooks) — hook events (SessionStart/Stop/Notification)
-- [Claude Code Issue #19364](https://github.com/anthropics/claude-code/issues/19364) — session lock file request, stale/no response
-- [Node.js Issue #21632](https://github.com/nodejs/node/issues/21632) — child_process slower on Windows
-- [MDN: Crisp Pixel Art](https://developer.mozilla.org/en-US/docs/Games/Techniques/Crisp_pixel_art_look) — image-rendering: pixelated
-- [Fix Your Timestep!](https://www.gafferongames.com/post/fix_your_timestep/) — canonical fixed-timestep game loop
-- [Electron Forge: Why Electron Forge](https://www.electronforge.io/core-concepts/why-electron-forge) — official recommendation
-- Direct filesystem inspection of `~/.claude/projects/` and `~/.claude/history.jsonl` — session file structure verified on target machine
+- [PixiJS 8.x Official Docs — Sprite Sheets, ParticleContainer, FillGradient, Filters](https://pixijs.com/8.x/guides) — stack patterns and API correctness
+- [PixiJS GitHub Issue #11331](https://github.com/pixijs/pixijs/issues/11331) — VRAM regression with Texture.from in v8
+- [PixiJS GitHub Issue #11407 + PR #11544](https://github.com/pixijs/pixijs/issues/11407) — AnimatedSprite destroy() texture leak and fix
+- [PixiJS GitHub Discussion #11018](https://github.com/pixijs/pixijs/discussions/11018) — TextureStyle.defaultOptions timing requirement for pixel art
+- [PixiJS GitHub Issue #6087](https://github.com/pixijs/pixijs/issues/6087) — SCALE_MODES.NEAREST causing pixel glitches; roundPixels required
+- [@pixi/tilemap GitHub — v5.0.2, PixiJS 8 compatibility confirmed](https://github.com/pixijs/tilemap)
+- [pixi-tilemap Issue #164](https://github.com/pixijs-userland/tilemap/issues/164) — renderGroup.onChildUpdate requirement after clean()
+- [pixi-filters GitHub — v6.1.5, PixiJS 8.x compatibility table](https://github.com/pixijs/filters)
+- [@pixi/particle-emitter GitHub Issue #211](https://github.com/pixijs/particle-emitter/issues/211) — confirmed no PixiJS 8 support as of Feb 2026
+- [pixijs-userland/lights GitHub — v4.1.0, PixiJS 7 only, no v8 support](https://github.com/pixijs-userland/lights)
+- [PixiJS ParticleContainer v8 Blog](https://pixijs.com/blog/particlecontainer-v8) — single TextureSource requirement, boundsArea requirement
+- [Electron Window Customization Docs](https://www.electronjs.org/docs/latest/tutorial/window-customization) — titleBarStyle + titleBarOverlay API
+- [Electron Issue #10659 + #20463](https://github.com/electron/electron/issues) — DPI scaling causes incorrect window positioning/sizing on Windows
+- [Electron Issue #31016](https://github.com/electron/electron/issues/31016) — backgroundThrottling not preventing rAF throttle with hide() on Windows
+- [Universal LPC Spritesheet Character Generator](https://github.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator) — frame layout reference (64x64, row/column structure)
+- [OpenGameArt FAQ](https://opengameart.org/content/faq) — license guidance for game assets
+- [Kenney.nl CC0 confirmation](https://kenney.nl/support) — all Kenney asset packs confirmed CC0
 
 ### Secondary (MEDIUM confidence)
 
-- [systeminformation npm](https://www.npmjs.com/package/systeminformation) — v5.31.1, Windows "partial" process support
-- [Building a Real-Time Dashboard for Claude Code Sessions](https://www.ksred.com/managing-multiple-claude-code-sessions-building-a-real-time-dashboard/) — session detection implementation patterns
-- [PixiJS performance tips](https://pixijs.com/7.x/guides/production/performance-tips) — sprite rendering guidance
-- [WindowPet GitHub](https://github.com/SeakMengs/WindowPet) — desktop pet implementation reference
-- [On-Together Steam Page](https://store.steampowered.com/app/3707400/OnTogether_Virtual_CoWorking/) — adjacent product, focus timer + character animations
-- [Claude Code Session File Format](https://databunny.medium.com/inside-claude-code-the-session-file-format-and-how-to-inspect-it-b9998e66d56b) — JSONL format details
-- [DoltHub: Electron vs Tauri](https://www.dolthub.com/blog/2025-11-13-electron-vs-tauri/) — comparison context
+- [Claude Code Hooks Reference](https://code.claude.com/docs/en/hooks) — session detection hooks (v1.0 feature baseline, unchanged in v1.1)
+- [claude-code-monitor GitHub](https://github.com/onikan27/claude-code-monitor) — adjacent product feature comparison (for FEATURES.md baseline)
+- [Free Texture Packer](https://free-tex-packer.com/app/) — PixiJS JSON atlas export tool (tool verified; workflow needs empirical validation)
+- [saint11.art — Consistency in pixel art](https://saint11.art/blog/consistency/) — mixed-pack visual cohesion pitfall
+- Direct codebase analysis of `src/renderer/*.ts` — existing Agent FSM, World, and rendering patterns verified by reading source files
 
 ### Tertiary (LOW confidence, needs validation)
 
-- [~/.claude directory structure Gist](https://gist.github.com/samkeen/dc6a9771a78d1ecee7eb9ec1307f1b52) — community gist, verify against actual filesystem
-- [Claude Code Session Management](https://stevekinney.com/courses/ai-development/claude-code-session-management) — session file structure info, community source
+- [~/.claude directory structure Gist](https://gist.github.com/samkeen/dc6a9771a78d1ecee7eb9ec1307f1b52) — session file format community reference (verify against actual filesystem before using)
+- [Claude Code Session File Format — community article](https://databunny.medium.com/inside-claude-code-the-session-file-format-and-how-to-inspect-it-b9998e66d56b) — JSONL format details (verify before implementing any session parsing changes)
 
 ---
 *Research completed: 2026-02-25*
