@@ -9,10 +9,10 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Session Detection
 
-- [ ] **DETECT-01**: App auto-detects running Claude Code sessions from local filesystem and process list without user configuration
-- [ ] **DETECT-02**: App tracks each session's status: active (Claude working), waiting for input, idle, or error
-- [ ] **DETECT-03**: App detects when a session completes its current task
-- [ ] **DETECT-04**: App maps each detected session to its project directory name
+- [x] **DETECT-01**: App auto-detects running Claude Code sessions from local filesystem and process list without user configuration
+- [x] **DETECT-02**: App tracks each session's status: active (Claude working), waiting for input, idle, or error
+- [x] **DETECT-03**: App detects when a session completes its current task
+- [x] **DETECT-04**: App maps each detected session to its project directory name
 
 ### Visual World
 
@@ -73,10 +73,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DETECT-01 | Phase 1 | Pending |
-| DETECT-02 | Phase 1 | Pending |
-| DETECT-03 | Phase 1 | Pending |
-| DETECT-04 | Phase 1 | Pending |
+| DETECT-01 | Phase 1 | Complete |
+| DETECT-02 | Phase 1 | Complete |
+| DETECT-03 | Phase 1 | Complete |
+| DETECT-04 | Phase 1 | Complete |
 | WORLD-01 | Phase 2 | Pending |
 | WORLD-02 | Phase 2 | Pending |
 | WORLD-03 | Phase 2 | Pending |
