@@ -44,11 +44,13 @@ Plans:
   2. Each detected session appears as a unique animated pixel art spy agent with idle, walking, and working animations
   3. Agents are positioned at different locations based on their current activity type
   4. Each agent displays its project name as a visible label and shows a speech bubble with current activity (e.g., "Reading files", "Running tests")
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 02-01: TBD
-- [ ] 02-02: TBD
+- [ ] 02-01-PLAN.md -- Shared types/constants extensions, activity detection from JSONL tool_use, agent identity slot system
+- [ ] 02-02-PLAN.md -- Agent sprites (GraphicsContext frames), factory, state machine, vehicle system
+- [ ] 02-03-PLAN.md -- HQ building, project compounds, radial layout, bitmap font, speech bubbles, activity icons
+- [ ] 02-04-PLAN.md -- Integration: wire world.ts with compounds/agents/roads, remove placeholders, visual verification
 
 ### Phase 3: Status and Lifecycle
 **Goal**: User can distinguish agent status at a glance and sees satisfying lifecycle animations when sessions complete
@@ -71,5 +73,5 @@ Phases execute in numeric order: 1 -> 2 -> 3
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation and Detection | 3/3 | Complete | 2026-02-25 |
-| 2. Visual World | 0/0 | Not started | - |
+| 2. Visual World | 0/4 | Planned | - |
 | 3. Status and Lifecycle | 0/0 | Not started | - |
