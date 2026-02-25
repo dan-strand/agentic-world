@@ -28,11 +28,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Each detected session displays its project directory name and current status (active/waiting/idle/error)
   4. App uses under 100MB RAM and under 2% CPU when sessions are idle (verified via Task Manager)
   5. App closes cleanly with no orphaned processes remaining
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 01-01: TBD
-- [ ] 01-02: TBD
+- [ ] 01-01-PLAN.md -- Scaffold Electron app, shared types/constants, IPC bridge
+- [ ] 01-02-PLAN.md -- Session detection pipeline (filesystem scanning, JSONL reading, status determination, polling store)
+- [ ] 01-03-PLAN.md -- PixiJS world with placeholder agents, adaptive game loop, visual verification
 
 ### Phase 2: Visual World
 **Goal**: User sees a living 2D pixel art spy world where each session is a distinct animated agent character working at themed locations
@@ -69,6 +70,6 @@ Phases execute in numeric order: 1 -> 2 -> 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation and Detection | 0/0 | Not started | - |
+| 1. Foundation and Detection | 0/3 | Planned | - |
 | 2. Visual World | 0/0 | Not started | - |
 | 3. Status and Lifecycle | 0/0 | Not started | - |
