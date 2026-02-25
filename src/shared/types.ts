@@ -1,3 +1,15 @@
+export type ActivityType = 'coding' | 'reading' | 'testing' | 'comms' | 'idle';
+
+export type VehicleType = 'car' | 'motorcycle' | 'van' | 'helicopter';
+export type AccessoryType = 'sunglasses' | 'briefcase' | 'hat' | 'scarf' | 'goggles' | 'earpiece' | 'badge' | 'tie';
+
+export interface AgentSlot {
+  colorIndex: number;
+  color: number;
+  accessory: AccessoryType;
+  vehicleType: VehicleType;
+}
+
 export type SessionStatus = 'active' | 'waiting' | 'idle' | 'error';
 
 export interface SessionInfo {
@@ -7,6 +19,7 @@ export interface SessionInfo {
   status: SessionStatus;
   lastModified: number;      // mtime epoch ms
   lastEntryType: string;     // 'user' | 'assistant' | 'progress' | 'system' | etc
+  activityType: ActivityType;
 }
 
 // IPC channel names -- single source of truth
