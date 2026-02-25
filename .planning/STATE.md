@@ -84,5 +84,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-25
-Stopped at: Phase 1 complete. Ready for Phase 2 planning.
-Resume file: None
+Stopped at: Phase 2 context gathered. Ready for planning.
+Resume file: .planning/phases/02-visual-world/02-CONTEXT.md
