@@ -102,5 +102,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-25
-Stopped at: Completed 02-04-PLAN.md (world integration, Phase 2 complete)
-Resume file: .planning/phases/02-visual-world/02-04-SUMMARY.md
+Stopped at: Phase 3 context gathered. Ready for planning.
+Resume file: .planning/phases/03-status-and-lifecycle/03-CONTEXT.md
