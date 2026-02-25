@@ -33,8 +33,6 @@ interface StatusDebounce {
   timer: number;
   /** The last committed (visual) status. */
   committedStatus: SessionStatus;
-  /** Whether this is the first status ever received for this agent (suppress false celebrations on startup). */
-  isFirstUpdate: boolean;
 }
 
 /**
@@ -163,8 +161,9 @@ export class World {
 
         // Check for completion (active -> idle)
         if (this.checkForCompletion(agent.sessionId, newStatus, prevCommitted)) {
-          // Only celebrate if agent is currently working at a compound
-          if (agent.getState() === 'working') {
+          // Celebrate unless agent is already idle at HQ or already celebrating
+          const agentState = agent.getState();
+          if (agentState !== 'idle_at_hq' && agentState !== 'celebrating') {
             agent.startCelebration();
           }
         }
@@ -408,7 +407,6 @@ export class World {
           pendingStatus: session.status,
           timer: 0,
           committedStatus: session.status,
-          isFirstUpdate: true,
         });
         this.lastCommittedStatus.set(session.sessionId, session.status);
         this.lastRawStatus.set(session.sessionId, session.status);
@@ -458,7 +456,8 @@ export class World {
         if (
           agentState !== 'idle_at_hq' &&
           agentState !== 'driving_to_hq' &&
-          agentState !== 'walking_to_entrance'
+          agentState !== 'walking_to_entrance' &&
+          agentState !== 'celebrating'
         ) {
           const idlePos = this.getGlobalHQIdlePosition(session.sessionId);
           agent.assignToHQ(idlePos);
@@ -548,24 +547,14 @@ export class World {
   /**
    * Detect task completion: session was active, now committed to idle.
    * Returns true only on the transition, not on sustained idle.
-   * Suppresses false positives on app startup (first update per agent).
    *
    * @param prevCommitted - The committed status BEFORE advanceStatusDebounce updated it
    */
   private checkForCompletion(
-    sessionId: string,
+    _sessionId: string,
     newCommittedStatus: SessionStatus,
     prevCommitted: SessionStatus | undefined,
   ): boolean {
-    const debounce = this.statusDebounce.get(sessionId);
-    if (!debounce) return false;
-
-    // Suppress false celebrations on app startup
-    if (debounce.isFirstUpdate) {
-      debounce.isFirstUpdate = false;
-      return false;
-    }
-
     // Completion = was active, now idle
     return prevCommitted === 'active' && newCommittedStatus === 'idle';
   }

@@ -100,12 +100,13 @@ export function readLastToolUse(
     const text = buffer.toString('utf-8');
     const lines = text.split('\n').filter(l => l.trim().length > 0);
 
-    // Scan backward for a progress entry with tool_use content
+    // Scan backward for an assistant entry with tool_use content
     for (let i = lines.length - 1; i >= 0; i--) {
       try {
         const obj = JSON.parse(lines[i]);
-        if (obj.type !== 'progress') continue;
-        const content = obj.data?.message?.message?.content;
+        if (obj.type !== 'assistant') continue;
+        // Tool uses are at obj.message.content[] (top-level message, not nested in data)
+        const content = obj.message?.content;
         if (!Array.isArray(content)) continue;
         // Look for tool_use blocks in content array
         for (const c of content) {
