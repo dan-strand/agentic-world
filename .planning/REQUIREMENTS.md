@@ -31,9 +31,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Desktop Application
 
-- [ ] **APP-01**: App runs as an always-on local Electron desktop window
+- [x] **APP-01**: App runs as an always-on local Electron desktop window
 - [ ] **APP-02**: App uses under 100MB RAM and under 2% CPU when agents are idle (adaptive frame rate)
-- [ ] **APP-03**: App starts cleanly and shuts down without orphaned processes
+- [x] **APP-03**: App starts cleanly and shuts down without orphaned processes
 
 ## v2 Requirements
 
@@ -86,9 +86,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | STATUS-01 | Phase 3 | Pending |
 | STATUS-02 | Phase 3 | Pending |
 | STATUS-03 | Phase 3 | Pending |
-| APP-01 | Phase 1 | Pending |
+| APP-01 | Phase 1 | Complete |
 | APP-02 | Phase 1 | Pending |
-| APP-03 | Phase 1 | Pending |
+| APP-03 | Phase 1 | Complete |
 
 **Coverage:**
 - v1 requirements: 16 total

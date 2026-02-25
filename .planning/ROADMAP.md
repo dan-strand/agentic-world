@@ -31,7 +31,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 3 plans
 
 Plans:
-- [ ] 01-01-PLAN.md -- Scaffold Electron app, shared types/constants, IPC bridge
+- [x] 01-01-PLAN.md -- Scaffold Electron app, shared types/constants, IPC bridge
 - [ ] 01-02-PLAN.md -- Session detection pipeline (filesystem scanning, JSONL reading, status determination, polling store)
 - [ ] 01-03-PLAN.md -- PixiJS world with placeholder agents, adaptive game loop, visual verification
 
@@ -70,6 +70,6 @@ Phases execute in numeric order: 1 -> 2 -> 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation and Detection | 0/3 | Planned | - |
+| 1. Foundation and Detection | 1/3 | In Progress | - |
 | 2. Visual World | 0/0 | Not started | - |
 | 3. Status and Lifecycle | 0/0 | Not started | - |
