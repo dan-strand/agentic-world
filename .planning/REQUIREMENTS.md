@@ -18,7 +18,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [x] **WORLD-01**: App renders a 2D pixel art world with an HQ building and distinct mission locations
 - [x] **WORLD-02**: Each detected session appears as a unique animated pixel art spy agent character
-- [ ] **WORLD-03**: Agents animate through states: idle stance, walking between locations, working at a location
+- [x] **WORLD-03**: Agents animate through states: idle stance, walking between locations, working at a location
 - [x] **WORLD-04**: Each agent displays its project name as a label
 - [x] **WORLD-05**: Agents show speech bubbles indicating current activity type (e.g., "Reading files", "Running tests")
 - [x] **WORLD-06**: Agents work at different locations based on activity type (Lab for coding, Server Room for tests, Library for reading)
@@ -79,7 +79,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DETECT-04 | Phase 1 | Complete |
 | WORLD-01 | Phase 2 | Complete |
 | WORLD-02 | Phase 2 | Complete |
-| WORLD-03 | Phase 2 | Pending |
+| WORLD-03 | Phase 2 | Complete |
 | WORLD-04 | Phase 2 | Complete |
 | WORLD-05 | Phase 2 | Complete |
 | WORLD-06 | Phase 2 | Complete |

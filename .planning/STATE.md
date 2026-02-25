@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-02-25T19:10:00.000Z"
+last_updated: "2026-02-25T19:11:09.000Z"
 progress:
   total_phases: 2
   completed_phases: 1
   total_plans: 7
-  completed_plans: 5
+  completed_plans: 6
 ---
 
 # Project State
@@ -23,18 +23,18 @@ See: .planning/PROJECT.md (updated 2026-02-25)
 ## Current Position
 
 Phase: 2 of 3 (Visual World)
-Plan: 3 of 4 in current phase -- complete
+Plan: 3 of 4 in current phase -- complete (Plan 02 also complete)
 Status: Executing Phase 2
-Last activity: 2026-02-25 -- Built world scene infrastructure (HQ, compounds, layout, speech bubbles)
+Last activity: 2026-02-25 -- Agent sprite system, state machine, and vehicle system
 
-Progress: [███████░░░] 71%
+Progress: [████████░░] 86%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 5
-- Average duration: 3.6min
-- Total execution time: 0.30 hours
+- Total plans completed: 6
+- Average duration: 3.7min
+- Total execution time: 0.37 hours
 
 **By Phase:**
 
@@ -51,6 +51,7 @@ Progress: [███████░░░] 71%
 | Phase 01 P02 | 3min | 2 tasks | 5 files |
 | Phase 01 P03 | 4min | 2 tasks | 5 files |
 | Phase 02 P01 | 2min | 2 tasks | 4 files |
+| Phase 02 P02 | 4min | 2 tasks | 4 files |
 | Phase 02 P03 | 3min | 2 tasks | 6 files |
 
 ## Accumulated Context
@@ -80,6 +81,9 @@ Recent decisions affecting current work:
 - [Phase 02]: HQ anchor at bottom-center (door at origin) for agent positioning
 - [Phase 02]: Double ring layout staggers outer ring by half-step to avoid overlap
 - [Phase 02]: Sub-location markers use detailed Graphics primitives for visual distinction
+- [Phase 02]: Composited body+accessory layers (104 vs 1024 contexts) to avoid memory explosion
+- [Phase 02]: GraphicsContext frame-swapping in tick -- no graphics.clear() per research anti-pattern guidance
+- [Phase 02]: 1px arrival tolerance in hasArrived() for robust state transitions
 
 ### Pending Todos
 
@@ -93,5 +97,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-25
-Stopped at: Completed 02-03-PLAN.md (world scene infrastructure -- HQ, compounds, layout, speech bubbles)
-Resume file: .planning/phases/02-visual-world/02-03-SUMMARY.md
+Stopped at: Completed 02-02-PLAN.md (agent sprites, state machine, vehicle system)
+Resume file: .planning/phases/02-visual-world/02-02-SUMMARY.md
