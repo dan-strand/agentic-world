@@ -563,8 +563,9 @@ export class World {
     newCommittedStatus: SessionStatus,
     prevCommitted: SessionStatus | undefined,
   ): boolean {
-    // Completion = was active, now idle
-    return prevCommitted === 'active' && newCommittedStatus === 'idle';
+    // Completion = was doing something (active or waiting), now idle
+    // Session lifecycle: active → waiting → idle, so checking only active→idle never fires
+    return prevCommitted !== undefined && prevCommitted !== 'idle' && newCommittedStatus === 'idle';
   }
 
   // --- Private: Project-to-Building Assignment ---
