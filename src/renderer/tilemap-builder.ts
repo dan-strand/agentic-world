@@ -1,5 +1,7 @@
+import { Texture } from 'pixi.js';
 import { CompositeTilemap } from '@pixi/tilemap';
 import { TILE_SIZE, WORLD_COLS, WORLD_ROWS } from '../shared/constants';
+import { tileTextures } from './asset-loader';
 
 /**
  * Build the world tilemap -- a static CompositeTilemap with grass variants
@@ -19,16 +21,22 @@ export function buildWorldTilemap(
 ): CompositeTilemap {
   const tilemap = new CompositeTilemap();
 
+  // Resolve textures once (avoids per-tile Cache lookups)
+  const grass1 = tileTextures['grass_1'];
+  const grass2 = tileTextures['grass_2'];
+  const grass3 = tileTextures['grass_3'];
+  const dirtPath = tileTextures['dirt_path'];
+
   // Step 1: Fill entire grid with grass variants using seeded random
   // Distribution: ~80% grass_1, ~12% grass_2, ~8% grass_3
   for (let row = 0; row < WORLD_ROWS; row++) {
     for (let col = 0; col < WORLD_COLS; col++) {
       const hash = seededRandom(seed, col, row);
-      let tileKey = 'grass_1';
-      if (hash < 0.08) tileKey = 'grass_3';       // 8% darkest variant
-      else if (hash < 0.20) tileKey = 'grass_2';   // 12% lighter variant
+      let tex: Texture = grass1;
+      if (hash < 0.08) tex = grass3;       // 8% darkest variant
+      else if (hash < 0.20) tex = grass2;   // 12% lighter variant
       // else grass_1 (80%)
-      tilemap.tile(tileKey, col * TILE_SIZE, row * TILE_SIZE);
+      tilemap.tile(tex, col * TILE_SIZE, row * TILE_SIZE);
     }
   }
 
@@ -45,7 +53,7 @@ export function buildWorldTilemap(
       for (let dx = -1; dx <= 1; dx++) {
         const c = cell.col + dx;
         if (c >= 0 && c < WORLD_COLS && cell.row >= 0 && cell.row < WORLD_ROWS) {
-          tilemap.tile('dirt_path', c * TILE_SIZE, cell.row * TILE_SIZE);
+          tilemap.tile(dirtPath, c * TILE_SIZE, cell.row * TILE_SIZE);
         }
       }
     }
@@ -59,7 +67,7 @@ export function buildWorldTilemap(
       const c = ghCol + dc;
       const r = ghRow + dr;
       if (c >= 0 && c < WORLD_COLS && r >= 0 && r < WORLD_ROWS) {
-        tilemap.tile('dirt_path', c * TILE_SIZE, r * TILE_SIZE);
+        tilemap.tile(dirtPath, c * TILE_SIZE, r * TILE_SIZE);
       }
     }
   }
@@ -73,7 +81,7 @@ export function buildWorldTilemap(
         const c = zCol + dc;
         const r = zRow + dr;
         if (c >= 0 && c < WORLD_COLS && r >= 0 && r < WORLD_ROWS) {
-          tilemap.tile('dirt_path', c * TILE_SIZE, r * TILE_SIZE);
+          tilemap.tile(dirtPath, c * TILE_SIZE, r * TILE_SIZE);
         }
       }
     }

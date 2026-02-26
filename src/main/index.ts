@@ -47,8 +47,8 @@ const createWindow = (): void => {
   mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
 
   // Log renderer console output to main process stdout
-  mainWindow.webContents.on('console-message', (_event, _level, message) => {
-    console.log(`[renderer] ${message}`);
+  mainWindow.webContents.on('console-message', (event) => {
+    console.log(`[renderer] ${event.message}`);
   });
 
   // Open DevTools in development for debugging

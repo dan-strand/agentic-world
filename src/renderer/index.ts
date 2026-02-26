@@ -20,7 +20,6 @@ async function main(): Promise<void> {
   if (!appContainer) {
     throw new Error('#app container not found');
   }
-
   // Load sprite atlases (tiles, future: characters, buildings)
   await loadAllAssets();
   console.log('[renderer] Assets loaded');
