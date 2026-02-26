@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-02-25)
 
 ## Current Position
 
-Phase: 4 of 7 (Asset Pipeline and World Ground) -- COMPLETE
-Plan: 2 of 2 in current phase -- COMPLETE
-Status: Ready for Phase 5
-Last activity: 2026-02-26 -- Completed Phase 4 (both plans)
+Phase: 5 of 7 (Buildings and World Layout)
+Plan: 1 of 2 in current phase -- COMPLETE
+Status: Executing Phase 5
+Last activity: 2026-02-26 -- Completed 05-01 (Building Sprites)
 
-Progress: [██████████████████████████████] 100% (Phase 4: 2/2 plans complete)
+Progress: [███████████████               ] 50% (Phase 5: 1/2 plans complete)
 
 ## Performance Metrics
 
@@ -25,6 +25,7 @@ Progress: [███████████████████████
 **v1.1:**
 - Phase 4 Plan 01: 8min (3 tasks, 10 files)
 - Phase 4 Plan 02: 25min (3 tasks, 6 files) -- replaced @pixi/tilemap with canvas rendering
+- Phase 5 Plan 01: 4min (2 tasks, 5 files)
 
 ## Accumulated Context
 
@@ -49,6 +50,8 @@ New for v1.1:
 - [Phase 04-02]: @pixi/tilemap removed -- CJS/ESM/extension incompatibility with Electron webpack
 - [Phase 04-02]: Static ground rendered to offscreen canvas then used as single PixiJS Sprite
 - [Phase 04-02]: tileTextures map (not Cache/Texture.from) for spritesheet frame access
+- [Phase 05-01]: BuildingType in constants.ts (not types.ts) -- phase-specific layout concept
+- [Phase 05-01]: Parallel atlas loading via Promise.all for tiles + buildings in loadAllAssets()
 
 ### Pending Todos
 
@@ -56,11 +59,11 @@ None.
 
 ### Blockers/Concerns
 
-- Building sprite availability: All four quest zone building types may not exist in visually compatible CC0 packs. May require art curation during Phase 5.
+- ~~Building sprite availability~~ -- RESOLVED: Generated programmatically via pngjs in scripts/generate-buildings.js
 - titleBarOverlay behavior at non-100% DPI: Not confirmed at 125%+ scaling. Validate during Phase 4.
 
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: Phase 4 complete. Ready for /gsd:plan-phase 5
+Stopped at: Completed 05-01-PLAN.md
 Resume file: None
