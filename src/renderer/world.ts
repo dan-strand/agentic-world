@@ -9,6 +9,7 @@ import {
   WORLD_HEIGHT,
   ACTIVITY_BUILDING,
   IDLE_TIMEOUT_MS,
+  IDLE_REMINDER_MS,
   hashSessionId,
 } from '../shared/constants';
 import type { BuildingType } from '../shared/constants';
@@ -82,6 +83,9 @@ export class World {
 
   // Idle timeout tracking (ms of continuous committed-idle time per agent)
   private idleTimers: Map<string, number> = new Map();
+
+  // Track whether the idle reminder sound has already played for each agent's current idle period
+  private hasPlayedReminder: Map<string, boolean> = new Map();
 
   // Track current work spot index per agent (for spot rotation on activity change)
   private agentSpotIndex: Map<string, number> = new Map();
@@ -205,19 +209,28 @@ export class World {
         }
       }
 
-      // Idle timeout: track continuous idle duration and trigger fade-out
+      // Idle timeout: track continuous idle duration, play reminder, trigger fade-out
       const committed = this.lastCommittedStatus.get(agent.sessionId);
       if (committed === 'idle' && agent.getState() !== 'fading_out') {
         const prev = this.idleTimers.get(agent.sessionId) ?? 0;
         const next = prev + deltaMs;
         this.idleTimers.set(agent.sessionId, next);
+
+        // Play reminder sound once after 1 minute of continuous idle
+        if (next >= IDLE_REMINDER_MS && !this.hasPlayedReminder.get(agent.sessionId)) {
+          SoundManager.getInstance().playReminder();
+          this.hasPlayedReminder.set(agent.sessionId, true);
+        }
+
         if (next >= IDLE_TIMEOUT_MS) {
           agent.startFadeOut();
           this.idleTimers.delete(agent.sessionId);
+          this.hasPlayedReminder.delete(agent.sessionId);
         }
       } else {
-        // Not idle or already fading -- reset timer
+        // Not idle or already fading -- reset timer and reminder flag
         this.idleTimers.delete(agent.sessionId);
+        this.hasPlayedReminder.delete(agent.sessionId);
       }
     }
 
@@ -316,6 +329,7 @@ export class World {
     this.agentBuilding.delete(sessionId);
     this.idleTimers.delete(sessionId);
     this.agentSpotIndex.delete(sessionId);
+    this.hasPlayedReminder.delete(sessionId);
 
     // Release factory slot
     this.agentFactory.releaseSlot(sessionId);
@@ -468,6 +482,7 @@ export class World {
         this.agentBuilding.delete(sessionId);
         this.idleTimers.delete(sessionId);
         this.agentSpotIndex.delete(sessionId);
+        this.hasPlayedReminder.delete(sessionId);
       }
     }
 
