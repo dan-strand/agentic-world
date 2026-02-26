@@ -125,19 +125,29 @@ export const BREATH_CYCLE_SPEED = 0.002;    // Waiting breathing oscillation spe
 export const BREATH_ALPHA_MIN = 0.5;        // Minimum alpha during breathing
 export const BREATH_ALPHA_MAX = 1.0;        // Maximum alpha during breathing
 
-// Firework constants
-export const FIREWORK_SPARK_COUNT_MIN = 25;
-export const FIREWORK_SPARK_COUNT_MAX = 35;
-export const FIREWORK_DURATION_MS = 2500;     // Total firework display time
-export const FIREWORK_COLORS = [0xffd700, 0xff4444, 0x4488ff, 0x44cc44] as const; // gold, red, blue, green
-export const FIREWORK_GRAVITY = 80;           // px/s^2 downward
-export const FIREWORK_SPARK_SPEED_MIN = 40;   // px/s minimum outward velocity
-export const FIREWORK_SPARK_SPEED_MAX = 120;  // px/s maximum outward velocity
-export const FIREWORK_UPWARD_BIAS = 60;       // px/s initial upward velocity bias
-export const FIREWORK_SPARK_LIFE_MIN = 1500;  // ms minimum spark lifetime
-export const FIREWORK_SPARK_LIFE_MAX = 2500;  // ms maximum spark lifetime
-export const FIREWORK_SPARK_SIZE_MIN = 1.5;   // px minimum spark radius
-export const FIREWORK_SPARK_SIZE_MAX = 3.5;   // px maximum spark radius
+// Level-up celebration effect constants
+export const LEVEL_UP_DURATION_MS = 2500;       // Total effect duration (matches CELEBRATION_DURATION_MS)
+export const LEVEL_UP_COLUMN_WIDTH = 20;         // Light column width in pixels
+export const LEVEL_UP_COLUMN_HEIGHT = 100;       // Light column height in pixels
+export const LEVEL_UP_SPARKLE_COUNT = 25;        // Number of sparkle particles
+export const LEVEL_UP_SPARKLE_COLORS = [0xFFD700, 0xFFAA00, 0xFFFFAA] as const; // Gold palette
+export const LEVEL_UP_GLOW_DISTANCE = 15;        // GlowFilter distance (baked at construction)
+export const LEVEL_UP_GLOW_OUTER_STRENGTH = 2;   // GlowFilter outer strength
+export const LEVEL_UP_GLOW_COLOR = 0xFFD700;     // GlowFilter gold color
+export const LEVEL_UP_GLOW_QUALITY = 0.3;        // GlowFilter quality (low for pixel art)
+
+// Ambient particle constants
+export const AMBIENT_PARTICLE_COUNT = 25;         // Number of floating firefly particles
+export const AMBIENT_PARTICLE_SIZE_MIN = 1.5;     // Minimum particle radius in pixels
+export const AMBIENT_PARTICLE_SIZE_MAX = 2.5;     // Maximum particle radius in pixels
+export const AMBIENT_PARTICLE_COLOR = 0xFFFFAA;   // Warm yellow-white
+export const AMBIENT_PARTICLE_DRIFT_MIN = 5;      // Minimum horizontal drift speed (px/s)
+export const AMBIENT_PARTICLE_DRIFT_MAX = 15;     // Maximum horizontal drift speed (px/s)
+export const AMBIENT_PARTICLE_BOB_AMP_MIN = 8;    // Minimum vertical bob amplitude (px)
+export const AMBIENT_PARTICLE_BOB_AMP_MAX = 24;   // Maximum vertical bob amplitude (px)
+export const AMBIENT_PARTICLE_ALPHA_MIN = 0.2;    // Minimum alpha in fade cycle
+export const AMBIENT_PARTICLE_ALPHA_RANGE = 0.6;  // Alpha range above minimum
+
 export const CELEBRATION_DURATION_MS = 2500;  // How long agent stays in celebrating state before heading to HQ
 
 // Color utility for tint crossfade

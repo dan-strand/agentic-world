@@ -46,6 +46,7 @@
   "dependencies": {
     "chokidar": "^4.0.3",
     "electron-squirrel-startup": "^1.0.1",
+    "pixi-filters": "^6.1.5",
     "pixi.js": "^8.16.0"
   }
 }
