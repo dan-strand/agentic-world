@@ -198,11 +198,10 @@ export class World {
         // Status just committed -- apply visuals
         agent.applyStatusVisuals(newStatus);
 
-        // Check for completion (active -> idle)
+        // Check for completion (non-idle -> idle transition)
         if (this.checkForCompletion(agent.sessionId, newStatus, prevCommitted)) {
-          // Celebrate unless agent is already idle at HQ or already celebrating
           const agentState = agent.getState();
-          if (agentState !== 'idle_at_hq' && agentState !== 'celebrating') {
+          if (agentState !== 'celebrating' && agentState !== 'fading_out') {
             agent.startCelebration();
             SoundManager.getInstance().play();
           }
