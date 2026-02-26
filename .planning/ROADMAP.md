@@ -69,11 +69,10 @@ Plans:
   2. When an agent's activity changes while already at a building (e.g., switches from reading to editing), a new speech bubble appears
   3. Speech bubbles fade out automatically after a few seconds without user intervention
   4. Agents from the same project go to the same building, so building labels accurately reflect which project is working there
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 09-01: TBD
-- [ ] 09-02: TBD
+- [ ] 09-01-PLAN.md -- Speech bubble text labels with auto-sizing, trigger on Guild Hall departure and same-building activity changes
 
 ### Phase 10: Agent Fade-Out Lifecycle
 **Goal**: Completed agents gracefully leave the world instead of accumulating at Guild Hall forever
@@ -104,5 +103,5 @@ Phases execute in numeric order: 8 -> 9 -> 10
 | 6. Agent Sprite Overhaul | v1.1 | 2/2 | Complete | 2026-02-26 |
 | 7. Effects and Atmosphere | v1.1 | 2/2 | Complete | 2026-02-26 |
 | 8. Dynamic Building Labels | v1.2 | 2/2 | Complete | 2026-02-26 |
-| 9. Speech Bubbles and Project Routing | v1.2 | 0/? | Not started | - |
+| 9. Speech Bubbles and Project Routing | v1.2 | 0/1 | Not started | - |
 | 10. Agent Fade-Out Lifecycle | v1.2 | 0/? | Not started | - |
