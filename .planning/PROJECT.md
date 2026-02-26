@@ -29,7 +29,15 @@ Instantly see the status of all Claude Code sessions so you know which one needs
 
 ### Active
 
-(None — planning next milestone)
+## Current Milestone: v1.2 Activity Monitoring & Labeling
+
+**Goal:** Make the world reflect what's actually happening — buildings show project names, speech bubbles show real-time activity with auto-fade, and agents disappear after finishing instead of piling up.
+
+**Target features:**
+- Buildings labeled with active project folder names (max 4 projects)
+- Building labels revert to RPG names when project sessions end
+- Speech bubbles show current activity text, auto-fade after a few seconds
+- Agents fade out at Guild Hall after celebrating instead of accumulating
 
 ### Out of Scope
 
@@ -75,4 +83,4 @@ Instantly see the status of all Claude Code sessions so you know which one needs
 | pixi-filters GlowFilter (v1.1) | Only viable glow option for PixiJS 8; quality 0.3 matches pixel art | ✓ Good |
 
 ---
-*Last updated: 2026-02-26 after v1.1 milestone complete*
+*Last updated: 2026-02-26 after v1.2 milestone started*
