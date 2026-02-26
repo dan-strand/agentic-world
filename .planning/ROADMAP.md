@@ -82,11 +82,10 @@ Plans:
   1. After an agent celebrates and walks back to Guild Hall, it lingers briefly then fades out and disappears
   2. Faded-out agents do not reappear due to stale session polling -- only genuinely reactivated sessions create new agents
   3. After running for 30+ minutes with sessions completing, no invisible agents accumulate in memory (Guild Hall area stays clean)
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 10-01: TBD
-- [ ] 10-02: TBD
+- [ ] 10-01-PLAN.md -- Agent FSM fading_out state, World removeAgent() cleanup pipeline, dismissedSessions resurrection guard, GameLoop animation-aware FPS
 
 ## Progress
 
@@ -104,4 +103,4 @@ Phases execute in numeric order: 8 -> 9 -> 10
 | 7. Effects and Atmosphere | v1.1 | 2/2 | Complete | 2026-02-26 |
 | 8. Dynamic Building Labels | v1.2 | 2/2 | Complete | 2026-02-26 |
 | 9. Speech Bubbles and Project Routing | v1.2 | 0/1 | Not started | - |
-| 10. Agent Fade-Out Lifecycle | v1.2 | 0/? | Not started | - |
+| 10. Agent Fade-Out Lifecycle | v1.2 | 0/1 | Not started | - |
