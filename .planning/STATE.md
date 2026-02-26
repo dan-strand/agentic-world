@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-25)
 ## Current Position
 
 Phase: 4 of 7 (Asset Pipeline and World Ground)
-Plan: 0 of ? in current phase
-Status: Ready to plan
-Last activity: 2026-02-25 -- v1.1 roadmap created, 4 phases (4-7) derived from 15 requirements
+Plan: 1 of 2 in current phase
+Status: Executing
+Last activity: 2026-02-25 -- Completed 04-01 (asset pipeline, fixed window, tile atlas)
 
-Progress: [██████████████░░░░░░░░░░░░░░░░] 43% (v1.0 complete, v1.1 starting)
+Progress: [████████████████░░░░░░░░░░░░░░] 50% (Phase 4: 1/2 plans complete)
 
 ## Performance Metrics
 
@@ -22,7 +22,8 @@ Progress: [██████████████░░░░░░░░░
 - 3 phases, 9 plans, ~35 minutes total
 - Average: 3.9min/plan
 
-**v1.1:** Not started
+**v1.1:**
+- Phase 4 Plan 01: 8min (3 tasks, 10 files)
 
 ## Accumulated Context
 
@@ -41,6 +42,9 @@ New for v1.1:
 - [Roadmap]: @pixi/tilemap@^5.0.2 (tilemap), pixi-filters@^6.1.5 (GlowFilter) -- only new deps
 - [Roadmap]: Do NOT use pixi-lights (v7 only) or @pixi/particle-emitter (no v8 support)
 - [Roadmap]: Fixed 1024x768 window, titleBarStyle: 'hidden' + titleBarOverlay
+- [Phase 04-01]: Asset path uses ../ prefix for Electron Forge main_window subdir structure
+- [Phase 04-01]: devContentSecurityPolicy with worker-src blob: for PixiJS web workers
+- [Phase 04-01]: pngjs for deterministic tile atlas generation (scripts/generate-tiles.js)
 
 ### Pending Todos
 
@@ -54,5 +58,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-25
-Stopped at: v1.1 roadmap created, ready to plan Phase 4
+Stopped at: Completed 04-01-PLAN.md (asset pipeline and window setup)
 Resume file: None

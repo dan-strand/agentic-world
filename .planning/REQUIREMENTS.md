@@ -50,7 +50,7 @@ Requirements for the Fantasy RPG Aesthetic milestone. Each maps to roadmap phase
 ### World Environment
 
 - [ ] **ENV-01**: Ground is rendered as a tilemap with grass tile variants and dirt paths connecting the Guild Hall to each quest zone
-- [ ] **ENV-02**: Window is fixed at 1024x768 with no resize, no menus, hidden title bar with native minimize/close buttons
+- [x] **ENV-02**: Window is fixed at 1024x768 with no resize, no menus, hidden title bar with native minimize/close buttons
 - [ ] **ENV-03**: Ambient floating particles (fireflies, magic dust) add atmosphere to the world
 - [ ] **ENV-04**: Quest zones show a glow/highlight effect when an agent is actively working there
 
@@ -129,7 +129,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | ENV-01 | Phase 4 | Pending |
-| ENV-02 | Phase 4 | Pending |
+| ENV-02 | Phase 4 | Complete |
 | THEME-05 | Phase 4 | Pending |
 | THEME-02 | Phase 5 | Pending |
 | THEME-03 | Phase 5 | Pending |
