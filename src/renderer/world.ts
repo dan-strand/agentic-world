@@ -369,6 +369,9 @@ export class World {
         // Create new agent
         const slot = this.agentFactory.getSlot(session.sessionId);
         agent = new Agent(session.sessionId, slot);
+        // Start at Guild Hall (not 0,0) so agents don't walk from the corner
+        agent.x = this.guildHall.x;
+        agent.y = this.guildHall.y + 20;
         this.agents.set(session.sessionId, agent);
         this.agentsContainer.addChild(agent);
 
