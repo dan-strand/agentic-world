@@ -58,6 +58,7 @@ Progress: [██████████] 100% (1/1 plans in phase 10)
 | 2 | add idle timeout fadeout for agents idle 5+ minutes | 2026-02-26 | 268cdfc | [2-add-idle-timeout-fadeout-agents-whose-se](./quick/2-add-idle-timeout-fadeout-agents-whose-se/) |
 | 3 | add job completion sound effect with volume/mute controls | 2026-02-26 | badae4f | [3-add-job-completion-sound-effect-with-vol](./quick/3-add-job-completion-sound-effect-with-vol/) |
 | 4 | enhance building work areas with RPG-themed spots | 2026-02-26 | a5e2741 | [4-enhance-building-work-areas-with-rpg-the](./quick/4-enhance-building-work-areas-with-rpg-the/) |
+| 5 | play ready-to-work sound after session idle 1 min | 2026-02-26 | a056b02 | [5-play-ready-to-work-sound-after-session-i](./quick/5-play-ready-to-work-sound-after-session-i/) |
 
 ## Accumulated Context
 
@@ -84,6 +85,8 @@ Recent decisions affecting current work:
 - [quick-4]: Used modulo 3 rotation for spot cycling (simple, predictable, wraps naturally)
 - [quick-4]: Prop indicators are static Graphics drawn once in constructor (no per-frame cost)
 - [quick-4]: Guild hall has empty spots array, falling back to getWorkPosition for idle agents
+- [quick-5]: Separate Audio element per sound effect to prevent interrupting jobs-done with reminder
+- [quick-5]: Renamed audio -> jobsDoneAudio for clarity when adding second Audio element
 
 ### Blockers/Concerns
 
@@ -92,5 +95,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: Completed quick task 4 (enhance building work areas with RPG-themed spots)
+Stopped at: Completed quick task 5 (play ready-to-work sound after session idle 1 min)
 Resume file: None
