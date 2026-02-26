@@ -68,6 +68,12 @@ export class World {
   // Track last raw status received per agent (for tick-based debounce advancement)
   private lastRawStatus: Map<string, SessionStatus> = new Map();
 
+  // Project-to-building assignment (max 4 active projects)
+  private projectToBuilding: Map<string, Building> = new Map();
+  private buildingSlots: Building[] = []; // ordered quest zone buildings for slot assignment
+  // Track which building each agent is currently assigned to (for work position and glow)
+  private agentBuilding: Map<string, Building> = new Map();
+
   // Layout
   private centerX = 0;
   private centerY = 0;
@@ -118,6 +124,13 @@ export class World {
       building.position.set(pos.x, pos.y);
       this.buildingsContainer.addChild(building);
       this.questZones.set(activityType as ActivityType, building);
+    }
+
+    // Populate building slots in stable order for project assignment
+    const slotOrder: ActivityType[] = ['coding', 'testing', 'reading', 'comms'];
+    for (const activity of slotOrder) {
+      const slotBuilding = this.questZones.get(activity);
+      if (slotBuilding) this.buildingSlots.push(slotBuilding);
     }
 
     // Ambient floating particles (between buildings and agents in z-order)
@@ -188,20 +201,19 @@ export class World {
       bubble.tick(deltaMs);
     }
 
-    // Quest zone active highlights (ENV-04)
-    const activeBuildingTypes = new Set<string>();
+    // Quest zone active highlights (ENV-04) -- based on project-to-building assignment
+    const activeBuildings = new Set<Building>();
     for (const agent of this.agents.values()) {
       const agentState = agent.getState();
       if (agentState === 'working' || agentState === 'walking_to_workspot') {
-        const activity = this.lastActivity.get(agent.sessionId);
-        if (activity && activity !== 'idle') {
-          activeBuildingTypes.add(ACTIVITY_BUILDING[activity]);
+        const building = this.agentBuilding.get(agent.sessionId);
+        if (building) {
+          activeBuildings.add(building);
         }
       }
     }
-    for (const [activityType, building] of this.questZones) {
-      const buildingType = ACTIVITY_BUILDING[activityType];
-      building.tint = activeBuildingTypes.has(buildingType) ? 0xFFDD88 : 0xFFFFFF;
+    for (const building of this.questZones.values()) {
+      building.tint = activeBuildings.has(building) ? 0xFFDD88 : 0xFFFFFF;
     }
   }
 
@@ -222,7 +234,7 @@ export class World {
 
   /**
    * Create, update, and transition agents based on session data.
-   * Routes agents to buildings by activity type instead of per-project compounds.
+   * Routes agents to buildings by project name -- same project always goes to same building.
    */
   private manageAgents(
     sessions: SessionInfo[],
@@ -262,32 +274,40 @@ export class World {
       // Store raw status for tick-based debounce advancement
       this.lastRawStatus.set(session.sessionId, session.status);
 
-      // Route agent to building based on activity type
+      // Route agent to building based on project name
       const activityType = session.activityType;
       const agentState = agent.getState();
 
       if (activityType !== 'idle') {
-        const building = this.questZones.get(activityType);
+        const building = this.getProjectBuilding(session.projectName);
         if (building) {
           if (agentState === 'idle_at_hq') {
-            // Agent at guild hall, needs to go work -- send to quest zone
+            // Agent at guild hall, needs to go work -- send to project building
             const entrance = this.getBuildingEntrance(building);
             const workPos = this.getBuildingWorkPosition(building, session.sessionId);
             agent.assignToCompound(entrance, workPos);
+            this.agentBuilding.set(session.sessionId, building);
           } else if (agentState === 'working') {
-            // Check for activity type change (different building needed)
+            // Check if agent needs to move to a different building (activity change)
             const prevActivity = this.lastActivity.get(session.sessionId);
             if (prevActivity && prevActivity !== activityType) {
-              // Activity changed -- reassign to new building
               const entrance = this.getBuildingEntrance(building);
               const workPos = this.getBuildingWorkPosition(building, session.sessionId);
               agent.assignToCompound(entrance, workPos);
+              this.agentBuilding.set(session.sessionId, building);
               // Show speech bubble on activity change
               const bubble = this.speechBubbles.get(session.sessionId);
               if (bubble) {
                 bubble.show(activityType);
               }
             }
+          }
+        } else {
+          // 5th+ project overflow: stay at Guild Hall
+          if (agentState !== 'idle_at_hq' && agentState !== 'walking_to_building') {
+            const idlePos = this.getGuildHallIdlePosition(session.sessionId);
+            agent.assignToHQ(idlePos);
+            this.agentBuilding.delete(session.sessionId);
           }
         }
       } else {
@@ -299,6 +319,7 @@ export class World {
         ) {
           const idlePos = this.getGuildHallIdlePosition(session.sessionId);
           agent.assignToHQ(idlePos);
+          this.agentBuilding.delete(session.sessionId);
         }
       }
 
@@ -306,12 +327,16 @@ export class World {
       this.lastActivity.set(session.sessionId, session.activityType);
     }
 
+    // Release building slots for projects with no active sessions
+    this.releaseInactiveProjectSlots(sessions);
+
     // Clean up debounce state for removed sessions
     for (const [sessionId] of this.statusDebounce) {
       if (!currentIds.has(sessionId)) {
         this.statusDebounce.delete(sessionId);
         this.lastCommittedStatus.delete(sessionId);
         this.lastRawStatus.delete(sessionId);
+        this.agentBuilding.delete(sessionId);
       }
     }
 
@@ -396,6 +421,50 @@ export class World {
     return prevCommitted === 'active' && newCommittedStatus === 'idle';
   }
 
+  // --- Private: Project-to-Building Assignment ---
+
+  /**
+   * Get the building assigned to a project, assigning a new slot if needed.
+   * Returns null if all 4 slots are full (project overflows to Guild Hall).
+   */
+  private getProjectBuilding(projectName: string): Building | null {
+    const existing = this.projectToBuilding.get(projectName);
+    if (existing) return existing;
+
+    // Find first unoccupied slot
+    const occupiedBuildings = new Set(this.projectToBuilding.values());
+    for (const building of this.buildingSlots) {
+      if (!occupiedBuildings.has(building)) {
+        this.projectToBuilding.set(projectName, building);
+        building.setLabel(projectName);
+        return building;
+      }
+    }
+
+    // All 4 slots full -- overflow to Guild Hall
+    return null;
+  }
+
+  /**
+   * Release building slots for projects with no active (non-idle) sessions.
+   * Reverts building labels to RPG names. Called after processing all sessions.
+   */
+  private releaseInactiveProjectSlots(sessions: SessionInfo[]): void {
+    const activeProjects = new Set<string>();
+    for (const s of sessions) {
+      if (s.activityType !== 'idle') {
+        activeProjects.add(s.projectName);
+      }
+    }
+
+    for (const [projectName, building] of this.projectToBuilding) {
+      if (!activeProjects.has(projectName)) {
+        building.resetLabel();
+        this.projectToBuilding.delete(projectName);
+      }
+    }
+  }
+
   // --- Private: Position Helpers ---
 
   /**
@@ -415,13 +484,10 @@ export class World {
     let totalAtBuilding = 0;
     for (const [sid, agent] of this.agents) {
       const state = agent.getState();
-      if (state === 'working' || state === 'walking_to_workspot') {
-        // Check if this agent's last activity maps to the same building
-        const activity = this.lastActivity.get(sid);
-        if (activity && this.questZones.get(activity) === building) {
-          totalAtBuilding++;
-          if (sid === sessionId) agentIndex = totalAtBuilding - 1;
-        }
+      if ((state === 'working' || state === 'walking_to_workspot') &&
+          this.agentBuilding.get(sid) === building) {
+        totalAtBuilding++;
+        if (sid === sessionId) agentIndex = totalAtBuilding - 1;
       }
     }
     const local = building.getWorkPosition(agentIndex, Math.max(totalAtBuilding, 1));
