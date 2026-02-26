@@ -57,6 +57,7 @@ Progress: [██████████] 100% (1/1 plans in phase 10)
 | 1 | need to be able to move the window around the screen | 2026-02-26 | 1ef1e93 | [1-need-to-be-able-to-move-the-window-aroun](./quick/1-need-to-be-able-to-move-the-window-aroun/) |
 | 2 | add idle timeout fadeout for agents idle 5+ minutes | 2026-02-26 | 268cdfc | [2-add-idle-timeout-fadeout-agents-whose-se](./quick/2-add-idle-timeout-fadeout-agents-whose-se/) |
 | 3 | add job completion sound effect with volume/mute controls | 2026-02-26 | badae4f | [3-add-job-completion-sound-effect-with-vol](./quick/3-add-job-completion-sound-effect-with-vol/) |
+| 4 | enhance building work areas with RPG-themed spots | 2026-02-26 | a5e2741 | [4-enhance-building-work-areas-with-rpg-the](./quick/4-enhance-building-work-areas-with-rpg-the/) |
 
 ## Accumulated Context
 
@@ -80,6 +81,9 @@ Recent decisions affecting current work:
 - [quick-2]: Cancellation checks both activityType and status for comprehensive reactivation detection
 - [quick-3]: HTML5 Audio API over Web Audio API -- simpler, sufficient for single sound effect
 - [quick-3]: Singleton SoundManager for shared access from World (trigger) and index.ts (UI wiring)
+- [quick-4]: Used modulo 3 rotation for spot cycling (simple, predictable, wraps naturally)
+- [quick-4]: Prop indicators are static Graphics drawn once in constructor (no per-frame cost)
+- [quick-4]: Guild hall has empty spots array, falling back to getWorkPosition for idle agents
 
 ### Blockers/Concerns
 
@@ -88,5 +92,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: Completed quick task 3 (job completion sound effect with volume/mute)
+Stopped at: Completed quick task 4 (enhance building work areas with RPG-themed spots)
 Resume file: None
