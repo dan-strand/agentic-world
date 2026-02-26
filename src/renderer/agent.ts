@@ -331,7 +331,7 @@ export class Agent extends Container {
    * Agent walks directly to HQ position (no vehicle intermediary).
    */
   assignToHQ(position: { x: number; y: number }): void {
-    // Don't interrupt celebration -- agent will head to HQ after fireworks finish
+    // Don't interrupt celebration -- agent will head to HQ after level-up effect finish
     if (this.state === 'celebrating') {
       this.hqPosition = position;
       return;
