@@ -6,6 +6,16 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1a2e; }
+    #drag-region {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 28px;
+      -webkit-app-region: drag;
+      z-index: 9999;
+      pointer-events: auto;
+    }
     #app {
       width: 100%;
       height: 100%;
@@ -14,6 +24,7 @@
   </style>
 </head>
 <body>
+  <div id="drag-region"></div>
   <div id="app"></div>
 </body>
 </html>
