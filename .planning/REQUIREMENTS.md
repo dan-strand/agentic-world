@@ -20,8 +20,8 @@ Requirements for v1.2 Activity Monitoring & Labeling. Each maps to roadmap phase
 
 ### Agent Lifecycle
 
-- [ ] **LIFE-01**: Agents fade out at Guild Hall after celebrating instead of persisting indefinitely
-- [ ] **LIFE-02**: Faded-out agents are not resurrected by session polling unless the session genuinely reactivates
+- [x] **LIFE-01**: Agents fade out at Guild Hall after celebrating instead of persisting indefinitely
+- [x] **LIFE-02**: Faded-out agents are not resurrected by session polling unless the session genuinely reactivates
 - [x] **LIFE-03**: Only 4 projects are visualized with buildings; additional projects are not shown
 
 ## Future Requirements
@@ -56,8 +56,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BUBBLE-01 | Phase 9 | Complete |
 | BUBBLE-02 | Phase 9 | Complete |
 | BUBBLE-03 | Phase 9 | Complete |
-| LIFE-01 | Phase 10 | Pending |
-| LIFE-02 | Phase 10 | Pending |
+| LIFE-01 | Phase 10 | Complete |
+| LIFE-02 | Phase 10 | Complete |
 
 **Coverage:**
 - v1.2 requirements: 8 total

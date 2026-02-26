@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: Activity Monitoring & Labeling
 status: unknown
-last_updated: "2026-02-26T18:17:39.799Z"
+last_updated: "2026-02-26T18:34:34.000Z"
 progress:
-  total_phases: 9
-  completed_phases: 9
-  total_plans: 21
-  completed_plans: 21
+  total_phases: 10
+  completed_phases: 10
+  total_plans: 22
+  completed_plans: 22
 ---
 
 # Project State
@@ -18,21 +18,21 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-26)
 
 **Core value:** Instantly see the status of all Claude Code sessions so you know which one needs attention next.
-**Current focus:** Phase 9 - Speech Bubbles and Project Routing
+**Current focus:** Phase 10 - Agent Fade-Out Lifecycle (COMPLETE)
 
 ## Current Position
 
-Phase: 9 of 10 (Speech Bubbles and Project Routing) -- second of 3 phases in v1.2
+Phase: 10 of 10 (Agent Fade-Out Lifecycle) -- third of 3 phases in v1.2
 Plan: 1 of 1 complete (PHASE COMPLETE)
-Status: Phase 09 complete, ready for Phase 10
-Last activity: 2026-02-26 -- Completed 09-01 (speech bubble text labels and trigger expansion)
+Status: Phase 10 complete, v1.2 milestone complete
+Last activity: 2026-02-26 -- Completed 10-01 (agent fade-out lifecycle)
 
-Progress: [██████████] 100% (1/1 plans in phase 9)
+Progress: [██████████] 100% (1/1 plans in phase 10)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 21 (v1.0: 9, v1.1: 9, v1.2: 3)
+- Total plans completed: 22 (v1.0: 9, v1.1: 9, v1.2: 4)
 - Average duration: --
 - Total execution time: ~2 days
 
@@ -43,6 +43,7 @@ Progress: [██████████] 100% (1/1 plans in phase 9)
 | v1.0 Phases 1-3 | 9 | ~1 day | -- |
 | v1.1 Phases 4-7 | 9 | ~1 day | -- |
 | Phase 09-01 P01 | 2min | 2 tasks | 3 files |
+| Phase 10-01 P01 | 3min | 2 tasks | 5 files |
 
 ## Shipped Milestones
 
@@ -71,6 +72,8 @@ Recent decisions affecting current work:
 - [08-02]: 5th+ project overflows to Guild Hall rather than evicting existing projects
 - [09-01]: Used bubbleLabel property name to avoid PixiJS Container.label collision
 - [09-01]: Removed unnecessary assignToCompound in working-state activity change (project routing keeps agent at same building)
+- [10-01]: Used early continue in manageAgents() for fading_out guard (TS type narrowing made else-block guard unreachable)
+- [10-01]: 2000ms linger delay + 2000ms fade duration for natural visual timing
 
 ### Blockers/Concerns
 
@@ -79,5 +82,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: Completed 09-01-PLAN.md (Phase 9 complete)
+Stopped at: Completed 10-01-PLAN.md (Phase 10 complete, v1.2 milestone complete)
 Resume file: None

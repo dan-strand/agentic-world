@@ -41,7 +41,7 @@ See: [`.planning/milestones/v1.1-ROADMAP.md`](milestones/v1.1-ROADMAP.md) for fu
 
 - [x] **Phase 8: Dynamic Building Labels** - Buildings show active project folder names; revert to RPG names when vacant
 - [ ] **Phase 9: Speech Bubbles and Project Routing** - Speech bubbles trigger on all meaningful activity changes; project-based building assignment
-- [ ] **Phase 10: Agent Fade-Out Lifecycle** - Completed agents fade out at Guild Hall; stale sessions cleaned up properly
+- [x] **Phase 10: Agent Fade-Out Lifecycle** - Completed agents fade out at Guild Hall; stale sessions cleaned up properly (completed 2026-02-26)
 
 ## Phase Details
 
@@ -103,4 +103,4 @@ Phases execute in numeric order: 8 -> 9 -> 10
 | 7. Effects and Atmosphere | v1.1 | 2/2 | Complete | 2026-02-26 |
 | 8. Dynamic Building Labels | v1.2 | 2/2 | Complete | 2026-02-26 |
 | 9. Speech Bubbles and Project Routing | v1.2 | 0/1 | Not started | - |
-| 10. Agent Fade-Out Lifecycle | v1.2 | 0/1 | Not started | - |
+| 10. Agent Fade-Out Lifecycle | 1/1 | Complete   | 2026-02-26 | - |
