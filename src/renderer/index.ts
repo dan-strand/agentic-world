@@ -1,9 +1,16 @@
+import { TextureStyle } from 'pixi.js';
+
+// CRITICAL: Must be set before ANY texture creation or Assets.load()
+// This ensures all pixel art renders crisp at any scale
+TextureStyle.defaultOptions.scaleMode = 'nearest';
+
 import { World } from './world';
 import { GameLoop } from './game-loop';
 import { SessionInfo } from '../shared/types';
 import { installPixelFont } from './bitmap-font';
 import { initAgentSprites } from './agent-sprites';
 import { initActivityIcons } from './activity-icons';
+import { loadAllAssets } from './asset-loader';
 
 async function main(): Promise<void> {
   console.log('[renderer] main() starting...');
@@ -13,6 +20,10 @@ async function main(): Promise<void> {
   if (!appContainer) {
     throw new Error('#app container not found');
   }
+
+  // Load sprite atlases (tiles, future: characters, buildings)
+  await loadAllAssets();
+  console.log('[renderer] Assets loaded');
 
   // Initialize sprite systems before world init (required for BitmapText, Agent, SpeechBubble)
   installPixelFont();
@@ -42,12 +53,7 @@ async function main(): Promise<void> {
   world.updateSessions(initialSessions);
   gameLoop.onSessionsUpdate(initialSessions);
 
-  // 5. Handle window resize
-  window.addEventListener('resize', () => {
-    world.resize();
-  });
-
-  // 6. Handle minimize/restore for adaptive frame rate
+  // 5. Handle minimize/restore for adaptive frame rate (window is fixed-size, no resize handler needed)
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
       gameLoop.onWindowMinimized();
