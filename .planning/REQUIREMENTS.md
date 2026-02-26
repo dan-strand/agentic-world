@@ -9,8 +9,8 @@ Requirements for v1.2 Activity Monitoring & Labeling. Each maps to roadmap phase
 
 ### Building Labels
 
-- [ ] **LABEL-01**: Buildings display the active project's folder name instead of the RPG building name
-- [ ] **LABEL-02**: Building label reverts to its RPG name when all sessions for that project end
+- [x] **LABEL-01**: Buildings display the active project's folder name instead of the RPG building name
+- [x] **LABEL-02**: Building label reverts to its RPG name when all sessions for that project end
 
 ### Speech Bubbles
 
@@ -50,8 +50,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| LABEL-01 | Phase 8 | Pending |
-| LABEL-02 | Phase 8 | Pending |
+| LABEL-01 | Phase 8 | Complete |
+| LABEL-02 | Phase 8 | Complete |
 | LIFE-03 | Phase 8 | Pending |
 | BUBBLE-01 | Phase 9 | Pending |
 | BUBBLE-02 | Phase 9 | Pending |
