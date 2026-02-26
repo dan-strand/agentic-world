@@ -1,13 +1,11 @@
 export type ActivityType = 'coding' | 'reading' | 'testing' | 'comms' | 'idle';
 
-export type VehicleType = 'car' | 'motorcycle' | 'van' | 'helicopter';
-export type AccessoryType = 'sunglasses' | 'briefcase' | 'hat' | 'scarf' | 'goggles' | 'earpiece' | 'badge' | 'tie';
+export type CharacterClass = 'mage' | 'warrior' | 'ranger' | 'rogue';
 
 export interface AgentSlot {
   colorIndex: number;
   color: number;
-  accessory: AccessoryType;
-  vehicleType: VehicleType;
+  characterClass: CharacterClass;
 }
 
 export type SessionStatus = 'active' | 'waiting' | 'idle' | 'error';
