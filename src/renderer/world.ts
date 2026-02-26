@@ -408,6 +408,13 @@ export class World {
     // Release building slots for projects with no active sessions
     this.releaseInactiveProjectSlots(sessions);
 
+    // Trigger fade-out for agents whose sessions have disappeared from IPC
+    for (const [sessionId, agent] of this.agents) {
+      if (!currentIds.has(sessionId) && agent.getState() !== 'fading_out') {
+        agent.startFadeOut();
+      }
+    }
+
     // Clean up debounce state for removed sessions
     for (const [sessionId] of this.statusDebounce) {
       if (!currentIds.has(sessionId)) {

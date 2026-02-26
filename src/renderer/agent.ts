@@ -84,8 +84,7 @@ export class Agent extends Container {
   private levelUpEffect: LevelUpEffect | null = null;
   private celebrationTimer = 0;
 
-  // Fade-out lifecycle (terminal state after celebration walkback)
-  private hasCompletedTask = false;
+  // Fade-out lifecycle (terminal state, triggered by World when session disappears)
   private fadeOutTimer = 0;
 
   constructor(sessionId: string, slot: AgentSlot) {
@@ -132,12 +131,6 @@ export class Agent extends Container {
 
     switch (this.state) {
       case 'idle_at_hq':
-        if (this.hasCompletedTask) {
-          this.state = 'fading_out';
-          this.fadeOutTimer = 0;
-          this.setAnimation('idle');
-          break;
-        }
         this.setAnimation('idle');
         break;
 
@@ -185,8 +178,6 @@ export class Agent extends Container {
             this.levelUpEffect.destroy({ children: true });
             this.levelUpEffect = null;
           }
-          // Mark as completed so idle_at_hq transitions to fading_out
-          this.hasCompletedTask = true;
           // Walk directly to HQ (no vehicle)
           this.state = 'walking_to_building';
           this.buildingEntrance = this.hqPosition;
@@ -335,6 +326,22 @@ export class Agent extends Container {
     const dampedAmplitude = SHAKE_AMPLITUDE * (1 - progress);
     const frequency = 20;
     this.x = this.shakeOriginX + Math.sin(progress * frequency) * dampedAmplitude;
+  }
+
+  /**
+   * Trigger fade-out from any state. Called by World when a session
+   * disappears from the IPC session list (truly closed, not just idle).
+   */
+  startFadeOut(): void {
+    if (this.state === 'fading_out') return;
+    // Clean up celebration effect if mid-celebration
+    if (this.levelUpEffect) {
+      this.removeChild(this.levelUpEffect);
+      this.levelUpEffect.destroy({ children: true });
+      this.levelUpEffect = null;
+    }
+    this.state = 'fading_out';
+    this.fadeOutTimer = 0;
   }
 
   /**
