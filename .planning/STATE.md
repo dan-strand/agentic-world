@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Activity Monitoring & Labeling
 status: executing
-last_updated: "2026-02-26T17:43:39.000Z"
+last_updated: "2026-02-26T18:02:24.000Z"
 progress:
   total_phases: 3
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State
@@ -23,16 +23,16 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 ## Current Position
 
 Phase: 8 of 10 (Dynamic Building Labels) -- first of 3 phases in v1.2
-Plan: 1 of 2 complete
-Status: Executing phase 08
-Last activity: 2026-02-26 -- Completed 08-01 (dynamic building label infrastructure)
+Plan: 2 of 2 complete (PHASE COMPLETE)
+Status: Phase 08 complete, ready for Phase 09
+Last activity: 2026-02-26 -- Completed 08-02 (project-to-building routing and dynamic labels)
 
-Progress: [█████░░░░░] 50% (1/2 plans in phase 8)
+Progress: [██████████] 100% (2/2 plans in phase 8)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 18 (v1.0: 9, v1.1: 9)
+- Total plans completed: 20 (v1.0: 9, v1.1: 9, v1.2: 2)
 - Average duration: --
 - Total execution time: ~2 days
 
@@ -66,6 +66,8 @@ Recent decisions affecting current work:
 - [v1.2 Roadmap]: Agent fade-out must fully destroy containers, not just set alpha to 0
 - [08-01]: Renamed private label property to labelText to avoid PixiJS Container.label collision
 - [08-01]: Used '..' (two ASCII dots) for truncation suffix to stay within BitmapFont ASCII range
+- [08-02]: Building slots assigned in stable order (coding, testing, reading, comms) for deterministic project assignment
+- [08-02]: 5th+ project overflows to Guild Hall rather than evicting existing projects
 
 ### Blockers/Concerns
 
@@ -74,5 +76,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: Completed 08-01-PLAN.md
+Stopped at: Completed 08-02-PLAN.md (Phase 8 complete)
 Resume file: None

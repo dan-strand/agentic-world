@@ -39,7 +39,7 @@ See: [`.planning/milestones/v1.1-ROADMAP.md`](milestones/v1.1-ROADMAP.md) for fu
 
 ### v1.2 Activity Monitoring & Labeling (In Progress)
 
-- [ ] **Phase 8: Dynamic Building Labels** - Buildings show active project folder names; revert to RPG names when vacant
+- [x] **Phase 8: Dynamic Building Labels** - Buildings show active project folder names; revert to RPG names when vacant
 - [ ] **Phase 9: Speech Bubbles and Project Routing** - Speech bubbles trigger on all meaningful activity changes; project-based building assignment
 - [ ] **Phase 10: Agent Fade-Out Lifecycle** - Completed agents fade out at Guild Hall; stale sessions cleaned up properly
 
@@ -57,8 +57,8 @@ See: [`.planning/milestones/v1.1-ROADMAP.md`](milestones/v1.1-ROADMAP.md) for fu
 **Plans**: 2 plans
 
 Plans:
-- [ ] 08-01-PLAN.md -- Building label infrastructure: MAX_LABEL_CHARS constant, BitmapFont ASCII expansion, Building setLabel/resetLabel methods
-- [ ] 08-02-PLAN.md -- Project-to-building routing: replace activity-based routing with project-based assignment, dynamic label updates, slot release
+- [x] 08-01-PLAN.md -- Building label infrastructure: MAX_LABEL_CHARS constant, BitmapFont ASCII expansion, Building setLabel/resetLabel methods
+- [x] 08-02-PLAN.md -- Project-to-building routing: replace activity-based routing with project-based assignment, dynamic label updates, slot release
 
 ### Phase 9: Speech Bubbles and Project Routing
 **Goal**: Agents communicate their current activity through speech bubbles that appear on meaningful changes and fade naturally, with agents routed to buildings by project rather than activity type
@@ -103,6 +103,6 @@ Phases execute in numeric order: 8 -> 9 -> 10
 | 5. Buildings and World Layout | v1.1 | 3/3 | Complete | 2026-02-26 |
 | 6. Agent Sprite Overhaul | v1.1 | 2/2 | Complete | 2026-02-26 |
 | 7. Effects and Atmosphere | v1.1 | 2/2 | Complete | 2026-02-26 |
-| 8. Dynamic Building Labels | v1.2 | 0/2 | Not started | - |
+| 8. Dynamic Building Labels | v1.2 | 2/2 | Complete | 2026-02-26 |
 | 9. Speech Bubbles and Project Routing | v1.2 | 0/? | Not started | - |
 | 10. Agent Fade-Out Lifecycle | v1.2 | 0/? | Not started | - |
