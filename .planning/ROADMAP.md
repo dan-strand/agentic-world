@@ -3,7 +3,7 @@
 ## Milestones
 
 - ✅ **v1.0 MVP** - Phases 1-3 (shipped 2026-02-25)
-- 🚧 **v1.1 Fantasy RPG Aesthetic** - Phases 4-7 (in progress)
+- ✅ **v1.1 Fantasy RPG Aesthetic** - Phases 4-7 (shipped 2026-02-26)
 
 ## Phases
 
@@ -70,14 +70,14 @@ Plans:
 
 </details>
 
-### v1.1 Fantasy RPG Aesthetic (In Progress)
+### v1.1 Fantasy RPG Aesthetic (SHIPPED 2026-02-26)
 
 **Milestone Goal:** Replace the spy/secret agent theme with a Fantasy RPG aesthetic -- guild hall, quest zones, 32x32 sprite sheets, tilemap environment, level-up celebrations, and a clean fixed-size window.
 
-- [ ] **Phase 4: Asset Pipeline and World Ground** - Sprite atlas loading, tilemap ground with paths, fixed 1024x768 window with hidden title bar
+- [x] **Phase 4: Asset Pipeline and World Ground** - Sprite atlas loading, tilemap ground with paths, fixed 1024x768 window with hidden title bar (completed 2026-02-26)
 - [x] **Phase 5: Buildings and World Layout** - Guild Hall and four quest zone buildings positioned as one cohesive connected world (completed 2026-02-26)
 - [x] **Phase 6: Agent Sprite Overhaul** - AnimatedSprite adventurers with character classes, vehicle system removed, walk/idle/work animations (completed 2026-02-26)
-- [ ] **Phase 7: Effects and Atmosphere** - Level-up celebration, ambient particles, zone glow highlights, warm lighting tint
+- [x] **Phase 7: Effects and Atmosphere** - Level-up celebration, ambient particles, zone glow highlights, warm lighting tint (completed 2026-02-26)
 
 ## Phase Details
 
@@ -93,8 +93,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 04-01-PLAN.md -- Fixed window config, asset pipeline (deps, webpack, tile atlas), renderer init with nearest-neighbor scaling
-- [ ] 04-02-PLAN.md -- Tilemap builder with grass variants and dirt paths, World scene integration, visual verification
+- [x] 04-01-PLAN.md -- Fixed window config, asset pipeline (deps, webpack, tile atlas), renderer init with nearest-neighbor scaling
+- [x] 04-02-PLAN.md -- Tilemap builder with grass variants and dirt paths, World scene integration, visual verification
 
 ### Phase 5: Buildings and World Layout
 **Goal**: User sees a cohesive Fantasy RPG world with a central Guild Hall and four distinct quest zone buildings connected by the path network
@@ -141,8 +141,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 07-01-PLAN.md -- Install pixi-filters, new constants, LevelUpEffect and AmbientParticles classes
-- [ ] 07-02-PLAN.md -- World integration (warm filter, zone highlights, ambient particles), agent celebration swap, fireworks deletion, visual verification
+- [x] 07-01-PLAN.md -- Install pixi-filters, new constants, LevelUpEffect and AmbientParticles classes
+- [x] 07-02-PLAN.md -- World integration (warm filter, zone highlights, ambient particles), agent celebration swap, fireworks deletion, visual verification
 
 ## Progress
 
@@ -154,7 +154,7 @@ Phases execute in numeric order: 4 -> 5 -> 6 -> 7
 | 1. Foundation and Detection | v1.0 | 3/3 | Complete | 2026-02-25 |
 | 2. Visual World | v1.0 | 4/4 | Complete | 2026-02-25 |
 | 3. Status and Lifecycle | v1.0 | 2/2 | Complete | 2026-02-25 |
-| 4. Asset Pipeline and World Ground | v1.1 | 0/2 | Planning | - |
+| 4. Asset Pipeline and World Ground | v1.1 | 2/2 | Complete | 2026-02-26 |
 | 5. Buildings and World Layout | v1.1 | 2/2 | Complete | 2026-02-26 |
 | 6. Agent Sprite Overhaul | v1.1 | 3/3 | Complete | 2026-02-26 |
-| 7. Effects and Atmosphere | v1.1 | 0/2 | Planning | - |
+| 7. Effects and Atmosphere | v1.1 | 2/2 | Complete | 2026-02-26 |

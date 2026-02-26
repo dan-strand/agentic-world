@@ -52,7 +52,7 @@ Requirements for the Fantasy RPG Aesthetic milestone. Each maps to roadmap phase
 - [ ] **ENV-01**: Ground is rendered as a tilemap with grass tile variants and dirt paths connecting the Guild Hall to each quest zone
 - [x] **ENV-02**: Window is fixed at 1024x768 with no resize, no menus, hidden title bar with native minimize/close buttons
 - [x] **ENV-03**: Ambient floating particles (fireflies, magic dust) add atmosphere to the world
-- [ ] **ENV-04**: Quest zones show a glow/highlight effect when an agent is actively working there
+- [x] **ENV-04**: Quest zones show a glow/highlight effect when an agent is actively working there
 
 ### Agent System
 
@@ -64,7 +64,7 @@ Requirements for the Fantasy RPG Aesthetic milestone. Each maps to roadmap phase
 
 - [x] **FX-01**: Task completion triggers a golden light column + sparkle shower effect replacing the fireworks explosion
 - [x] **FX-02**: Level-up light column has a GlowFilter halo effect for visual impact
-- [ ] **FX-03**: World has a warm ambient lighting tint (ColorMatrixFilter) for RPG atmosphere
+- [x] **FX-03**: World has a warm ambient lighting tint (ColorMatrixFilter) for RPG atmosphere
 
 ## v2 Requirements
 
@@ -140,9 +140,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AGENT-03 | Phase 6 | Complete |
 | FX-01 | Phase 7 | Complete |
 | FX-02 | Phase 7 | Complete |
-| FX-03 | Phase 7 | Pending |
+| FX-03 | Phase 7 | Complete |
 | ENV-03 | Phase 7 | Complete |
-| ENV-04 | Phase 7 | Pending |
+| ENV-04 | Phase 7 | Complete |
 
 **Coverage:**
 - v1.0 requirements: 16 total, 16 mapped, 0 unmapped
