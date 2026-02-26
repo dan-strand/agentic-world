@@ -37,7 +37,7 @@ export const FPS_ACTIVE = 30;
 export const FPS_IDLE = 5;
 
 // JSONL reading
-export const JSONL_TAIL_BUFFER_SIZE = 4096;
+export const JSONL_TAIL_BUFFER_SIZE = 65536; // 64KB -- assistant entries with code can be very large
 
 // Agent identity -- 8-color palette per user decision
 export const AGENT_COLORS = [

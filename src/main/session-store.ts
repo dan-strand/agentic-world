@@ -95,10 +95,15 @@ export class SessionStore {
         // If nothing changed, keep the existing entry (no update needed)
       }
 
-      // Per user decision: completed/ended sessions stay visible until app restart.
-      // If a session was previously known but not returned by detector
-      // (e.g., JSONL file deleted), keep it with last known state.
-      // We do NOT remove sessions from the map.
+      // Remove sessions the detector no longer returns (stale/closed).
+      // This lets the renderer detect disappearance and trigger agent fade-out.
+      for (const sessionId of this.sessions.keys()) {
+        if (!discoveredIds.has(sessionId)) {
+          console.log(`[session-store] Session removed: ${this.sessions.get(sessionId)?.projectName}`);
+          this.sessions.delete(sessionId);
+          hasChanges = true;
+        }
+      }
 
       if (hasChanges) {
         this.pushUpdate();
