@@ -8,6 +8,7 @@ import {
   WORLD_WIDTH,
   WORLD_HEIGHT,
   ACTIVITY_BUILDING,
+  IDLE_TIMEOUT_MS,
 } from '../shared/constants';
 import type { BuildingType } from '../shared/constants';
 import { Agent } from './agent';
@@ -76,6 +77,9 @@ export class World {
 
   // Dismissed sessions -- prevents resurrection from stale IPC data after fade-out removal
   private dismissedSessions: Set<string> = new Set();
+
+  // Idle timeout tracking (ms of continuous committed-idle time per agent)
+  private idleTimers: Map<string, number> = new Map();
 
   // Layout
   private centerX = 0;
@@ -194,6 +198,21 @@ export class World {
           }
         }
       }
+
+      // Idle timeout: track continuous idle duration and trigger fade-out
+      const committed = this.lastCommittedStatus.get(agent.sessionId);
+      if (committed === 'idle' && agent.getState() !== 'fading_out') {
+        const prev = this.idleTimers.get(agent.sessionId) ?? 0;
+        const next = prev + deltaMs;
+        this.idleTimers.set(agent.sessionId, next);
+        if (next >= IDLE_TIMEOUT_MS) {
+          agent.startFadeOut();
+          this.idleTimers.delete(agent.sessionId);
+        }
+      } else {
+        // Not idle or already fading -- reset timer
+        this.idleTimers.delete(agent.sessionId);
+      }
     }
 
     // Deferred removal of fully faded agents (collect-then-remove to avoid mutation during iteration)
@@ -289,6 +308,7 @@ export class World {
     this.lastCommittedStatus.delete(sessionId);
     this.lastRawStatus.delete(sessionId);
     this.agentBuilding.delete(sessionId);
+    this.idleTimers.delete(sessionId);
 
     // Release factory slot
     this.agentFactory.releaseSlot(sessionId);
@@ -355,10 +375,18 @@ export class World {
 
       // Route agent to building based on project name
       const activityType = session.activityType;
-      const agentState = agent.getState();
 
-      // Don't route fading agents -- they're being removed
-      if (agentState === 'fading_out') continue;
+      // Handle fading agents: cancel idle-timeout fades on reactivation, skip session-gone fades
+      if (agent.getState() === 'fading_out') {
+        if (session.activityType !== 'idle' || session.status !== 'idle') {
+          agent.cancelFadeOut();
+          // Fall through to routing with fresh state
+        } else {
+          continue; // Still idle, let fade-out proceed
+        }
+      }
+
+      const agentState = agent.getState();
 
       if (activityType !== 'idle') {
         const building = this.getProjectBuilding(session.projectName);
@@ -422,6 +450,7 @@ export class World {
         this.lastCommittedStatus.delete(sessionId);
         this.lastRawStatus.delete(sessionId);
         this.agentBuilding.delete(sessionId);
+        this.idleTimers.delete(sessionId);
       }
     }
 
