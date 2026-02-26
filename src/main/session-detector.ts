@@ -162,10 +162,12 @@ export class FilesystemSessionDetector implements SessionDetector {
           projectPath = cwdCached.projectPath;
           projectName = cwdCached.projectName;
         } else {
-          // Last resort: use directory name (not ideal -- may have encoding artifacts)
+          // Last resort: extract project name from Claude's mangled directory name
+          // e.g. "C--Users-dlaws-Projects-freeflow" → "freeflow"
+          const segments = dirName.split('-').filter(s => s.length > 0);
           projectPath = dirName;
-          projectName = dirName;
-          console.warn(`[session-detector] No cwd found for session ${sessionId}, using dir name as fallback`);
+          projectName = segments.length > 0 ? segments[segments.length - 1] : dirName;
+          console.warn(`[session-detector] No cwd found for session ${sessionId}, using dir name fallback: ${projectName}`);
         }
       }
 
