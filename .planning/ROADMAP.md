@@ -105,7 +105,11 @@ Plans:
   2. User sees four visually distinct quest zone buildings: Wizard Tower, Training Grounds, Ancient Library, and Tavern
   3. Buildings are positioned along the dirt path network so the world reads as one connected village, not scattered boxes
   4. The old dynamic compound system and HQ are fully replaced -- no spy-themed visuals remain in the world
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 05-01-PLAN.md -- Building atlas generation, spritesheet descriptor, asset loader extension, building constants
+- [ ] 05-02-PLAN.md -- Building class, world refactoring (replace compounds/HQ with static buildings), visual verification
 
 ### Phase 6: Agent Sprite Overhaul
 **Goal**: User sees Fantasy RPG adventurer characters walking between locations with smooth sprite-sheet animations, replacing the old code-drawn spy agents and vehicles
