@@ -75,7 +75,7 @@ Plans:
 **Milestone Goal:** Replace the spy/secret agent theme with a Fantasy RPG aesthetic -- guild hall, quest zones, 32x32 sprite sheets, tilemap environment, level-up celebrations, and a clean fixed-size window.
 
 - [ ] **Phase 4: Asset Pipeline and World Ground** - Sprite atlas loading, tilemap ground with paths, fixed 1024x768 window with hidden title bar
-- [ ] **Phase 5: Buildings and World Layout** - Guild Hall and four quest zone buildings positioned as one cohesive connected world
+- [x] **Phase 5: Buildings and World Layout** - Guild Hall and four quest zone buildings positioned as one cohesive connected world (completed 2026-02-26)
 - [ ] **Phase 6: Agent Sprite Overhaul** - AnimatedSprite adventurers with character classes, vehicle system removed, walk/idle/work animations
 - [ ] **Phase 7: Effects and Atmosphere** - Level-up celebration, ambient particles, zone glow highlights, warm lighting tint
 
@@ -108,8 +108,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 05-01-PLAN.md -- Building atlas generation, spritesheet descriptor, asset loader extension, building constants
-- [ ] 05-02-PLAN.md -- Building class, world refactoring (replace compounds/HQ with static buildings), visual verification
+- [x] 05-01-PLAN.md -- Building atlas generation, spritesheet descriptor, asset loader extension, building constants
+- [x] 05-02-PLAN.md -- Building class, world refactoring (replace compounds/HQ with static buildings), visual verification
 
 ### Phase 6: Agent Sprite Overhaul
 **Goal**: User sees Fantasy RPG adventurer characters walking between locations with smooth sprite-sheet animations, replacing the old code-drawn spy agents and vehicles
@@ -146,6 +146,6 @@ Phases execute in numeric order: 4 -> 5 -> 6 -> 7
 | 2. Visual World | v1.0 | 4/4 | Complete | 2026-02-25 |
 | 3. Status and Lifecycle | v1.0 | 2/2 | Complete | 2026-02-25 |
 | 4. Asset Pipeline and World Ground | v1.1 | 0/2 | Planning | - |
-| 5. Buildings and World Layout | v1.1 | 0/? | Not started | - |
+| 5. Buildings and World Layout | v1.1 | 2/2 | Complete | 2026-02-26 |
 | 6. Agent Sprite Overhaul | v1.1 | 0/? | Not started | - |
 | 7. Effects and Atmosphere | v1.1 | 0/? | Not started | - |

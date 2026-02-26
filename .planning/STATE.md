@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-25)
 ## Current Position
 
 Phase: 5 of 7 (Buildings and World Layout)
-Plan: 1 of 2 in current phase -- COMPLETE
-Status: Executing Phase 5
-Last activity: 2026-02-26 -- Completed 05-01 (Building Sprites)
+Plan: 2 of 2 in current phase -- COMPLETE
+Status: Phase 5 Complete
+Last activity: 2026-02-26 -- Completed 05-02 (Buildings and World Layout)
 
-Progress: [███████████████               ] 50% (Phase 5: 1/2 plans complete)
+Progress: [██████████████████████████████] 100% (Phase 5: 2/2 plans complete)
 
 ## Performance Metrics
 
@@ -26,6 +26,7 @@ Progress: [███████████████               ] 50% (Ph
 - Phase 4 Plan 01: 8min (3 tasks, 10 files)
 - Phase 4 Plan 02: 25min (3 tasks, 6 files) -- replaced @pixi/tilemap with canvas rendering
 - Phase 5 Plan 01: 4min (2 tasks, 5 files)
+- Phase 5 Plan 02: 3min (2 tasks, 2 files)
 
 ## Accumulated Context
 
@@ -52,6 +53,9 @@ New for v1.1:
 - [Phase 04-02]: tileTextures map (not Cache/Texture.from) for spritesheet frame access
 - [Phase 05-01]: BuildingType in constants.ts (not types.ts) -- phase-specific layout concept
 - [Phase 05-01]: Parallel atlas loading via Promise.all for tiles + buildings in loadAllAssets()
+- [Phase 05-02]: Building Sprite anchor (0.5, 1.0) for bottom-center ground placement
+- [Phase 05-02]: Activity-type routing via ACTIVITY_BUILDING map replaces project-based compound assignment
+- [Phase 05-02]: assignToCompound() name kept unchanged -- rename deferred to Phase 6
 
 ### Pending Todos
 
@@ -65,5 +69,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: Completed 05-01-PLAN.md
+Stopped at: Completed 05-02-PLAN.md (Phase 5 complete)
 Resume file: None
