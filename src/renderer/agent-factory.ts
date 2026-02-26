@@ -32,6 +32,13 @@ export class AgentFactory {
   clearCache(): void {
     this.slotCache.clear();
   }
+
+  /**
+   * Release a single slot from the cache (cleanup after agent removal).
+   */
+  releaseSlot(sessionId: string): void {
+    this.slotCache.delete(sessionId);
+  }
 }
 
 /** Singleton factory instance for use across the renderer */

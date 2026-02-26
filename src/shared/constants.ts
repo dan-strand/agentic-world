@@ -149,6 +149,8 @@ export const AMBIENT_PARTICLE_ALPHA_MIN = 0.2;    // Minimum alpha in fade cycle
 export const AMBIENT_PARTICLE_ALPHA_RANGE = 0.6;  // Alpha range above minimum
 
 export const CELEBRATION_DURATION_MS = 2500;  // How long agent stays in celebrating state before heading to HQ
+export const AGENT_FADEOUT_DELAY_MS = 2000;   // Linger at Guild Hall before fade begins
+export const AGENT_FADEOUT_DURATION_MS = 2000; // Duration of alpha fade from 1 to 0
 
 // Color utility for tint crossfade
 export function lerpColor(from: number, to: number, t: number): number {

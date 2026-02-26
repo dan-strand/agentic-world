@@ -12,6 +12,8 @@ import {
   BREATH_ALPHA_MIN,
   BREATH_ALPHA_MAX,
   CELEBRATION_DURATION_MS,
+  AGENT_FADEOUT_DELAY_MS,
+  AGENT_FADEOUT_DURATION_MS,
   lerpColor,
   hashSessionId,
 } from '../shared/constants';
@@ -21,21 +23,23 @@ import { LevelUpEffect } from './level-up-effect';
 /**
  * Agent states form a walk-only cycle (no vehicle/driving):
  *   idle_at_hq -> walking_to_building -> walking_to_workspot -> working
- *                                                                  |
- *   idle_at_hq <- walking_to_building (to HQ) <--- celebrating ---+
+ *        |                                                        |
+ *   fading_out <- idle_at_hq <- walking_to_building <- celebrating
+ *   (terminal)   (if hasCompletedTask)
  */
 export type AgentState =
   | 'idle_at_hq'
   | 'walking_to_building'
   | 'walking_to_workspot'
   | 'working'
-  | 'celebrating';
+  | 'celebrating'
+  | 'fading_out';
 
 /**
  * Agent -- The main visual entity for each Claude Code session.
  *
  * Extends PixiJS Container with:
- * - 5-state walk-only state machine (no vehicle/driving states)
+ * - 6-state walk-only state machine (no vehicle/driving states; fading_out is terminal)
  * - AnimatedSprite from character atlas (mage/warrior/ranger/rogue)
  * - Linear interpolation movement (frame-rate independent via deltaMs)
  * - Staggered frame offsets via session hash for non-lockstep animation
@@ -80,6 +84,10 @@ export class Agent extends Container {
   private levelUpEffect: LevelUpEffect | null = null;
   private celebrationTimer = 0;
 
+  // Fade-out lifecycle (terminal state after celebration walkback)
+  private hasCompletedTask = false;
+  private fadeOutTimer = 0;
+
   constructor(sessionId: string, slot: AgentSlot) {
     super();
     this.sessionId = sessionId;
@@ -105,22 +113,31 @@ export class Agent extends Container {
    * @param deltaMs - Milliseconds since last tick (frame-rate independent)
    */
   tick(deltaMs: number): void {
-    // Status visual effects (independent of state machine)
-    this.updateTint(deltaMs);
-    this.updateBreathing(deltaMs);
-    this.updateShake(deltaMs);
+    // Skip ALL visual updates during fade-out to prevent alpha writer conflicts
+    if (this.state !== 'fading_out') {
+      // Status visual effects (independent of state machine)
+      this.updateTint(deltaMs);
+      this.updateBreathing(deltaMs);
+      this.updateShake(deltaMs);
 
-    // Advance AnimatedSprite animation manually
-    // Convert deltaMs to frame-relative units and apply status speed multiplier
-    const speedMultiplier = STATUS_ANIM_SPEED[this.visualStatus];
-    this.frameTimer += deltaMs * speedMultiplier;
-    if (this.frameTimer >= ANIMATION_FRAME_MS) {
-      this.frameTimer -= ANIMATION_FRAME_MS;
-      this.sprite.currentFrame = (this.sprite.currentFrame + 1) % this.sprite.totalFrames;
+      // Advance AnimatedSprite animation manually
+      // Convert deltaMs to frame-relative units and apply status speed multiplier
+      const speedMultiplier = STATUS_ANIM_SPEED[this.visualStatus];
+      this.frameTimer += deltaMs * speedMultiplier;
+      if (this.frameTimer >= ANIMATION_FRAME_MS) {
+        this.frameTimer -= ANIMATION_FRAME_MS;
+        this.sprite.currentFrame = (this.sprite.currentFrame + 1) % this.sprite.totalFrames;
+      }
     }
 
     switch (this.state) {
       case 'idle_at_hq':
+        if (this.hasCompletedTask) {
+          this.state = 'fading_out';
+          this.fadeOutTimer = 0;
+          this.setAnimation('idle');
+          break;
+        }
         this.setAnimation('idle');
         break;
 
@@ -168,11 +185,23 @@ export class Agent extends Container {
             this.levelUpEffect.destroy({ children: true });
             this.levelUpEffect = null;
           }
+          // Mark as completed so idle_at_hq transitions to fading_out
+          this.hasCompletedTask = true;
           // Walk directly to HQ (no vehicle)
           this.state = 'walking_to_building';
           this.buildingEntrance = this.hqPosition;
           this.workSpotTarget = null; // null signals "going to HQ" in walking_to_building handler
           this.setAnimation('walk');
+        }
+        break;
+      }
+
+      case 'fading_out': {
+        this.fadeOutTimer += deltaMs;
+        if (this.fadeOutTimer >= AGENT_FADEOUT_DELAY_MS) {
+          const fadeElapsed = this.fadeOutTimer - AGENT_FADEOUT_DELAY_MS;
+          const fadeProgress = Math.min(1, fadeElapsed / AGENT_FADEOUT_DURATION_MS);
+          this.alpha = 1 - fadeProgress;
         }
         break;
       }
@@ -225,10 +254,20 @@ export class Agent extends Container {
   // --- Status Visuals ---
 
   /**
+   * Returns true when the fade-out animation is fully complete
+   * and the agent is ready for removal from the world.
+   */
+  isFadedOut(): boolean {
+    return this.state === 'fading_out' &&
+      this.fadeOutTimer >= AGENT_FADEOUT_DELAY_MS + AGENT_FADEOUT_DURATION_MS;
+  }
+
+  /**
    * Apply visual status differentiation. Called by World after debouncing.
    * Triggers tint crossfade, breathing for waiting, shake on error transition.
    */
   applyStatusVisuals(status: SessionStatus): void {
+    if (this.state === 'fading_out') return;
     const prevStatus = this.visualStatus;
     this.visualStatus = status;
 
@@ -317,7 +356,7 @@ export class Agent extends Container {
    * Agent walks directly to building entrance, then to work spot.
    */
   assignToCompound(entrance: { x: number; y: number }, subLocation: { x: number; y: number }): void {
-    if (this.state === 'celebrating') return;
+    if (this.state === 'celebrating' || this.state === 'fading_out') return;
 
     this.buildingEntrance = entrance;
     this.workSpotTarget = subLocation;
@@ -331,7 +370,8 @@ export class Agent extends Container {
    * Agent walks directly to HQ position (no vehicle intermediary).
    */
   assignToHQ(position: { x: number; y: number }): void {
-    // Don't interrupt celebration -- agent will head to HQ after level-up effect finish
+    // Don't interrupt celebration or fade-out
+    if (this.state === 'fading_out') return;
     if (this.state === 'celebrating') {
       this.hqPosition = position;
       return;
