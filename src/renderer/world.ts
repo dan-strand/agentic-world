@@ -2,33 +2,20 @@ import { Application, Container } from 'pixi.js';
 import type { SessionInfo, ActivityType, SessionStatus } from '../shared/types';
 import {
   BACKGROUND_COLOR,
-  COMPOUND_INNER_RADIUS,
-  COMPOUND_OUTER_RADIUS,
-  COMPOUND_WIDTH,
   STATUS_DEBOUNCE_MS,
   GUILD_HALL_POS,
   QUEST_ZONE_POSITIONS,
   WORLD_WIDTH,
   WORLD_HEIGHT,
+  ACTIVITY_BUILDING,
 } from '../shared/constants';
+import type { BuildingType } from '../shared/constants';
 import { Agent } from './agent';
 import { AgentFactory } from './agent-factory';
-import { HQ } from './hq';
-import { Compound } from './compound';
-import { calculateCompoundPositions } from './compound-layout';
-import type { CompoundPosition } from './compound-layout';
+import { Building } from './building';
+import { buildingTextures } from './asset-loader';
 import { SpeechBubble } from './speech-bubble';
 import { buildWorldTilemap } from './tilemap-builder';
-
-/** Compound lifecycle tracking for fade-in/fade-out. */
-interface CompoundEntry {
-  compound: Compound;
-  position: CompoundPosition;
-  /** Target alpha for fade transitions. 1 = visible, 0 = removing. */
-  targetAlpha: number;
-  /** Whether this compound is being removed (fading out). */
-  removing: boolean;
-}
 
 /** Per-agent status debounce tracking to prevent jittery visual flickering. */
 interface StatusDebounce {
@@ -41,37 +28,33 @@ interface StatusDebounce {
 }
 
 /**
- * World -- PixiJS Application composing tilemap ground, HQ, dynamic project compounds,
+ * World -- PixiJS Application composing tilemap ground, static buildings,
  * agents, vehicles, speech bubbles into a living fantasy RPG world.
  *
  * Scene hierarchy:
  *   app.stage
- *   +-- tilemapLayer (CompositeTilemap grass + dirt paths)
- *   +-- hq (HQ Container)
- *   +-- compoundsContainer (dynamic Compound children)
+ *   +-- tilemapLayer (canvas-rendered grass + dirt paths)
+ *   +-- buildingsContainer (Guild Hall + 4 quest zone buildings)
  *   +-- agentsContainer (dynamic Agent children)
  */
 export class World {
   private app!: Application;
 
-  // Scene containers (z-order: tilemap, HQ, compounds, agents)
+  // Scene containers (z-order: tilemap, buildings, agents)
   private tilemapLayer!: Container;
-  private hq!: HQ;
-  private compoundsContainer!: Container;
+  private guildHall!: Building;
+  private buildingsContainer!: Container;
   private agentsContainer!: Container;
 
   // State tracking
   private agents: Map<string, Agent> = new Map();
-  private compounds: Map<string, CompoundEntry> = new Map();
+  private questZones: Map<ActivityType, Building> = new Map();
   private agentFactory: AgentFactory = new AgentFactory();
 
   // Speech bubbles managed per-agent
   private speechBubbles: Map<string, SpeechBubble> = new Map();
   // Track last known activity per agent for change detection
   private lastActivity: Map<string, ActivityType> = new Map();
-
-  // Track which compound each agent is assigned to
-  private agentCompoundAssignment: Map<string, string> = new Map();
 
   // Status debouncing (tracks raw -> committed status per agent)
   private statusDebounce: Map<string, StatusDebounce> = new Map();
@@ -82,8 +65,7 @@ export class World {
   // Track last raw status received per agent (for tick-based debounce advancement)
   private lastRawStatus: Map<string, SessionStatus> = new Map();
 
-  // Layout cache
-  private lastProjectSet = '';
+  // Layout
   private centerX = 0;
   private centerY = 0;
 
@@ -101,7 +83,7 @@ export class World {
 
     container.appendChild(this.app.canvas);
 
-    // Tilemap ground layer (replaces backgroundContainer + roadsContainer)
+    // Tilemap ground layer
     this.tilemapLayer = new Container();
     this.tilemapLayer.eventMode = 'none';
     this.tilemapLayer.interactiveChildren = false;
@@ -113,28 +95,39 @@ export class World {
     );
     this.tilemapLayer.addChild(tilemap);
 
-    this.hq = new HQ();
-    this.app.stage.addChild(this.hq);
+    // Buildings container (replaces HQ + compoundsContainer)
+    this.buildingsContainer = new Container();
+    this.app.stage.addChild(this.buildingsContainer);
 
-    this.compoundsContainer = new Container();
-    this.app.stage.addChild(this.compoundsContainer);
+    // Position center for guild hall
+    this.centerX = WORLD_WIDTH / 2;
+    this.centerY = WORLD_HEIGHT / 2;
+
+    // Create Guild Hall at world center
+    this.guildHall = new Building('guild_hall', buildingTextures['guild_hall']);
+    this.guildHall.position.set(GUILD_HALL_POS.x, GUILD_HALL_POS.y);
+    this.buildingsContainer.addChild(this.guildHall);
+
+    // Create 4 quest zone buildings from QUEST_ZONE_POSITIONS
+    for (const [activityType, pos] of Object.entries(QUEST_ZONE_POSITIONS)) {
+      const buildingType: BuildingType = ACTIVITY_BUILDING[activityType as ActivityType];
+      const building = new Building(buildingType, buildingTextures[buildingType]);
+      building.position.set(pos.x, pos.y);
+      this.buildingsContainer.addChild(building);
+      this.questZones.set(activityType as ActivityType, building);
+    }
 
     this.agentsContainer = new Container();
     this.app.stage.addChild(this.agentsContainer);
-
-    // Position HQ at center
-    this.centerX = WORLD_WIDTH / 2;
-    this.centerY = WORLD_HEIGHT / 2;
-    this.hq.position.set(this.centerX, this.centerY);
   }
 
   /**
    * Core logic -- called on every IPC session update.
-   * Groups sessions by project, manages compound lifecycle,
-   * creates/updates/transitions agents.
+   * Groups sessions by project, creates/updates/transitions agents.
+   * Buildings are static -- no compound lifecycle management needed.
    */
   updateSessions(sessions: SessionInfo[]): void {
-    // a. Group sessions by projectName
+    // a. Group sessions by projectName (still needed for agent management)
     const projectSessions = new Map<string, SessionInfo[]>();
     for (const s of sessions) {
       const list = projectSessions.get(s.projectName) ?? [];
@@ -142,15 +135,13 @@ export class World {
       projectSessions.set(s.projectName, list);
     }
 
-    // b. Manage compounds -- spawn/despawn based on active projects
-    this.manageCompounds(projectSessions);
-
-    // c. Manage agents -- create/update/transition
+    // b. Manage agents -- create/update/transition (no compound lifecycle)
     this.manageAgents(sessions, projectSessions);
   }
 
   /**
-   * Tick all agents and speech bubbles. Handle compound fade transitions.
+   * Tick all agents and speech bubbles.
+   * Buildings are always visible at alpha 1.0 -- no fade transitions needed.
    */
   tick(deltaMs: number): void {
     // Tick agents (state machine + animation) and advance status debouncing
@@ -181,22 +172,6 @@ export class World {
     for (const bubble of this.speechBubbles.values()) {
       bubble.tick(deltaMs);
     }
-
-    // Handle compound fade-in/fade-out
-    for (const [projectName, entry] of this.compounds) {
-      if (entry.removing) {
-        // Fade out over 2500ms (slow fade per user decision)
-        entry.compound.alpha = Math.max(0, entry.compound.alpha - deltaMs / 2500);
-        if (entry.compound.alpha <= 0) {
-          this.compoundsContainer.removeChild(entry.compound);
-          entry.compound.destroy();
-          this.compounds.delete(projectName);
-        }
-      } else if (entry.compound.alpha < 1) {
-        // Fade in over 500ms
-        entry.compound.alpha = Math.min(1, entry.compound.alpha + deltaMs / 500);
-      }
-    }
   }
 
   getApp(): Application {
@@ -212,116 +187,15 @@ export class World {
     this.app.destroy(true);
   }
 
-  // --- Private: Compound Management ---
-
-  /**
-   * Spawn/despawn compounds based on active projects.
-   * A compound is created when a project has at least one non-idle session.
-   * A compound is removed (faded out) when all sessions for the project are idle
-   * or the project disappears.
-   */
-  private manageCompounds(projectSessions: Map<string, SessionInfo[]>): void {
-    // Determine which projects need compounds (at least one non-idle session)
-    const activeProjects = new Set<string>();
-    for (const [projectName, sessions] of projectSessions) {
-      const hasNonIdle = sessions.some(s => s.activityType !== 'idle');
-      // Also check if any agent at this compound is still celebrating
-      const hasCelebrating = sessions.some(s => {
-        const agent = this.agents.get(s.sessionId);
-        if (!agent) return false;
-        const state = agent.getState();
-        return state === 'celebrating' || state === 'walking_to_entrance';
-      });
-      if (hasNonIdle || hasCelebrating) {
-        activeProjects.add(projectName);
-      }
-    }
-
-    // Mark compounds for removal if project no longer active
-    for (const [projectName, entry] of this.compounds) {
-      if (!activeProjects.has(projectName) && !entry.removing) {
-        entry.removing = true;
-        entry.targetAlpha = 0;
-      }
-    }
-
-    // Create new compounds for newly active projects
-    let needsRepositioning = false;
-    for (const projectName of activeProjects) {
-      const existing = this.compounds.get(projectName);
-      if (existing && existing.removing) {
-        // Reactivate compound that was being removed
-        existing.removing = false;
-        existing.targetAlpha = 1;
-      } else if (!existing) {
-        // Create new compound
-        const compound = new Compound(projectName);
-        compound.alpha = 0; // Start invisible, fade in
-        this.compoundsContainer.addChild(compound);
-        this.compounds.set(projectName, {
-          compound,
-          position: { x: 0, y: 0, angle: 0 },
-          targetAlpha: 1,
-          removing: false,
-        });
-        needsRepositioning = true;
-      }
-    }
-
-    // Check if active project set changed (for repositioning)
-    const sortedProjects = [...activeProjects].sort().join(',');
-    if (sortedProjects !== this.lastProjectSet) {
-      needsRepositioning = true;
-      this.lastProjectSet = sortedProjects;
-    }
-
-    if (needsRepositioning) {
-      this.recalculateCompoundPositions();
-    }
-  }
-
-  /**
-   * Recalculate all compound positions using radial layout algorithm.
-   * Smoothly transitions compounds to new positions.
-   */
-  private recalculateCompoundPositions(): void {
-    // Get only non-removing compounds
-    const activeEntries: [string, CompoundEntry][] = [];
-    for (const [name, entry] of this.compounds) {
-      if (!entry.removing) {
-        activeEntries.push([name, entry]);
-      }
-    }
-
-    if (activeEntries.length === 0) return;
-
-    const positions = calculateCompoundPositions(
-      activeEntries.length,
-      this.centerX,
-      this.centerY,
-      COMPOUND_INNER_RADIUS,
-      COMPOUND_OUTER_RADIUS,
-    );
-
-    for (let i = 0; i < activeEntries.length; i++) {
-      const [, entry] = activeEntries[i];
-      const pos = positions[i];
-      entry.position = pos;
-
-      // Position compound so its top-left is offset from the calculated center
-      entry.compound.x = pos.x - COMPOUND_WIDTH / 2;
-      entry.compound.y = pos.y - COMPOUND_WIDTH / 2;
-    }
-  }
-
   // --- Private: Agent Management ---
 
   /**
    * Create, update, and transition agents based on session data.
+   * Routes agents to buildings by activity type instead of per-project compounds.
    */
   private manageAgents(
     sessions: SessionInfo[],
-    projectSessions: Map<string, SessionInfo[]>,
+    _projectSessions: Map<string, SessionInfo[]>,
   ): void {
     const currentIds = new Set<string>();
 
@@ -357,50 +231,44 @@ export class World {
       // Store raw status for tick-based debounce advancement
       this.lastRawStatus.set(session.sessionId, session.status);
 
-      // Determine the compound for this session's project
-      const compoundEntry = this.compounds.get(session.projectName);
+      // Route agent to building based on activity type
+      const activityType = session.activityType;
       const agentState = agent.getState();
-      const prevAssignment = this.agentCompoundAssignment.get(session.sessionId);
 
-      if (compoundEntry && !compoundEntry.removing) {
-        // Project has an active compound
-        if (agentState === 'idle_at_hq' && session.activityType !== 'idle') {
-          // Agent is at HQ but session is active -- send to compound
-          const entrance = this.getGlobalCompoundEntrance(compoundEntry);
-          const subLoc = this.getGlobalSubLocation(compoundEntry, session.activityType);
-          agent.assignToCompound(entrance, subLoc);
-          this.agentCompoundAssignment.set(session.sessionId, session.projectName);
-        } else if (
-          agentState === 'working' &&
-          prevAssignment === session.projectName
-        ) {
-          // Agent is working -- check for activity change
-          const prevActivity = this.lastActivity.get(session.sessionId);
-          if (prevActivity && prevActivity !== session.activityType && session.activityType !== 'idle') {
-            const subLoc = this.getGlobalSubLocation(compoundEntry, session.activityType);
-            agent.updateActivity(subLoc);
-            // Show speech bubble on activity change
-            const bubble = this.speechBubbles.get(session.sessionId);
-            if (bubble) {
-              bubble.show(session.activityType);
+      if (activityType !== 'idle') {
+        const building = this.questZones.get(activityType);
+        if (building) {
+          if (agentState === 'idle_at_hq') {
+            // Agent at guild hall, needs to go work -- send to quest zone
+            const entrance = this.getBuildingEntrance(building);
+            const workPos = this.getBuildingWorkPosition(building, session.sessionId);
+            agent.assignToCompound(entrance, workPos);
+          } else if (agentState === 'working') {
+            // Check for activity type change (different building needed)
+            const prevActivity = this.lastActivity.get(session.sessionId);
+            if (prevActivity && prevActivity !== activityType) {
+              // Activity changed -- reassign to new building
+              const entrance = this.getBuildingEntrance(building);
+              const workPos = this.getBuildingWorkPosition(building, session.sessionId);
+              agent.assignToCompound(entrance, workPos);
+              // Show speech bubble on activity change
+              const bubble = this.speechBubbles.get(session.sessionId);
+              if (bubble) {
+                bubble.show(activityType);
+              }
             }
           }
         }
-      }
-
-      // If compound was removed (all idle) and agent is at compound, send back to HQ
-      if (
-        !compoundEntry || compoundEntry.removing
-      ) {
+      } else {
+        // Activity is idle -- agent should be at Guild Hall
         if (
           agentState !== 'idle_at_hq' &&
           agentState !== 'driving_to_hq' &&
           agentState !== 'walking_to_entrance' &&
           agentState !== 'celebrating'
         ) {
-          const idlePos = this.getGlobalHQIdlePosition(session.sessionId);
+          const idlePos = this.getGuildHallIdlePosition(session.sessionId);
           agent.assignToHQ(idlePos);
-          this.agentCompoundAssignment.delete(session.sessionId);
         }
       }
 
@@ -417,12 +285,12 @@ export class World {
       }
     }
 
-    // Reposition idle agents at HQ
+    // Reposition idle agents at Guild Hall
     this.repositionIdleAgents();
   }
 
   /**
-   * Reposition all idle agents in front of HQ.
+   * Reposition all idle agents in front of Guild Hall.
    */
   private repositionIdleAgents(): void {
     const idleAgents: Agent[] = [];
@@ -433,11 +301,11 @@ export class World {
     }
 
     for (let i = 0; i < idleAgents.length; i++) {
-      const localPos = this.hq.getIdlePosition(i, idleAgents.length);
-      // Convert HQ-local position to global position
+      const localPos = this.guildHall.getIdlePosition(i, idleAgents.length);
+      // Convert guild hall local position to global position
       const globalPos = {
-        x: this.hq.x + localPos.x,
-        y: this.hq.y + localPos.y,
+        x: this.guildHall.x + localPos.x,
+        y: this.guildHall.y + localPos.y,
       };
       idleAgents[i].setHQPosition(globalPos);
     }
@@ -501,35 +369,40 @@ export class World {
   // --- Private: Position Helpers ---
 
   /**
-   * Get compound entrance position in global (world) coordinates.
+   * Get building entrance position in global (world) coordinates.
    */
-  private getGlobalCompoundEntrance(entry: CompoundEntry): { x: number; y: number } {
-    const local = entry.compound.getEntrancePosition();
-    return {
-      x: entry.compound.x + local.x,
-      y: entry.compound.y + local.y,
-    };
+  private getBuildingEntrance(building: Building): { x: number; y: number } {
+    const local = building.getEntrancePosition();
+    return { x: building.x + local.x, y: building.y + local.y };
   }
 
   /**
-   * Get sub-location position in global (world) coordinates.
+   * Get building work position in global (world) coordinates.
+   * Counts agents already at this building to fan them out.
    */
-  private getGlobalSubLocation(
-    entry: CompoundEntry,
-    activity: ActivityType,
-  ): { x: number; y: number } {
-    const local = entry.compound.getSubLocationPosition(activity);
-    return {
-      x: entry.compound.x + local.x,
-      y: entry.compound.y + local.y,
-    };
+  private getBuildingWorkPosition(building: Building, sessionId: string): { x: number; y: number } {
+    let agentIndex = 0;
+    let totalAtBuilding = 0;
+    for (const [sid, agent] of this.agents) {
+      const state = agent.getState();
+      if (state === 'working' || state === 'walking_to_sublocation') {
+        // Check if this agent's last activity maps to the same building
+        const activity = this.lastActivity.get(sid);
+        if (activity && this.questZones.get(activity) === building) {
+          totalAtBuilding++;
+          if (sid === sessionId) agentIndex = totalAtBuilding - 1;
+        }
+      }
+    }
+    const local = building.getWorkPosition(agentIndex, Math.max(totalAtBuilding, 1));
+    return { x: building.x + local.x, y: building.y + local.y };
   }
 
   /**
-   * Get a global idle position at HQ for a specific agent.
-   * Used when sending an agent back to HQ.
+   * Get a global idle position at Guild Hall for a specific agent.
+   * Used when sending an agent back to Guild Hall.
    */
-  private getGlobalHQIdlePosition(sessionId: string): { x: number; y: number } {
+  private getGuildHallIdlePosition(sessionId: string): { x: number; y: number } {
     // Count current idle agents + this one
     let idleCount = 1;
     let thisIndex = 0;
@@ -540,10 +413,10 @@ export class World {
         thisIndex++;
       }
     }
-    const localPos = this.hq.getIdlePosition(thisIndex, idleCount);
+    const localPos = this.guildHall.getIdlePosition(thisIndex, idleCount);
     return {
-      x: this.hq.x + localPos.x,
-      y: this.hq.y + localPos.y,
+      x: this.guildHall.x + localPos.x,
+      y: this.guildHall.y + localPos.y,
     };
   }
 }
