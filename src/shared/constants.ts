@@ -153,6 +153,7 @@ export const CELEBRATION_DURATION_MS = 2500;  // How long agent stays in celebra
 export const AGENT_FADEOUT_DELAY_MS = 2000;   // Linger at Guild Hall before fade begins
 export const AGENT_FADEOUT_DURATION_MS = 2000; // Duration of alpha fade from 1 to 0
 export const IDLE_TIMEOUT_MS = 5 * 60 * 1000;   // 5 minutes of continuous idle before fade-out
+export const IDLE_REMINDER_MS = 60 * 1000;       // 1 minute of idle before "ready to work" reminder sound
 
 // Color utility for tint crossfade
 export function lerpColor(from: number, to: number, t: number): number {
