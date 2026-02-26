@@ -163,3 +163,28 @@ export function lerpColor(from: number, to: number, t: number): number {
   const b = Math.round(b1 + (b2 - b1) * t);
   return (r << 16) | (g << 8) | b;
 }
+
+// Building sizes (pixels)
+export const BUILDING_WIDTH = 96;   // 3 tiles
+export const BUILDING_HEIGHT = 96;  // 3 tiles
+
+// Building type identifiers matching atlas frame names
+export type BuildingType = 'guild_hall' | 'wizard_tower' | 'training_grounds' | 'ancient_library' | 'tavern';
+
+// Activity type -> building type mapping (idle -> guild_hall, work activities -> quest zones)
+export const ACTIVITY_BUILDING: Record<ActivityType, BuildingType> = {
+  coding:  'wizard_tower',
+  testing: 'training_grounds',
+  reading: 'ancient_library',
+  comms:   'tavern',
+  idle:    'guild_hall',
+};
+
+// Building display labels for BitmapText signposts
+export const BUILDING_LABELS: Record<BuildingType, string> = {
+  guild_hall:       'Guild Hall',
+  wizard_tower:     'Wizard Tower',
+  training_grounds: 'Training Grounds',
+  ancient_library:  'Ancient Library',
+  tavern:           'Tavern',
+};
