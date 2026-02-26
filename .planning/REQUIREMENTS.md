@@ -41,10 +41,10 @@ Requirements for the Fantasy RPG Aesthetic milestone. Each maps to roadmap phase
 
 ### Visual Theme
 
-- [ ] **THEME-01**: Agents display as Fantasy RPG adventurer characters using 32x32 sprite sheet animations from CC0 public packs
+- [x] **THEME-01**: Agents display as Fantasy RPG adventurer characters using 32x32 sprite sheet animations from CC0 public packs
 - [x] **THEME-02**: Central HQ is replaced with a Guild Hall building sprite where idle agents rest
 - [x] **THEME-03**: Mission locations are replaced with 4 themed quest zone buildings: Wizard Tower (coding), Training Grounds (testing), Ancient Library (reading), Tavern (comms)
-- [ ] **THEME-04**: Each agent has a distinct character class appearance (mage, warrior, ranger, rogue) based on slot assignment
+- [x] **THEME-04**: Each agent has a distinct character class appearance (mage, warrior, ranger, rogue) based on slot assignment
 - [ ] **THEME-05**: Buildings feel connected as part of one cohesive world layout, not disjointed isolated boxes
 
 ### World Environment
@@ -133,8 +133,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | THEME-05 | Phase 4 | Pending |
 | THEME-02 | Phase 5 | Complete |
 | THEME-03 | Phase 5 | Complete |
-| THEME-01 | Phase 6 | Pending |
-| THEME-04 | Phase 6 | Pending |
+| THEME-01 | Phase 6 | Complete |
+| THEME-04 | Phase 6 | Complete |
 | AGENT-01 | Phase 6 | Pending |
 | AGENT-02 | Phase 6 | Pending |
 | AGENT-03 | Phase 6 | Pending |

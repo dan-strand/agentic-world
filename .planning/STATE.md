@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: Fantasy RPG Aesthetic
-status: unknown
-last_updated: "2026-02-26T14:28:04.492Z"
+status: in-progress
+last_updated: "2026-02-26T14:53:08Z"
 progress:
-  total_phases: 5
+  total_phases: 7
   completed_phases: 5
-  total_plans: 13
-  completed_plans: 13
+  total_plans: 16
+  completed_plans: 14
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-25)
 
 **Core value:** Instantly see the status of all Claude Code sessions so you know which one needs attention next.
-**Current focus:** Phase 5 - Buildings and World Layout (v1.1)
+**Current focus:** Phase 6 - Agent Sprite Overhaul (v1.1)
 
 ## Current Position
 
-Phase: 5 of 7 (Buildings and World Layout)
-Plan: 2 of 2 in current phase -- COMPLETE
-Status: Phase 5 Complete
-Last activity: 2026-02-26 -- Completed 05-02 (Buildings and World Layout)
+Phase: 6 of 7 (Agent Sprite Overhaul)
+Plan: 2 of 3 in current phase
+Status: Plan 06-01 Complete
+Last activity: 2026-02-26 -- Completed 06-01 (Character Atlas and Type System)
 
-Progress: [██████████████████████████████] 100% (Phase 5: 2/2 plans complete)
+Progress: [██████████████████████████████] 33% (Phase 6: 1/3 plans complete)
 
 ## Performance Metrics
 
@@ -40,6 +40,7 @@ Progress: [███████████████████████
 - Phase 4 Plan 02: 25min (3 tasks, 6 files) -- replaced @pixi/tilemap with canvas rendering
 - Phase 5 Plan 01: 4min (2 tasks, 5 files)
 - Phase 5 Plan 02: 3min (2 tasks, 2 files)
+- Phase 6 Plan 01: 4min (2 tasks, 6 files)
 
 ## Accumulated Context
 
@@ -69,6 +70,9 @@ New for v1.1:
 - [Phase 05-02]: Building Sprite anchor (0.5, 1.0) for bottom-center ground placement
 - [Phase 05-02]: Activity-type routing via ACTIVITY_BUILDING map replaces project-based compound assignment
 - [Phase 05-02]: assignToCompound() name kept unchanged -- rename deferred to Phase 6
+- [Phase 06-01]: Script generates both PNG and JSON in single run for consistency
+- [Phase 06-01]: CharacterClass replaces both VehicleType and AccessoryType (simplification)
+- [Phase 06-01]: Dead code removed: COMPOUND_*, HQ_*, AGENT_DRIVE_SPEED, VEHICLE_TYPES, ACCESSORIES
 
 ### Pending Todos
 
@@ -82,5 +86,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: Completed 05-02-PLAN.md (Phase 5 complete)
+Stopped at: Completed 06-01-PLAN.md
 Resume file: None
