@@ -1,6 +1,6 @@
 import { Container, Sprite, BitmapText, Texture } from 'pixi.js';
 import type { BuildingType } from '../shared/constants';
-import { BUILDING_LABELS } from '../shared/constants';
+import { BUILDING_LABELS, MAX_LABEL_CHARS } from '../shared/constants';
 
 /**
  * Building -- A static world entity wrapping a Sprite from the building atlas
@@ -16,10 +16,13 @@ import { BUILDING_LABELS } from '../shared/constants';
  */
 export class Building extends Container {
   readonly buildingType: BuildingType;
+  private labelText: BitmapText;
+  private readonly defaultLabel: string;
 
   constructor(buildingType: BuildingType, texture: Texture) {
     super();
     this.buildingType = buildingType;
+    this.defaultLabel = BUILDING_LABELS[buildingType];
 
     // Sprite from atlas with bottom-center anchor for ground placement
     const sprite = new Sprite(texture);
@@ -27,17 +30,34 @@ export class Building extends Container {
     this.addChild(sprite);
 
     // Label above building using BitmapText with pixel signpost font
-    const label = new BitmapText({
-      text: BUILDING_LABELS[buildingType],
+    this.labelText = new BitmapText({
+      text: this.defaultLabel,
       style: {
         fontFamily: 'PixelSignpost',
         fontSize: 16,
       },
     });
-    label.anchor.set(0.5, 1);
+    this.labelText.anchor.set(0.5, 1);
     // Position label above the sprite top (sprite extends upward from anchor)
-    label.position.set(0, -texture.height - 4);
-    this.addChild(label);
+    this.labelText.position.set(0, -texture.height - 4);
+    this.addChild(this.labelText);
+  }
+
+  /** Update label to show a project name (truncated if needed). */
+  setLabel(text: string): void {
+    const display = text.length > MAX_LABEL_CHARS
+      ? text.slice(0, MAX_LABEL_CHARS - 2) + '..'
+      : text;
+    if (this.labelText.text !== display) {
+      this.labelText.text = display;
+    }
+  }
+
+  /** Revert label to the default RPG building name. */
+  resetLabel(): void {
+    if (this.labelText.text !== this.defaultLabel) {
+      this.labelText.text = this.defaultLabel;
+    }
   }
 
   /**
