@@ -1,4 +1,4 @@
-import { Application, Container, Graphics } from 'pixi.js';
+import { Application, Container } from 'pixi.js';
 import type { SessionInfo, ActivityType, SessionStatus } from '../shared/types';
 import {
   BACKGROUND_COLOR,
@@ -6,6 +6,10 @@ import {
   COMPOUND_OUTER_RADIUS,
   COMPOUND_WIDTH,
   STATUS_DEBOUNCE_MS,
+  GUILD_HALL_POS,
+  QUEST_ZONE_POSITIONS,
+  WORLD_WIDTH,
+  WORLD_HEIGHT,
 } from '../shared/constants';
 import { Agent } from './agent';
 import { AgentFactory } from './agent-factory';
@@ -14,6 +18,7 @@ import { Compound } from './compound';
 import { calculateCompoundPositions } from './compound-layout';
 import type { CompoundPosition } from './compound-layout';
 import { SpeechBubble } from './speech-bubble';
+import { buildWorldTilemap } from './tilemap-builder';
 
 /** Compound lifecycle tracking for fade-in/fade-out. */
 interface CompoundEntry {
@@ -36,13 +41,12 @@ interface StatusDebounce {
 }
 
 /**
- * World -- PixiJS Application composing HQ, dynamic project compounds,
- * agents, vehicles, speech bubbles, and road spokes into a living spy world.
+ * World -- PixiJS Application composing tilemap ground, HQ, dynamic project compounds,
+ * agents, vehicles, speech bubbles into a living fantasy RPG world.
  *
  * Scene hierarchy:
  *   app.stage
- *   +-- backgroundContainer (ground fill)
- *   +-- roadsContainer (radial road spokes from HQ to compounds)
+ *   +-- tilemapLayer (CompositeTilemap grass + dirt paths)
  *   +-- hq (HQ Container)
  *   +-- compoundsContainer (dynamic Compound children)
  *   +-- agentsContainer (dynamic Agent children)
@@ -50,9 +54,8 @@ interface StatusDebounce {
 export class World {
   private app!: Application;
 
-  // Scene containers (z-order: background, roads, HQ, compounds, agents)
-  private backgroundContainer!: Container;
-  private roadsContainer!: Container;
+  // Scene containers (z-order: tilemap, HQ, compounds, agents)
+  private tilemapLayer!: Container;
   private hq!: HQ;
   private compoundsContainer!: Container;
   private agentsContainer!: Container;
@@ -87,21 +90,26 @@ export class World {
   async init(container: HTMLElement): Promise<void> {
     this.app = new Application();
     await this.app.init({
-      resizeTo: window,
+      width: WORLD_WIDTH,
+      height: WORLD_HEIGHT,
       backgroundColor: BACKGROUND_COLOR,
       antialias: false,
       resolution: window.devicePixelRatio || 1,
       autoDensity: true,
+      roundPixels: true,  // Prevents sub-pixel gaps between tiles
     });
 
     container.appendChild(this.app.canvas);
 
-    // Create scene containers in z-order
-    this.backgroundContainer = new Container();
-    this.app.stage.addChild(this.backgroundContainer);
+    // Tilemap ground layer (replaces backgroundContainer + roadsContainer)
+    this.tilemapLayer = new Container();
+    this.app.stage.addChild(this.tilemapLayer);
 
-    this.roadsContainer = new Container();
-    this.app.stage.addChild(this.roadsContainer);
+    const tilemap = buildWorldTilemap(
+      GUILD_HALL_POS,
+      Object.values(QUEST_ZONE_POSITIONS),
+    );
+    this.tilemapLayer.addChild(tilemap);
 
     this.hq = new HQ();
     this.app.stage.addChild(this.hq);
@@ -113,12 +121,9 @@ export class World {
     this.app.stage.addChild(this.agentsContainer);
 
     // Position HQ at center
-    this.centerX = this.app.screen.width / 2;
-    this.centerY = this.app.screen.height / 2;
+    this.centerX = WORLD_WIDTH / 2;
+    this.centerY = WORLD_HEIGHT / 2;
     this.hq.position.set(this.centerX, this.centerY);
-
-    // Draw ground
-    this.drawGround();
   }
 
   /**
@@ -197,79 +202,12 @@ export class World {
   }
 
   resize(): void {
-    this.centerX = this.app.screen.width / 2;
-    this.centerY = this.app.screen.height / 2;
-
-    // Recenter HQ
-    this.hq.position.set(this.centerX, this.centerY);
-
-    // Redraw ground
-    this.drawGround();
-
-    // Recalculate compound positions
-    this.recalculateCompoundPositions();
-
-    // Redraw roads
-    this.drawRoads();
-
-    // Update idle agent HQ positions
-    this.repositionIdleAgents();
+    // Window is now fixed 1024x768 -- resize is a no-op
+    // Keep method signature for GameLoop/index.ts compatibility
   }
 
   destroy(): void {
     this.app.destroy(true);
-  }
-
-  // --- Private: Ground & Roads ---
-
-  private drawGround(): void {
-    this.backgroundContainer.removeChildren();
-    const w = this.app.screen.width;
-    const h = this.app.screen.height;
-
-    const bg = new Graphics();
-    // Dark green-gray ground fill
-    bg.rect(0, 0, w, h).fill(0x2a3a2a);
-    this.backgroundContainer.addChild(bg);
-  }
-
-  /**
-   * Draw radial road spokes from HQ center to each compound entrance.
-   * Roads are 10px wide filled rects, drawn as angled lines.
-   */
-  private drawRoads(): void {
-    this.roadsContainer.removeChildren();
-
-    const roads = new Graphics();
-    const pathColor = 0x4a4a3a;
-
-    for (const entry of this.compounds.values()) {
-      if (entry.removing) continue;
-
-      // Road from HQ center to compound entrance (top-center of compound)
-      const compX = entry.compound.x + COMPOUND_WIDTH / 2;
-      const compY = entry.compound.y;
-
-      const dx = compX - this.centerX;
-      const dy = compY - this.centerY;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < 1) continue;
-
-      // Calculate perpendicular offset for road width
-      const nx = -dy / dist; // normal x
-      const ny = dx / dist;  // normal y
-      const halfW = 5; // half road width
-
-      // Draw road as a polygon (rectangle along the angle)
-      roads.moveTo(this.centerX + nx * halfW, this.centerY + ny * halfW);
-      roads.lineTo(compX + nx * halfW, compY + ny * halfW);
-      roads.lineTo(compX - nx * halfW, compY - ny * halfW);
-      roads.lineTo(this.centerX - nx * halfW, this.centerY - ny * halfW);
-      roads.closePath();
-      roads.fill(pathColor);
-    }
-
-    this.roadsContainer.addChild(roads);
   }
 
   // --- Private: Compound Management ---
@@ -337,7 +275,6 @@ export class World {
 
     if (needsRepositioning) {
       this.recalculateCompoundPositions();
-      this.drawRoads();
     }
   }
 
