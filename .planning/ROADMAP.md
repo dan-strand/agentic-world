@@ -138,7 +138,11 @@ Plans:
   3. Ambient floating particles (fireflies or magic dust) drift through the world adding atmosphere
   4. Quest zones show a glow or highlight effect when an agent is actively working at that location
   5. The entire world has a warm ambient color tint that gives it a cohesive RPG feel
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 07-01-PLAN.md -- Install pixi-filters, new constants, LevelUpEffect and AmbientParticles classes
+- [ ] 07-02-PLAN.md -- World integration (warm filter, zone highlights, ambient particles), agent celebration swap, fireworks deletion, visual verification
 
 ## Progress
 
@@ -153,4 +157,4 @@ Phases execute in numeric order: 4 -> 5 -> 6 -> 7
 | 4. Asset Pipeline and World Ground | v1.1 | 0/2 | Planning | - |
 | 5. Buildings and World Layout | v1.1 | 2/2 | Complete | 2026-02-26 |
 | 6. Agent Sprite Overhaul | v1.1 | 3/3 | Complete | 2026-02-26 |
-| 7. Effects and Atmosphere | v1.1 | 0/? | Not started | - |
+| 7. Effects and Atmosphere | v1.1 | 0/2 | Planning | - |
