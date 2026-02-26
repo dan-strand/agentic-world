@@ -1,14 +1,14 @@
-import { Texture } from 'pixi.js';
-import { CompositeTilemap } from '@pixi/tilemap';
-import { TILE_SIZE, WORLD_COLS, WORLD_ROWS } from '../shared/constants';
+import { Sprite, Texture } from 'pixi.js';
+import { TILE_SIZE, WORLD_COLS, WORLD_ROWS, WORLD_WIDTH, WORLD_HEIGHT } from '../shared/constants';
 import { tileTextures } from './asset-loader';
 
 /**
- * Build the world tilemap -- a static CompositeTilemap with grass variants
- * and dirt paths connecting the guild hall to each quest zone.
+ * Build the world ground as a single pre-rendered Sprite.
  *
- * The tilemap is built once at init and never modified at runtime.
- * CompositeTilemap batches all ~768 tiles into a single GPU draw call.
+ * Renders all tiles (grass variants + dirt paths) onto an offscreen canvas,
+ * then creates a PixiJS Texture from it. This avoids @pixi/tilemap
+ * compatibility issues while being equally efficient for a static ground
+ * layer that never changes at runtime.
  *
  * @param guildHallPos - Center position of the guild hall (pixels)
  * @param zonePositions - Center positions of each quest zone (pixels)
@@ -18,29 +18,21 @@ export function buildWorldTilemap(
   guildHallPos: { x: number; y: number },
   zonePositions: Array<{ x: number; y: number }>,
   seed: number = 42,
-): CompositeTilemap {
-  const tilemap = new CompositeTilemap();
-
-  // Resolve textures once (avoids per-tile Cache lookups)
-  const grass1 = tileTextures['grass_1'];
-  const grass2 = tileTextures['grass_2'];
-  const grass3 = tileTextures['grass_3'];
-  const dirtPath = tileTextures['dirt_path'];
-
-  // Step 1: Fill entire grid with grass variants using seeded random
-  // Distribution: ~80% grass_1, ~12% grass_2, ~8% grass_3
+): Sprite {
+  // Create a tile grid tracking which tile goes where
+  // Default: grass, overwritten by dirt paths/clearings
+  const grid: string[][] = [];
   for (let row = 0; row < WORLD_ROWS; row++) {
+    grid[row] = [];
     for (let col = 0; col < WORLD_COLS; col++) {
       const hash = seededRandom(seed, col, row);
-      let tex: Texture = grass1;
-      if (hash < 0.08) tex = grass3;       // 8% darkest variant
-      else if (hash < 0.20) tex = grass2;   // 12% lighter variant
-      // else grass_1 (80%)
-      tilemap.tile(tex, col * TILE_SIZE, row * TILE_SIZE);
+      if (hash < 0.08) grid[row][col] = 'grass_3';       // 8% darkest variant
+      else if (hash < 0.20) grid[row][col] = 'grass_2';   // 12% lighter variant
+      else grid[row][col] = 'grass_1';                     // 80% base
     }
   }
 
-  // Step 2: Draw 3-tile-wide dirt paths from guild hall to each zone
+  // Draw 3-tile-wide dirt paths from guild hall to each zone
   for (const zonePos of zonePositions) {
     const pathCells = bresenhamLine(
       Math.floor(guildHallPos.x / TILE_SIZE),
@@ -49,17 +41,16 @@ export function buildWorldTilemap(
       Math.floor(zonePos.y / TILE_SIZE),
     );
     for (const cell of pathCells) {
-      // 3-tile wide path (center + 1 tile each side)
       for (let dx = -1; dx <= 1; dx++) {
         const c = cell.col + dx;
         if (c >= 0 && c < WORLD_COLS && cell.row >= 0 && cell.row < WORLD_ROWS) {
-          tilemap.tile(dirtPath, c * TILE_SIZE, cell.row * TILE_SIZE);
+          grid[cell.row][c] = 'dirt_path';
         }
       }
     }
   }
 
-  // Step 3: Add a small dirt clearing around the guild hall center (5x5 tiles)
+  // 5x5 dirt clearing at guild hall center
   const ghCol = Math.floor(guildHallPos.x / TILE_SIZE);
   const ghRow = Math.floor(guildHallPos.y / TILE_SIZE);
   for (let dr = -2; dr <= 2; dr++) {
@@ -67,12 +58,12 @@ export function buildWorldTilemap(
       const c = ghCol + dc;
       const r = ghRow + dr;
       if (c >= 0 && c < WORLD_COLS && r >= 0 && r < WORLD_ROWS) {
-        tilemap.tile(dirtPath, c * TILE_SIZE, r * TILE_SIZE);
+        grid[r][c] = 'dirt_path';
       }
     }
   }
 
-  // Step 4: Add small dirt clearings at each zone center (3x3 tiles)
+  // 3x3 dirt clearings at each zone center
   for (const zonePos of zonePositions) {
     const zCol = Math.floor(zonePos.x / TILE_SIZE);
     const zRow = Math.floor(zonePos.y / TILE_SIZE);
@@ -81,13 +72,38 @@ export function buildWorldTilemap(
         const c = zCol + dc;
         const r = zRow + dr;
         if (c >= 0 && c < WORLD_COLS && r >= 0 && r < WORLD_ROWS) {
-          tilemap.tile(dirtPath, c * TILE_SIZE, r * TILE_SIZE);
+          grid[r][c] = 'dirt_path';
         }
       }
     }
   }
 
-  return tilemap;
+  // Render grid to offscreen canvas
+  const canvas = document.createElement('canvas');
+  canvas.width = WORLD_WIDTH;
+  canvas.height = WORLD_HEIGHT;
+  const ctx = canvas.getContext('2d')!;
+
+  for (let row = 0; row < WORLD_ROWS; row++) {
+    for (let col = 0; col < WORLD_COLS; col++) {
+      const tileKey = grid[row][col];
+      const tex = tileTextures[tileKey];
+      if (tex?.source?.resource) {
+        // Extract the tile region from the atlas source image
+        const frame = tex.frame;
+        ctx.drawImage(
+          tex.source.resource as HTMLImageElement,
+          frame.x, frame.y, frame.width, frame.height,
+          col * TILE_SIZE, row * TILE_SIZE, TILE_SIZE, TILE_SIZE,
+        );
+      }
+    }
+  }
+
+  // Create a PixiJS Sprite from the rendered canvas
+  const texture = Texture.from(canvas);
+  const sprite = new Sprite(texture);
+  return sprite;
 }
 
 /**
