@@ -90,7 +90,11 @@ Plans:
   2. User sees a grass tilemap ground with visible tile variation (not wallpaper repetition) and dirt paths connecting location areas
   3. All pixel art renders crisp at integer scaling with no blurriness at any Windows DPI setting (100%, 125%, 150%)
   4. The world layout feels like one connected environment with paths leading between defined areas, not isolated floating regions
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 04-01-PLAN.md -- Fixed window config, asset pipeline (deps, webpack, tile atlas), renderer init with nearest-neighbor scaling
+- [ ] 04-02-PLAN.md -- Tilemap builder with grass variants and dirt paths, World scene integration, visual verification
 
 ### Phase 5: Buildings and World Layout
 **Goal**: User sees a cohesive Fantasy RPG world with a central Guild Hall and four distinct quest zone buildings connected by the path network
@@ -137,7 +141,7 @@ Phases execute in numeric order: 4 -> 5 -> 6 -> 7
 | 1. Foundation and Detection | v1.0 | 3/3 | Complete | 2026-02-25 |
 | 2. Visual World | v1.0 | 4/4 | Complete | 2026-02-25 |
 | 3. Status and Lifecycle | v1.0 | 2/2 | Complete | 2026-02-25 |
-| 4. Asset Pipeline and World Ground | v1.1 | 0/? | Not started | - |
+| 4. Asset Pipeline and World Ground | v1.1 | 0/2 | Planning | - |
 | 5. Buildings and World Layout | v1.1 | 0/? | Not started | - |
 | 6. Agent Sprite Overhaul | v1.1 | 0/? | Not started | - |
 | 7. Effects and Atmosphere | v1.1 | 0/? | Not started | - |
