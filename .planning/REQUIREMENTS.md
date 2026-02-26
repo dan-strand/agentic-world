@@ -56,9 +56,9 @@ Requirements for the Fantasy RPG Aesthetic milestone. Each maps to roadmap phase
 
 ### Agent System
 
-- [ ] **AGENT-01**: Agents use AnimatedSprite with walk, idle, and working animation states replacing Graphics frame-swapping
-- [ ] **AGENT-02**: Vehicle system is removed entirely — agents walk/run between all locations
-- [ ] **AGENT-03**: Each agent starts on a randomized animation frame offset for natural, non-synchronized movement
+- [x] **AGENT-01**: Agents use AnimatedSprite with walk, idle, and working animation states replacing Graphics frame-swapping
+- [x] **AGENT-02**: Vehicle system is removed entirely — agents walk/run between all locations
+- [x] **AGENT-03**: Each agent starts on a randomized animation frame offset for natural, non-synchronized movement
 
 ### Celebration & Effects
 
@@ -135,9 +135,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | THEME-03 | Phase 5 | Complete |
 | THEME-01 | Phase 6 | Complete |
 | THEME-04 | Phase 6 | Complete |
-| AGENT-01 | Phase 6 | Pending |
-| AGENT-02 | Phase 6 | Pending |
-| AGENT-03 | Phase 6 | Pending |
+| AGENT-01 | Phase 6 | Complete |
+| AGENT-02 | Phase 6 | Complete |
+| AGENT-03 | Phase 6 | Complete |
 | FX-01 | Phase 7 | Pending |
 | FX-02 | Phase 7 | Pending |
 | FX-03 | Phase 7 | Pending |
