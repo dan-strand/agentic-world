@@ -74,6 +74,9 @@ export class World {
   // Track which building each agent is currently assigned to (for work position and glow)
   private agentBuilding: Map<string, Building> = new Map();
 
+  // Dismissed sessions -- prevents resurrection from stale IPC data after fade-out removal
+  private dismissedSessions: Set<string> = new Set();
+
   // Layout
   private centerX = 0;
   private centerY = 0;
@@ -193,11 +196,27 @@ export class World {
       }
     }
 
+    // Deferred removal of fully faded agents (collect-then-remove to avoid mutation during iteration)
+    const toRemove: string[] = [];
+    for (const agent of this.agents.values()) {
+      if (agent.isFadedOut()) {
+        toRemove.push(agent.sessionId);
+      }
+    }
+    for (const sessionId of toRemove) {
+      this.removeAgent(sessionId);
+    }
+
     // Tick ambient particles
     this.ambientParticles.tick(deltaMs);
 
-    // Tick speech bubbles
-    for (const bubble of this.speechBubbles.values()) {
+    // Tick speech bubbles (skip for fading agents)
+    for (const [sessionId, bubble] of this.speechBubbles) {
+      const agent = this.agents.get(sessionId);
+      if (agent && agent.getState() === 'fading_out') {
+        bubble.visible = false;
+        continue;
+      }
       bubble.tick(deltaMs);
     }
 
@@ -226,8 +245,56 @@ export class World {
     // Keep method signature for GameLoop/index.ts compatibility
   }
 
+  /**
+   * Returns true if any agent has an active animation that needs smooth frame rate.
+   * Used by GameLoop to keep 30fps during celebrations, walking, and fade-out
+   * even when all sessions report idle status.
+   */
+  hasActiveAnimations(): boolean {
+    for (const agent of this.agents.values()) {
+      const state = agent.getState();
+      if (state === 'celebrating' || state === 'walking_to_building' ||
+          state === 'walking_to_workspot' || state === 'fading_out') {
+        return true;
+      }
+    }
+    return false;
+  }
+
   destroy(): void {
     this.app.destroy(true);
+  }
+
+  // --- Private: Agent Removal ---
+
+  /**
+   * Remove an agent completely: scene graph, PixiJS destroy, all tracking Maps, factory slot.
+   * Single cleanup method to prevent memory leaks from incomplete removal.
+   */
+  private removeAgent(sessionId: string): void {
+    const agent = this.agents.get(sessionId);
+    if (!agent) return;
+
+    // Remove from scene graph
+    this.agentsContainer.removeChild(agent);
+
+    // Destroy PixiJS container + all children (AnimatedSprite, SpeechBubble)
+    agent.destroy({ children: true });
+
+    // Clean ALL tracking Maps
+    this.agents.delete(sessionId);
+    this.speechBubbles.delete(sessionId);
+    this.lastActivity.delete(sessionId);
+    this.statusDebounce.delete(sessionId);
+    this.lastCommittedStatus.delete(sessionId);
+    this.lastRawStatus.delete(sessionId);
+    this.agentBuilding.delete(sessionId);
+
+    // Release factory slot
+    this.agentFactory.releaseSlot(sessionId);
+
+    // Prevent resurrection from stale IPC data
+    this.dismissedSessions.add(sessionId);
   }
 
   // --- Private: Agent Management ---
@@ -244,6 +311,18 @@ export class World {
 
     for (const session of sessions) {
       currentIds.add(session.sessionId);
+
+      // Skip dismissed sessions -- prevents resurrection from stale IPC data
+      if (this.dismissedSessions.has(session.sessionId)) {
+        // Only clear dismissal if session shows genuine reactivation
+        if (session.activityType !== 'idle' && session.status === 'active') {
+          this.dismissedSessions.delete(session.sessionId);
+          // Fall through to normal agent creation below
+        } else {
+          continue; // Skip this session entirely
+        }
+      }
+
       let agent = this.agents.get(session.sessionId);
 
       if (!agent) {
@@ -277,6 +356,9 @@ export class World {
       // Route agent to building based on project name
       const activityType = session.activityType;
       const agentState = agent.getState();
+
+      // Don't route fading agents -- they're being removed
+      if (agentState === 'fading_out') continue;
 
       if (activityType !== 'idle') {
         const building = this.getProjectBuilding(session.projectName);

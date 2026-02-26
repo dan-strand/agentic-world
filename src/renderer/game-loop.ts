@@ -38,7 +38,7 @@ export class GameLoop {
   onSessionsUpdate(sessions: SessionInfo[]): void {
     if (this.isMinimized) return;
 
-    const hasActive = sessions.some(s => s.status === 'active');
+    const hasActive = sessions.some(s => s.status === 'active') || this.world.hasActiveAnimations();
 
     if (sessions.length === 0) {
       // No sessions at all -- stop rendering for zero CPU
