@@ -263,8 +263,7 @@ export class World {
         // Activity is idle -- agent should be at Guild Hall
         if (
           agentState !== 'idle_at_hq' &&
-          agentState !== 'driving_to_hq' &&
-          agentState !== 'walking_to_entrance' &&
+          agentState !== 'walking_to_building' &&
           agentState !== 'celebrating'
         ) {
           const idlePos = this.getGuildHallIdlePosition(session.sessionId);
@@ -385,7 +384,7 @@ export class World {
     let totalAtBuilding = 0;
     for (const [sid, agent] of this.agents) {
       const state = agent.getState();
-      if (state === 'working' || state === 'walking_to_sublocation') {
+      if (state === 'working' || state === 'walking_to_workspot') {
         // Check if this agent's last activity maps to the same building
         const activity = this.lastActivity.get(sid);
         if (activity && this.questZones.get(activity) === building) {
