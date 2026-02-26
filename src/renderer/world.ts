@@ -287,19 +287,15 @@ export class World {
             const workPos = this.getBuildingWorkPosition(building, session.sessionId);
             agent.assignToCompound(entrance, workPos);
             this.agentBuilding.set(session.sessionId, building);
+            // BUBBLE-03: Show speech bubble on initial departure from Guild Hall
+            const bubble = this.speechBubbles.get(session.sessionId);
+            if (bubble) bubble.show(activityType);
           } else if (agentState === 'working') {
-            // Check if agent needs to move to a different building (activity change)
             const prevActivity = this.lastActivity.get(session.sessionId);
             if (prevActivity && prevActivity !== activityType) {
-              const entrance = this.getBuildingEntrance(building);
-              const workPos = this.getBuildingWorkPosition(building, session.sessionId);
-              agent.assignToCompound(entrance, workPos);
-              this.agentBuilding.set(session.sessionId, building);
-              // Show speech bubble on activity change
+              // BUBBLE-03: Show speech bubble on activity change at same building
               const bubble = this.speechBubbles.get(session.sessionId);
-              if (bubble) {
-                bubble.show(activityType);
-              }
+              if (bubble) bubble.show(activityType);
             }
           }
         } else {
