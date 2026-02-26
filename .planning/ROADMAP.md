@@ -76,7 +76,7 @@ Plans:
 
 - [ ] **Phase 4: Asset Pipeline and World Ground** - Sprite atlas loading, tilemap ground with paths, fixed 1024x768 window with hidden title bar
 - [x] **Phase 5: Buildings and World Layout** - Guild Hall and four quest zone buildings positioned as one cohesive connected world (completed 2026-02-26)
-- [ ] **Phase 6: Agent Sprite Overhaul** - AnimatedSprite adventurers with character classes, vehicle system removed, walk/idle/work animations
+- [x] **Phase 6: Agent Sprite Overhaul** - AnimatedSprite adventurers with character classes, vehicle system removed, walk/idle/work animations (completed 2026-02-26)
 - [ ] **Phase 7: Effects and Atmosphere** - Level-up celebration, ambient particles, zone glow highlights, warm lighting tint
 
 ## Phase Details
@@ -121,7 +121,12 @@ Plans:
   3. Agents walk/run between the Guild Hall and quest zones with no vehicles -- movement animation speed matches travel speed (no sliding)
   4. Multiple agents animate naturally with staggered frame offsets rather than moving in lockstep synchronization
   5. Status tint system (active/waiting/idle/error colors) works correctly on sprite-based agents
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [x] 06-01-PLAN.md -- Character atlas generation, spritesheet descriptor, CharacterClass type system, constants cleanup
+- [x] 06-02-PLAN.md -- Agent AnimatedSprite rewrite with 5-state walk-only state machine, staggered frame offsets
+- [x] 06-03-PLAN.md -- World integration (state check updates), dead code cleanup (vehicle/compound/hq), visual verification
 
 ### Phase 7: Effects and Atmosphere
 **Goal**: User sees polished visual effects that complete the RPG atmosphere -- level-up celebrations, ambient particles, zone highlights, and warm lighting
@@ -147,5 +152,5 @@ Phases execute in numeric order: 4 -> 5 -> 6 -> 7
 | 3. Status and Lifecycle | v1.0 | 2/2 | Complete | 2026-02-25 |
 | 4. Asset Pipeline and World Ground | v1.1 | 0/2 | Planning | - |
 | 5. Buildings and World Layout | v1.1 | 2/2 | Complete | 2026-02-26 |
-| 6. Agent Sprite Overhaul | v1.1 | 0/? | Not started | - |
+| 6. Agent Sprite Overhaul | v1.1 | 3/3 | Complete | 2026-02-26 |
 | 7. Effects and Atmosphere | v1.1 | 0/? | Not started | - |

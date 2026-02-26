@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: Fantasy RPG Aesthetic
 status: in-progress
-last_updated: "2026-02-26T14:58:10Z"
+last_updated: "2026-02-26T15:09:36Z"
 progress:
   total_phases: 7
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 16
-  completed_plans: 15
+  completed_plans: 16
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-25)
 
 **Core value:** Instantly see the status of all Claude Code sessions so you know which one needs attention next.
-**Current focus:** Phase 6 - Agent Sprite Overhaul (v1.1)
+**Current focus:** Phase 7 - Effects and Atmosphere (v1.1)
 
 ## Current Position
 
-Phase: 6 of 7 (Agent Sprite Overhaul)
-Plan: 3 of 3 in current phase
-Status: Plan 06-02 Complete
-Last activity: 2026-02-26 -- Completed 06-02 (Agent AnimatedSprite and Walk-Only State Machine)
+Phase: 7 of 7 (Effects and Atmosphere)
+Plan: 0 of ? in current phase
+Status: Phase 6 Complete -- Ready for Phase 7
+Last activity: 2026-02-26 -- Completed 06-03 (World Integration, Dead Code Cleanup, Visual Verification)
 
-Progress: [████████████████████████████████████████████████████████████] 67% (Phase 6: 2/3 plans complete)
+Progress: [████████████████████████████████████████████████████████████████████████████████████████████] 86% (Phase 6: 3/3 plans complete)
 
 ## Performance Metrics
 
@@ -42,6 +42,7 @@ Progress: [███████████████████████
 - Phase 5 Plan 02: 3min (2 tasks, 2 files)
 - Phase 6 Plan 01: 4min (2 tasks, 6 files)
 - Phase 6 Plan 02: 2min (2 tasks, 3 files)
+- Phase 6 Plan 03: 9min (2 tasks, 6 files) -- world integration, dead code cleanup, visual verification
 
 ## Accumulated Context
 
@@ -77,6 +78,8 @@ New for v1.1:
 - [Phase 06-02]: AnimatedSprite.autoUpdate=false with manual frame advancement for status-speed-modulated animation
 - [Phase 06-02]: 5-state walk-only machine eliminates all vehicle/driving states
 - [Phase 06-02]: Public API signatures unchanged for world.ts backward compatibility -- Plan 03 updates
+- [Phase 06-03]: walking_to_building consolidates driving_to_hq + walking_to_entrance into single state
+- [Phase 06-03]: Four dead code files deleted after confirming zero remaining imports (-572 lines)
 
 ### Pending Todos
 
@@ -90,5 +93,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: Completed 06-02-PLAN.md
+Stopped at: Completed 06-03-PLAN.md (Phase 6 complete)
 Resume file: None
