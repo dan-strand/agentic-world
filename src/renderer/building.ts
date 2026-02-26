@@ -1,6 +1,7 @@
-import { Container, Sprite, BitmapText, Texture } from 'pixi.js';
+import { Container, Sprite, BitmapText, Texture, Graphics } from 'pixi.js';
 import type { BuildingType } from '../shared/constants';
-import { BUILDING_LABELS, MAX_LABEL_CHARS } from '../shared/constants';
+import { BUILDING_LABELS, MAX_LABEL_CHARS, BUILDING_WORK_SPOTS } from '../shared/constants';
+import type { WorkSpot } from '../shared/constants';
 
 /**
  * Building -- A static world entity wrapping a Sprite from the building atlas
@@ -41,6 +42,20 @@ export class Building extends Container {
     // Position label above the sprite top (sprite extends upward from anchor)
     this.labelText.position.set(0, -texture.height - 4);
     this.addChild(this.labelText);
+
+    // Draw small RPG prop indicators at each work spot position
+    const spots = BUILDING_WORK_SPOTS[buildingType];
+    for (const spot of spots) {
+      const prop = new Graphics();
+      // Darker outline circle for definition
+      prop.circle(0, 0, 4);
+      prop.fill({ color: 0x222222, alpha: 0.6 });
+      // Filled inner circle with spot color
+      prop.circle(0, 0, 3);
+      prop.fill({ color: spot.color, alpha: 0.8 });
+      prop.position.set(spot.x, spot.y);
+      this.addChild(prop);
+    }
   }
 
   /** Update label to show a project name (truncated if needed). */
@@ -96,6 +111,20 @@ export class Building extends Container {
       x: startX + index * spacing,
       y: -16, // Partway up the building
     };
+  }
+
+  /**
+   * Get a specific named work spot position in local coordinates.
+   * Spots are defined per building type in BUILDING_WORK_SPOTS.
+   * Falls back to getWorkPosition() for guild_hall or out-of-range index.
+   */
+  getWorkSpot(spotIndex: number): { x: number; y: number } {
+    const spots = BUILDING_WORK_SPOTS[this.buildingType];
+    if (!spots || spots.length === 0) {
+      return this.getWorkPosition(0, 1);
+    }
+    const clamped = spotIndex % spots.length;
+    return { x: spots[clamped].x, y: spots[clamped].y };
   }
 
   /**

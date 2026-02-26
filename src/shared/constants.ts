@@ -202,3 +202,35 @@ export const BUILDING_LABELS: Record<BuildingType, string> = {
   ancient_library:  'Ancient Library',
   tavern:           'Tavern',
 };
+
+// Work spots -- named positions within each building where agents perform tasks
+export interface WorkSpot {
+  name: string;
+  x: number;    // local offset from building container origin
+  y: number;    // local offset (negative = up into building, positive = below base)
+  color: number; // prop indicator color
+}
+
+export const BUILDING_WORK_SPOTS: Record<BuildingType, WorkSpot[]> = {
+  wizard_tower: [
+    { name: 'Enchanting Table', x: -28, y: -24, color: 0x8844ff },  // purple - left
+    { name: 'Scroll Desk',     x: 0,   y: -8,  color: 0xddcc88 },  // parchment - center
+    { name: 'Rune Bench',      x: 28,  y: -24, color: 0x44aaff },  // blue rune - right
+  ],
+  training_grounds: [
+    { name: 'Target Dummy',    x: -28, y: -24, color: 0xaa6633 },  // wood brown - left
+    { name: 'Obstacle Course', x: 0,   y: -8,  color: 0x888888 },  // stone gray - center
+    { name: 'Potion Station',  x: 28,  y: -24, color: 0x44dd44 },  // green potion - right
+  ],
+  ancient_library: [
+    { name: 'Crystal Ball',    x: -28, y: -24, color: 0xaaccff },  // crystal blue - left
+    { name: 'Ancient Bookshelf', x: 0, y: -8,  color: 0x885522 },  // leather brown - center
+    { name: 'Map Table',       x: 28,  y: -24, color: 0xddddaa },  // parchment - right
+  ],
+  tavern: [
+    { name: 'Bar Counter',     x: -28, y: -24, color: 0x664422 },  // dark wood - left
+    { name: 'Notice Board',    x: 0,   y: -8,  color: 0xccaa66 },  // cork - center
+    { name: 'Pigeon Roost',    x: 28,  y: -24, color: 0xcccccc },  // feather gray - right
+  ],
+  guild_hall: [], // Guild hall has no work spots (agents idle here)
+};
