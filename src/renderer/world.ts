@@ -9,6 +9,7 @@ import {
   WORLD_HEIGHT,
   ACTIVITY_BUILDING,
   IDLE_TIMEOUT_MS,
+  hashSessionId,
 } from '../shared/constants';
 import type { BuildingType } from '../shared/constants';
 import { Agent } from './agent';
@@ -81,6 +82,9 @@ export class World {
 
   // Idle timeout tracking (ms of continuous committed-idle time per agent)
   private idleTimers: Map<string, number> = new Map();
+
+  // Track current work spot index per agent (for spot rotation on activity change)
+  private agentSpotIndex: Map<string, number> = new Map();
 
   // Layout
   private centerX = 0;
@@ -311,6 +315,7 @@ export class World {
     this.lastRawStatus.delete(sessionId);
     this.agentBuilding.delete(sessionId);
     this.idleTimers.delete(sessionId);
+    this.agentSpotIndex.delete(sessionId);
 
     // Release factory slot
     this.agentFactory.releaseSlot(sessionId);
@@ -394,6 +399,8 @@ export class World {
         const building = this.getProjectBuilding(session.projectName);
         if (building) {
           if (agentState === 'idle_at_hq') {
+            // Assign deterministic initial spot based on session hash
+            this.agentSpotIndex.set(session.sessionId, hashSessionId(session.sessionId) % 3);
             // Agent at guild hall, needs to go work -- send to project building
             const entrance = this.getBuildingEntrance(building);
             const workPos = this.getBuildingWorkPosition(building, session.sessionId);
@@ -408,6 +415,13 @@ export class World {
               // BUBBLE-03: Show speech bubble on activity change at same building
               const bubble = this.speechBubbles.get(session.sessionId);
               if (bubble) bubble.show(activityType);
+
+              // Rotate to next work spot within the building
+              const currentSpot = this.agentSpotIndex.get(session.sessionId) ?? 0;
+              const nextSpot = (currentSpot + 1) % 3;
+              this.agentSpotIndex.set(session.sessionId, nextSpot);
+              const newWorkPos = this.getBuildingWorkPosition(building, session.sessionId);
+              agent.updateActivity(newWorkPos);
             }
           }
         } else {
@@ -453,6 +467,7 @@ export class World {
         this.lastRawStatus.delete(sessionId);
         this.agentBuilding.delete(sessionId);
         this.idleTimers.delete(sessionId);
+        this.agentSpotIndex.delete(sessionId);
       }
     }
 
@@ -593,20 +608,11 @@ export class World {
 
   /**
    * Get building work position in global (world) coordinates.
-   * Counts agents already at this building to fan them out.
+   * Uses named work spots based on agent's current spot index.
    */
   private getBuildingWorkPosition(building: Building, sessionId: string): { x: number; y: number } {
-    let agentIndex = 0;
-    let totalAtBuilding = 0;
-    for (const [sid, agent] of this.agents) {
-      const state = agent.getState();
-      if ((state === 'working' || state === 'walking_to_workspot') &&
-          this.agentBuilding.get(sid) === building) {
-        totalAtBuilding++;
-        if (sid === sessionId) agentIndex = totalAtBuilding - 1;
-      }
-    }
-    const local = building.getWorkPosition(agentIndex, Math.max(totalAtBuilding, 1));
+    const spotIndex = this.agentSpotIndex.get(sessionId) ?? 0;
+    const local = building.getWorkSpot(spotIndex);
     return { x: building.x + local.x, y: building.y + local.y };
   }
 
