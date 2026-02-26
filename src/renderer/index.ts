@@ -12,6 +12,20 @@ import { initActivityIcons } from './activity-icons';
 import { loadAllAssets } from './asset-loader';
 
 async function main(): Promise<void> {
+  // Wire window control buttons
+  document.getElementById('btn-minimize')?.addEventListener('click', () => window.agentWorld.minimizeWindow());
+  document.getElementById('btn-close')?.addEventListener('click', () => window.agentWorld.closeWindow());
+
+  // Wire window dragging
+  const dragRegion = document.getElementById('drag-region');
+  if (dragRegion) {
+    dragRegion.addEventListener('mousedown', (e) => {
+      if ((e.target as HTMLElement).classList.contains('window-btn')) return;
+      window.agentWorld.startDrag();
+    });
+    window.addEventListener('mouseup', () => window.agentWorld.endDrag());
+  }
+
   console.log('[renderer] main() starting...');
 
   // 1. Init PixiJS world

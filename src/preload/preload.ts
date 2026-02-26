@@ -10,4 +10,16 @@ contextBridge.exposeInMainWorld('agentWorld', {
   getInitialSessions: (): Promise<SessionInfo[]> => {
     return ipcRenderer.invoke(IPC_CHANNELS.GET_INITIAL_SESSIONS);
   },
+  minimizeWindow: (): void => {
+    ipcRenderer.send('window-minimize');
+  },
+  closeWindow: (): void => {
+    ipcRenderer.send('window-close');
+  },
+  startDrag: (): void => {
+    ipcRenderer.send('window-drag-start');
+  },
+  endDrag: (): void => {
+    ipcRenderer.send('window-drag-end');
+  },
 });

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu } from 'electron';
+import { app, BrowserWindow, ipcMain, Menu, screen } from 'electron';
 import { registerIpcHandlers } from './ipc-handlers';
 import { FilesystemSessionDetector } from './session-detector';
 import { SessionStore } from './session-store';
@@ -31,12 +31,7 @@ const createWindow = (): void => {
     maximizable: false,
     fullscreenable: false,
     autoHideMenuBar: true,
-    titleBarStyle: 'hidden',
-    titleBarOverlay: {
-      color: '#1a1a2e',
-      symbolColor: '#c9a96e',
-      height: 28,
-    },
+    frame: false,
     webPreferences: {
       preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
       contextIsolation: true,
@@ -66,6 +61,35 @@ const createWindow = (): void => {
 
 // Register IPC handlers with the store so get-initial-sessions can serve live data
 registerIpcHandlers(store);
+
+// Window control IPC handlers
+ipcMain.on('window-minimize', (event) => {
+  BrowserWindow.fromWebContents(event.sender)?.minimize();
+});
+ipcMain.on('window-close', (event) => {
+  BrowserWindow.fromWebContents(event.sender)?.close();
+});
+
+// Custom window drag — poll cursor from main process since renderer
+// mousemove stops firing when cursor leaves window bounds
+let dragState: { win: BrowserWindow; offsetX: number; offsetY: number; interval: ReturnType<typeof setInterval> } | null = null;
+ipcMain.on('window-drag-start', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win) return;
+  const cursor = screen.getCursorScreenPoint();
+  const [winX, winY] = win.getPosition();
+  const interval = setInterval(() => {
+    const pos = screen.getCursorScreenPoint();
+    win.setPosition(pos.x - (cursor.x - winX), pos.y - (cursor.y - winY));
+  }, 16);
+  dragState = { win, offsetX: cursor.x - winX, offsetY: cursor.y - winY, interval };
+});
+ipcMain.on('window-drag-end', () => {
+  if (dragState) {
+    clearInterval(dragState.interval);
+    dragState = null;
+  }
+});
 
 // Create window when Electron is ready
 app.on('ready', createWindow);

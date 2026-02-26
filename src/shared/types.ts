@@ -30,6 +30,10 @@ export const IPC_CHANNELS = {
 export interface IAgentWorldAPI {
   onSessionsUpdate: (callback: (sessions: SessionInfo[]) => void) => void;
   getInitialSessions: () => Promise<SessionInfo[]>;
+  minimizeWindow: () => void;
+  closeWindow: () => void;
+  startDrag: () => void;
+  endDrag: () => void;
 }
 
 // Extend Window for renderer access
