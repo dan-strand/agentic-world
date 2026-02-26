@@ -56,6 +56,7 @@ Progress: [██████████] 100% (1/1 plans in phase 10)
 |---|-------------|------|--------|-----------|
 | 1 | need to be able to move the window around the screen | 2026-02-26 | 1ef1e93 | [1-need-to-be-able-to-move-the-window-aroun](./quick/1-need-to-be-able-to-move-the-window-aroun/) |
 | 2 | add idle timeout fadeout for agents idle 5+ minutes | 2026-02-26 | 268cdfc | [2-add-idle-timeout-fadeout-agents-whose-se](./quick/2-add-idle-timeout-fadeout-agents-whose-se/) |
+| 3 | add job completion sound effect with volume/mute controls | 2026-02-26 | badae4f | [3-add-job-completion-sound-effect-with-vol](./quick/3-add-job-completion-sound-effect-with-vol/) |
 
 ## Accumulated Context
 
@@ -77,6 +78,8 @@ Recent decisions affecting current work:
 - [10-01]: 2000ms linger delay + 2000ms fade duration for natural visual timing
 - [quick-2]: Idle timeout uses committed status (post-debounce) to avoid premature fade from raw status flicker
 - [quick-2]: Cancellation checks both activityType and status for comprehensive reactivation detection
+- [quick-3]: HTML5 Audio API over Web Audio API -- simpler, sufficient for single sound effect
+- [quick-3]: Singleton SoundManager for shared access from World (trigger) and index.ts (UI wiring)
 
 ### Blockers/Concerns
 
@@ -85,5 +88,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: Completed quick task 2 (idle timeout fadeout)
+Stopped at: Completed quick task 3 (job completion sound effect with volume/mute)
 Resume file: None
