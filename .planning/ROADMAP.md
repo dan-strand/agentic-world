@@ -103,4 +103,4 @@ Phases execute in numeric order: 8 -> 9 -> 10
 | 7. Effects and Atmosphere | v1.1 | 2/2 | Complete | 2026-02-26 |
 | 8. Dynamic Building Labels | v1.2 | 2/2 | Complete | 2026-02-26 |
 | 9. Speech Bubbles and Project Routing | v1.2 | 0/1 | Not started | - |
-| 10. Agent Fade-Out Lifecycle | 1/1 | Complete   | 2026-02-26 | - |
+| 10. Agent Fade-Out Lifecycle | 1/1 | Complete    | 2026-02-26 | - |
