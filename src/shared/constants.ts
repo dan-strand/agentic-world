@@ -181,6 +181,15 @@ export const ACTIVITY_BUILDING: Record<ActivityType, BuildingType> = {
   idle:    'guild_hall',
 };
 
+// Activity display names for speech bubble text labels
+export const ACTIVITY_DISPLAY_NAMES: Record<ActivityType, string> = {
+  coding:  'Coding',
+  reading: 'Reading',
+  testing: 'Testing',
+  comms:   'Comms',
+  idle:    'Idle',
+};
+
 // Building display labels for BitmapText signposts
 export const BUILDING_LABELS: Record<BuildingType, string> = {
   guild_hall:       'Guild Hall',
