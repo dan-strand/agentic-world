@@ -40,12 +40,52 @@
       height: 100%;
       -webkit-app-region: no-drag;
     }
+    #audio-controls {
+      position: fixed;
+      bottom: 8px;
+      right: 8px;
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(0, 0, 0, 0.5);
+      border-radius: 12px;
+      padding: 4px 8px;
+    }
+    #btn-mute {
+      -webkit-app-region: no-drag;
+      width: 28px;
+      height: 28px;
+      border: none;
+      background: transparent;
+      color: #c9a96e;
+      font-size: 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      padding: 0;
+      line-height: 1;
+    }
+    #btn-mute:hover { background: rgba(255, 255, 255, 0.1); }
+    #volume-slider {
+      -webkit-app-region: no-drag;
+      width: 60px;
+      height: 4px;
+      accent-color: #c9a96e;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
   <div id="drag-region">
     <button class="window-btn" id="btn-minimize">&#x2014;</button>
     <button class="window-btn close" id="btn-close">&#x2715;</button>
+  </div>
+  <div id="audio-controls">
+    <button id="btn-mute" title="Mute/Unmute">&#x1F50A;</button>
+    <input type="range" id="volume-slider" min="0" max="100" value="50" title="Volume" />
   </div>
   <div id="app"></div>
 </body>

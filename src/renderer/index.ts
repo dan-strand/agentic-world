@@ -10,6 +10,7 @@ import { SessionInfo } from '../shared/types';
 import { installPixelFont } from './bitmap-font';
 import { initActivityIcons } from './activity-icons';
 import { loadAllAssets } from './asset-loader';
+import { SoundManager } from './sound-manager';
 
 async function main(): Promise<void> {
   // Wire window control buttons
@@ -72,6 +73,24 @@ async function main(): Promise<void> {
       gameLoop.onWindowRestored();
     }
   });
+
+  // 6. Wire audio controls
+  const soundManager = SoundManager.getInstance();
+  const muteBtn = document.getElementById('btn-mute');
+  const volumeSlider = document.getElementById('volume-slider') as HTMLInputElement | null;
+
+  if (muteBtn) {
+    muteBtn.addEventListener('click', () => {
+      soundManager.toggleMute();
+      muteBtn.innerHTML = soundManager.muted ? '&#x1F507;' : '&#x1F50A;';
+    });
+  }
+
+  if (volumeSlider) {
+    volumeSlider.addEventListener('input', () => {
+      soundManager.volume = parseInt(volumeSlider.value, 10) / 100;
+    });
+  }
 
   console.log('[renderer] Agent World initialized');
 }

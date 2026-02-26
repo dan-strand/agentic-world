@@ -18,6 +18,7 @@ import { buildingTextures } from './asset-loader';
 import { SpeechBubble } from './speech-bubble';
 import { buildWorldTilemap } from './tilemap-builder';
 import { AmbientParticles } from './ambient-particles';
+import { SoundManager } from './sound-manager';
 
 /** Per-agent status debounce tracking to prevent jittery visual flickering. */
 interface StatusDebounce {
@@ -195,6 +196,7 @@ export class World {
           const agentState = agent.getState();
           if (agentState !== 'idle_at_hq' && agentState !== 'celebrating') {
             agent.startCelebration();
+            SoundManager.getInstance().play();
           }
         }
       }
