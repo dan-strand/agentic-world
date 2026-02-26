@@ -1,246 +1,270 @@
 # Pitfalls Research
 
-**Domain:** Adding Fantasy RPG sprite sheets, tilemaps, and visual polish to existing PixiJS 8 + Electron app
-**Researched:** 2026-02-25
-**Confidence:** HIGH (verified via PixiJS 8 official docs, GitHub issues, OpenGameArt FAQ, Electron GitHub issues, community discussions)
+**Domain:** Adding dynamic building labels, auto-fading speech bubbles, and agent fade-out lifecycle to existing PixiJS 8 + Electron Fantasy RPG visualizer
+**Researched:** 2026-02-26
+**Confidence:** HIGH (verified via PixiJS 8 official docs, GitHub issues, codebase inspection of all 22 source files)
 
 ---
 
 ## Critical Pitfalls
 
-### Pitfall 1: TextureStyle.defaultOptions Must Be Set Before Any Texture Loads
+### Pitfall 1: BitmapText Visibility Bug Prevents Dynamic Label Updates
 
 **What goes wrong:**
-All 32x32 pixel art sprites render blurry or smeared. Characters look like soft watercolor blobs instead of crisp pixels. This is invisible in development if you set the scale mode after assets load, because the check only happens at the moment a texture is created — not retroactively.
+Building labels are changed from static RPG names to dynamic project names by setting `label.text = projectName`. The text appears correct initially. Later, when a building's label needs to revert to its RPG name (because sessions end), the BitmapText is invisible or was previously hidden during a transition. The text property is set while `visible = false` or while the BitmapText is off-screen. After being made visible again, the label shows stale text or fails to render the update. This is a confirmed PixiJS 8 bug (GitHub issue #11294).
 
 **Why it happens:**
-PixiJS 8 changed the scale mode API. The old approach (`PIXI.settings.SCALE_MODE = PIXI.SCALE_MODES.NEAREST`) does not work in v8. The correct call is `TextureStyle.defaultOptions.scaleMode = 'nearest'`, and it must appear **before** the first texture is created. In an existing app that already runs `Assets.load` calls during initialization, it is easy to add this line after the first load, meaning it silently has no effect on all pre-loaded textures.
+PixiJS 8 has a known issue where setting `text` on a BitmapText instance that is currently invisible (`visible = false`) causes the internal `didViewUpdate` flag to remain stale. The rendering pipeline skips the dirty check because the object is invisible, and when it becomes visible again, the new text is not processed. This is subtle because it only manifests when text is changed while the object is hidden -- a pattern that naturally arises when toggling labels during building state transitions.
 
 **How to avoid:**
-Place `TextureStyle.defaultOptions.scaleMode = 'nearest'` as the very first line after the PixiJS import, before any `Application.init()` call or `Assets.load()` call. Additionally, use `pixelArt: true` in the Application constructor options if available in your PixiJS 8 version — this is a convenience flag that sets the same thing. For sprites loaded through the atlas, verify at runtime by checking `texture.style.scaleMode === 'nearest'` in a one-time dev assertion.
+Never hide BitmapText with `visible = false` if you intend to change its text while hidden. Instead, keep the BitmapText always visible and use `alpha = 0` to hide it visually. Alternatively, always set `visible = true` before updating the text, then set `visible = false` afterward if needed. The safest pattern for dynamic labels: always keep label `visible = true` and only change the `text` property directly. Since building labels in this app should always be visible (they just change content), this is the natural approach -- do not introduce a show/hide pattern for labels.
 
 **Warning signs:**
-- Characters look soft or smeared at native window size
-- Tile seams appear blurry or fade into each other
-- The problem appears intermittently (some textures crisp, others not) — a reliable indicator that the config line is placed in the wrong order
+- A building label shows "Wizard Tower" even though a project is assigned to it
+- Labels sometimes "stick" to an old value after sessions change
+- The bug is intermittent -- it depends on whether a state update happens to coincide with the label being invisible during a transition
 
 **Phase to address:**
-Phase 1 (asset pipeline setup). This is a one-line fix that must be the first thing done before any sprite work begins.
+Phase 1 (dynamic labels). Keep BitmapText labels always visible; only change the `text` property, never toggle `visible`.
 
 ---
 
-### Pitfall 2: VRAM Explosion When Using Texture.from in PixiJS 8
+### Pitfall 2: BitmapFont Character Set Missing Project Name Characters
 
 **What goes wrong:**
-Loading sprites with `Texture.from()` or `Assets.load()` causes GPU memory consumption to balloon dramatically. A workload that used 26MB VRAM in PixiJS v7 can consume 747MB in v8 under the same conditions (verified in GitHub issue #11331). On Windows with integrated graphics, this can cause the renderer to stall, frames to drop, or the GPU process to crash.
+Building labels switch from hardcoded RPG names ("Wizard Tower", "Training Grounds") to user project folder names ("my-react-app", "Agent World", "TODO_v2"). The label renders correctly for some project names but shows blank spaces or missing characters for others. Specifically, characters like `(`, `)`, `!`, `@`, `#`, `$`, `%`, `&`, `+`, `=`, or Unicode characters are missing because the installed BitmapFont only covers a limited character set.
 
 **Why it happens:**
-A known regression in PixiJS v8's internal texture upload path. The `preferCreateImageBitmap` setting interacts badly with how texture data is moved to GPU memory — disabling it shifts the problem from RAM to VRAM rather than fixing it. The root cause was not fully identified in the issue thread. The issue affects Chrome, Firefox, and Safari.
+The existing `installPixelFont()` function in `bitmap-font.ts` defines a restricted character set: `a-z`, `A-Z`, `0-9`, space, `-`, `.`, `_`, `/`, `\`. This was adequate for the five hardcoded RPG building names. Project folder names from the filesystem can contain any character the OS allows -- on Windows this includes parentheses, ampersands, plus signs, etc. When BitmapText encounters a character not in the installed font, PixiJS either silently skips it or triggers dynamic font generation (which creates per-character textures and produces a warning when 50+ are generated).
 
 **How to avoid:**
-Use sprite atlases (packed texture + JSON descriptor) loaded via `Assets.load()` rather than many individual `Texture.from()` calls. A single atlas sheet containing all character frames and tile textures makes one GPU upload, and the sub-textures are slices of that one upload rather than separate GPU allocations. Monitor VRAM during development using Chrome DevTools → Memory → GPU Memory. Keep the total number of distinct `TextureSource` objects to a minimum — ideally one atlas per visual category (characters atlas, tiles atlas, effects atlas).
+Expand the character set in `installPixelFont()` to cover all printable ASCII characters. Use `BitmapFont.ASCII` or manually add all characters from code point 32 (space) to 126 (`~`). This covers every character a Windows folder name can contain. Also add a defensive truncation: before setting a building label, truncate the project name to a maximum display length (e.g., 16 characters) and replace any remaining non-ASCII characters with `?`. This prevents exotic Unicode folder names from triggering dynamic font generation.
 
 **Warning signs:**
-- Task Manager shows GPU memory rising steadily as the app runs
-- Renderer slows or freezes after all textures have loaded
-- GPU memory is disproportionate to the number of sprites visible on screen
+- Building labels render with gaps or missing characters for certain project names
+- Console warning: "%.0f dynamically created textures" from PixiJS BitmapFont system
+- Label text width is shorter than expected even though the full name was set
 
 **Phase to address:**
-Phase 1 (asset pipeline). Commit to an atlas-first loading strategy from the start. Do not load individual files for each animation frame.
+Phase 1 (dynamic labels). Expand the character set in `installPixelFont()` before any dynamic text is assigned. This is a one-line change to the `chars` array.
 
 ---
 
-### Pitfall 3: AnimatedSprite.destroy() Does Not Destroy Its Textures in Older PixiJS 8 Releases
+### Pitfall 3: Agent Fade-Out Without Proper Destroy Causes Memory Leak Over Hours
 
 **What goes wrong:**
-When an agent completes a session and the AnimatedSprite representing it is destroyed, the texture frames it was using remain loaded in GPU memory. As agents come and go over hours of use, this creates a growing texture leak. Memory climbs steadily and the renderer slows.
+Agents that complete their session now fade to alpha 0 at the Guild Hall instead of remaining visible forever. The fade animation runs, the agent becomes invisible -- but the Agent container, its AnimatedSprite, its SpeechBubble child, and all associated Map entries (`agents`, `speechBubbles`, `statusDebounce`, `lastActivity`, `lastCommittedStatus`, `lastRawStatus`) remain in memory. Over 8-24 hours of continuous use (the app is "always-on"), dozens of invisible agents accumulate. Each invisible agent still has its `tick()` called every frame (the tick loop iterates all agents in the Map), wasting CPU. AnimatedSprite frame textures are not freed. The scene graph grows.
 
 **Why it happens:**
-PixiJS v8 introduced a regression where `AnimatedSprite.destroy()` does not accept or pass a `DestroyOptions` argument, unlike `Sprite.destroy()`. This was filed as issue #11407 and fixed in a subsequent PR (#11544). If your installed version of `pixi.js` predates that fix, calling `animatedSprite.destroy()` leaks the underlying frame textures.
+The current architecture in `world.ts` never removes agents from the `agents` Map. The `SessionStore` also never removes sessions ("completed/ended sessions persist until app restart"). This was acceptable when agents remained visible at the Guild Hall -- they served as a visible history. Once agents fade out and become invisible, they serve no purpose but still consume resources. The natural instinct is to add a fade animation and then stop -- but "faded out" is not the same as "cleaned up."
 
 **How to avoid:**
-After upgrading to a PixiJS version that includes PR #11544 (check the changelog), use `animatedSprite.destroy({ texture: true, textureSource: false })` — destroy the texture slice but not the underlying source, since the source is shared with the atlas. If you are on an older version, manually stop the animation and destroy frame textures before calling destroy: `sprite.textures.forEach(t => t.destroy()); sprite.destroy()`. Wrap this in a utility function `destroyAnimatedSprite(sprite)` used everywhere, so the fix applies consistently.
+Add a new terminal state to the agent state machine: `faded_out`. After the celebration completes and the agent walks back to the Guild Hall, begin an alpha fade (e.g., over 2 seconds). When alpha reaches 0, transition to `faded_out`. In the World's tick loop, check for `faded_out` agents and perform full cleanup:
+1. Remove the Agent container from `agentsContainer`
+2. Remove the SpeechBubble from the agent and destroy it
+3. Call `agent.destroy({ children: true })` to free the AnimatedSprite and its textures
+4. Delete the sessionId from all six Maps: `agents`, `speechBubbles`, `statusDebounce`, `lastActivity`, `lastCommittedStatus`, `lastRawStatus`
+
+Also tell the `SessionStore` (main process) to remove the session entry so it is no longer pushed via IPC. Otherwise the renderer will recreate the agent on the next `updateSessions` call.
 
 **Warning signs:**
-- Memory grows each time an agent "completes" and is removed
-- GPU memory does not decrease after `destroy()` calls
-- Memory stabilizes when agents are persistent but grows when they cycle frequently
+- Task Manager shows Electron memory growing steadily over hours
+- CPU usage slowly increases even when no active sessions exist
+- DevTools shows the `agentsContainer.children` array growing over time
+- Invisible agents still receive `tick()` calls (add a console.log guard to detect)
 
 **Phase to address:**
-Phase 2 (sprite system). Write the `destroyAnimatedSprite` helper before any animated agents are created. Test by cycling 10 agents through creation/destruction and confirming GPU memory returns to baseline.
+Phase 3 (agent lifecycle). This must be implemented as a complete pipeline: fade animation + state transition + full cleanup + session store sync. Do not implement the fade without the cleanup.
 
 ---
 
-### Pitfall 4: Tilemap Requires Manual renderGroup.onChildUpdate After clean()
+### Pitfall 4: Fade-Out Agent Gets Resurrected by Next IPC Update
 
 **What goes wrong:**
-When the tilemap is cleaned and rebuilt (e.g., to update which tiles are dirty paths vs. grass), the new tiles do not appear on screen. Under WebGL, the `clean()` call without the subsequent update produces the error: `GL_INVALID_OPERATION: Vertex buffer is not big enough for the draw call`.
+An agent begins fading out after celebrating. Midway through the fade (or after reaching alpha 0 but before cleanup), the next 3-second `SessionStore` poll arrives via IPC. The `updateSessions` call in `world.ts` sees the session still present in the data (because `SessionStore` never removes sessions). The code path `let agent = this.agents.get(session.sessionId)` finds the fading/invisible agent, and the session routing logic tries to assign it to a building again. The agent snaps back to full alpha or walks to a building while mostly transparent, creating a ghost effect.
 
 **Why it happens:**
-The `@pixi/tilemap` plugin (userland, not core PixiJS) does not automatically notify PixiJS 8's render group system when tiles are structurally added or removed. PixiJS 8's render group optimization assumes child structure is stable between explicit notifications. When `Tilemap.clean()` removes all tiles and new ones are added, the render group still holds stale geometry data from the previous state. (Verified in pixijs-userland/tilemap issue #164.)
+The `SessionStore` was explicitly designed to never remove sessions: "completed/ended sessions stay visible until app restart." This was fine for v1.0/v1.1 where agents accumulated visually at the Guild Hall. For v1.2, the fade-out lifecycle creates a new requirement: the renderer must know that a faded-out agent should not be reactivated by stale session data. The 3-second polling interval means there is always a window where stale data can arrive after the renderer has decided to fade out an agent.
 
 **How to avoid:**
-After any `tilemap.clean()` call or batch tile addition, explicitly call:
-```javascript
-app.stage.renderGroup.onChildUpdate(tilemap);
+Two-part fix:
+1. **Renderer side:** Add a `fadingOut` Set or flag on the Agent. Once an agent enters the fade-out sequence, mark it as `fadingOut`. In `manageAgents()`, skip all routing logic for agents in the `fadingOut` set -- do not reassign them to buildings or update their activity.
+2. **Main process side:** Add a mechanism for the renderer to tell the SessionStore to drop a session. Add an IPC channel `session-dismiss` that the renderer sends when an agent reaches `faded_out`. The SessionStore removes the session from its map, so subsequent polls no longer include it.
+
+Without part 2, the session will keep appearing in IPC data forever, and the renderer will need to maintain a `dismissedSessionIds` set that grows without bound (minor but inelegant).
+
+**Warning signs:**
+- Agents that should be fading out suddenly snap to full opacity and start walking
+- "Ghost" agents appear partially transparent at buildings
+- Agents oscillate between fading and visible state every 3 seconds (aligned with poll interval)
+
+**Phase to address:**
+Phase 3 (agent lifecycle). The `fadingOut` guard must be implemented in the same phase as the fade animation -- they are inseparable. The IPC dismiss channel should be added in the same phase.
+
+---
+
+### Pitfall 5: Activity-Based Building Routing Conflicts With Project-Based Label Assignment
+
+**What goes wrong:**
+v1.2 introduces project-based building labels (e.g., "Agent World" replaces "Wizard Tower"). But the existing agent routing in `world.ts` sends agents to buildings based on `activityType` (coding -> Wizard Tower, testing -> Training Grounds, etc.). This means two agents from the same project working on different activities go to different buildings. Building "Agent World" (Wizard Tower) shows one agent coding, but the same project's testing agent is at "Training Grounds" -- which might be labeled with a different project or the default RPG name. The visual mapping of "project <-> building" breaks because the routing is still activity-based, not project-based.
+
+**Why it happens:**
+The v1.2 requirements say "buildings labeled with active project folder names (max 4 projects)" but the existing routing maps activities to buildings, not projects. These two systems are fundamentally different mapping strategies:
+- Activity routing: `activityType -> buildingType` (many-to-one, activities are deterministic)
+- Project routing: `projectName -> buildingType` (requires a project-to-building assignment that changes dynamically)
+
+If you add dynamic labels without changing the routing, the labels lie -- a building labeled "Agent World" might have agents from three different projects, because the activity-based routing doesn't respect project boundaries.
+
+**How to avoid:**
+Replace activity-based routing with project-based routing. Each active project gets assigned to one of the four quest zone buildings. The ACTIVITY_BUILDING constant should be replaced (or supplemented) by a dynamic `projectToBuilding` Map in World that assigns projects as they appear:
+- First active project gets building slot 0 (Wizard Tower position)
+- Second active project gets building slot 1 (Training Grounds position)
+- Max 4 projects fill all four slots
+- When a project's sessions all end, its building slot becomes available for reuse
+- Building label reflects the assigned project name, or reverts to RPG name when unassigned
+
+This is the largest architectural change in v1.2 and should be designed carefully before implementation.
+
+**Warning signs:**
+- Building labels show a project name but agents from that project are scattered across multiple buildings
+- Two buildings show the same project name because two activities from one project were routed to different buildings
+- The "max 4 projects" constraint has no enforcement, causing a 5th project's agents to have nowhere to go
+
+**Phase to address:**
+Phase 2 (building labels + routing). The routing change and the label change must be implemented together -- they are two sides of the same feature. Implementing labels without routing creates a misleading UI.
+
+---
+
+### Pitfall 6: Changing Building Labels Without Repositioning the Label Anchor
+
+**What goes wrong:**
+Building labels change from "Wizard Tower" (12 characters) to "my-incredibly-long-project-name" (31 characters). The label extends far beyond the building width, overlapping adjacent buildings or going off-screen. Short project names like "App" leave the label looking oddly undersized. The label is anchored at `(0.5, 1)` (center-bottom), which works for the fixed-length RPG names but creates visual problems with variable-length project names.
+
+**Why it happens:**
+The Building constructor positions the BitmapText label above the building sprite at a fixed offset: `label.position.set(0, -texture.height - 4)`. The anchor at `(0.5, 1)` centers the text horizontally over the building. This works because all five RPG building names are 10-16 characters and fit within the 96px building width at 16px font size. Dynamic project names have no length constraint and can be 1-40+ characters.
+
+**How to avoid:**
+Truncate project names to a maximum display width before setting them as labels. Calculate max characters based on building width: at 16px BitmapFont with monospace, each character is approximately 8-10px wide, so 96px building width supports about 10-12 characters. Truncate longer names with an ellipsis: `"my-incredibly..."`. Store a `setLabel(text: string)` method on the Building class that handles truncation, so the caller does not need to worry about length. Also consider reducing font size to 12px for project names (vs. 16px for RPG names) to fit more characters.
+
+Additionally, the current Building class has no public reference to the BitmapText label -- it is created in the constructor and added as a child but not stored as a property. You will need to store `this.label = label` to update it later.
+
+**Warning signs:**
+- Long project names visually overlap neighboring buildings
+- Very short names look oddly small centered above a wide building
+- Label text extends beyond the 1024px window boundary for corner buildings
+
+**Phase to address:**
+Phase 1 (dynamic labels). Add a `setLabel()` method to Building and implement truncation before any dynamic labels are assigned. Also store the BitmapText as a class property.
+
+---
+
+### Pitfall 7: Speech Bubble Auto-Fade Conflicts With Agent Alpha Fade-Out
+
+**What goes wrong:**
+An agent is in the process of fading out (alpha going from 1 to 0 over 2 seconds) after completing and returning to the Guild Hall. The speech bubble, which is a child of the Agent container, inherits the parent's alpha through PixiJS's alpha multiplication. If the speech bubble was still visible (mid-display or mid-fade), its alpha is now `bubbleAlpha * agentAlpha`. This creates a double-fade effect where the bubble disappears too quickly. Worse, if the speech bubble's own fade logic checks `this.alpha <= 0` to mark itself as inactive, the inherited alpha from the parent can cause it to trigger the inactive state prematurely.
+
+**Why it happens:**
+PixiJS alpha is multiplicative through the scene hierarchy. The SpeechBubble reads its own `this.alpha` in the `tick()` method (line 67: `if (this.alpha <= 0)`), but `this.alpha` is the local alpha, not the world alpha. The local alpha might still be 0.5 (mid-fade), but the visual alpha is 0.5 * 0.3 (parent agent alpha) = 0.15. The bubble appears nearly invisible but its internal fade logic thinks it is still partially visible. This is confusing but does not cause the premature-deactivation bug. The actual bug is the reverse: if the agent fade sets `agent.alpha = 0` before the bubble's own fade completes, the bubble becomes invisible instantly (visual alpha = 0) even though its internal timer has not elapsed. When the bubble later "fades" through its normal timer, it is already invisible -- wasting tick cycles on an already-invisible element.
+
+**How to avoid:**
+When an agent enters the fade-out sequence, immediately deactivate its speech bubble (`bubble.visible = false; bubble.isActive = false`). Do not let the speech bubble's independent fade timer run concurrently with the agent's fade-out. The agent fade-out should take priority: once the agent starts fading, its speech bubble should be killed instantly. This is cleaner than trying to coordinate two independent fade timers on parent and child.
+
+**Warning signs:**
+- Speech bubbles flash or pop during agent fade-out
+- Speech bubbles appear to fade faster when the agent is also fading
+- Invisible agents still have their speech bubble tick running (wasted CPU)
+
+**Phase to address:**
+Phase 3 (agent lifecycle). When implementing the agent fade-out, add explicit bubble cleanup as part of the fade initiation, not as an afterthought.
+
+---
+
+### Pitfall 8: Agent Removal During Tick Loop Iteration Causes Concurrent Modification
+
+**What goes wrong:**
+In the World's `tick()` method, the code iterates over `this.agents` with a `for...of` loop. The fade-out cleanup logic (removing agents from the Map when they reach alpha 0) runs inside this same loop. Deleting a Map entry during `for...of` iteration is technically safe in JavaScript (the iterator handles deletions), but the code also iterates over `this.speechBubbles` in the same tick and accesses `this.lastActivity`, `this.statusDebounce`, etc. If cleanup deletes from multiple Maps mid-iteration, the tick loop produces inconsistent state. Worse, `agent.destroy()` removes the agent from `agentsContainer.children`, which can cause issues if PixiJS is mid-render or if subsequent code references the destroyed container.
+
+**Why it happens:**
+The tick loop in `world.ts` currently assumes agents are never removed. All agent management happens in `updateSessions()` (driven by IPC), and the tick loop is purely for animation advancement. Adding removal to the tick loop breaks this assumption. Additionally, PixiJS documentation warns that removing display objects from their parent during event handlers or update loops can cause issues because the display list may be iterated elsewhere.
+
+**How to avoid:**
+Use a deferred removal pattern. During the tick loop, collect sessionIds that need removal into a `toRemove` array. After the tick loop completes (after all agents and bubbles have been ticked), iterate `toRemove` and perform cleanup:
+```typescript
+// In tick():
+const toRemove: string[] = [];
+for (const agent of this.agents.values()) {
+  agent.tick(deltaMs);
+  if (agent.getState() === 'faded_out') {
+    toRemove.push(agent.sessionId);
+  }
+}
+// After all iteration:
+for (const id of toRemove) {
+  this.cleanupAgent(id);
+}
 ```
-Alternatively, changing the tilemap's position triggers the same notification automatically. Since the tilemap in Agent World is static (tiles don't change after initial setup), this pitfall only matters during initialization or if tiles are ever refreshed. Encapsulate all tilemap mutation in a single `rebuildTilemap()` function that always calls `onChildUpdate` at the end.
+This ensures no Map mutation during iteration and no display list modification during the tick traversal.
 
 **Warning signs:**
-- Tilemap renders correctly on first load but goes blank after any rebuild
-- WebGL console error: "Vertex buffer is not big enough for the draw call"
-- Tiles appear correctly on WebGPU renderer but not WebGL
+- Sporadic "Cannot read property of undefined" errors during tick
+- Agents occasionally fail to clean up (skip condition hit inconsistently)
+- PixiJS console warnings about destroyed display objects during render
 
 **Phase to address:**
-Phase 2 (tilemap). Wrap all tilemap mutation in a single function that includes the `onChildUpdate` call. Verify with a test rebuild during development.
+Phase 3 (agent lifecycle). The deferred removal pattern must be the implementation strategy from the start. Do not attempt inline removal during iteration.
 
 ---
 
-### Pitfall 5: pixi-tilemap Version Must Be 5.0.2+ for PixiJS 8 Compatibility
+### Pitfall 9: Building Label Revert Logic Races With Session Polling
 
 **What goes wrong:**
-Installing `@pixi/tilemap` without specifying a version gets the latest, which may or may not be compatible with PixiJS 8. Earlier versions (before 5.0.1) will produce runtime errors or silently fail to render. Version 5.0.1 was the first to support PixiJS v8, but 5.0.2 fixes a critical rendering regression with PixiJS v8.7.0+.
+A project's last session ends. The building label should revert from "Agent World" to "Wizard Tower." But the session data is stale -- the SessionStore still has the session marked as "idle" (not removed). On the next poll, the renderer sees the session, keeps the building assigned to the project, and the label stays as "Agent World." The label never reverts. Alternatively, the renderer correctly detects all sessions for a project are idle and reverts the label, but 3 seconds later the next poll arrives with the same stale session, re-assigning the building and flipping the label back to "Agent World." The label flickers between RPG name and project name every 3 seconds.
 
 **Why it happens:**
-`@pixi/tilemap` is a userland package maintained separately from PixiJS core. Its version compatibility with PixiJS core is not enforced by npm. The package name also changed between major versions — older tutorials reference `pixi-tilemap` (the old name) which is entirely incompatible with PixiJS 8.
+The `SessionStore` never removes sessions by design. An "idle" session and a "completed and gone" session are indistinguishable in the current data model. The renderer cannot tell whether an idle session will become active again in 10 seconds (user just paused) or will never update again (user closed the terminal). Without a "session ended" signal, the label revert timing is ambiguous.
 
 **How to avoid:**
-Install explicitly: `npm install @pixi/tilemap@^5.0.2`. Verify the installed version in `node_modules/@pixi/tilemap/package.json`. Do not follow tutorials that use the old `pixi-tilemap` package name. Also check the tileset size limitation: the number of unique tile textures is bounded by the device's WebGL texture unit limit (minimum 8 per the WebGL 1 spec). With one atlas for all tiles, this is not a concern — but if tiles are loaded as individual textures, you can hit this limit with as few as 8 tile types.
+Define a clear "session is dead" heuristic. Options:
+1. **Time-based:** If a session has been idle for more than N minutes (e.g., 5 minutes), consider it dead. The building label reverts, and the agent begins its fade-out sequence. This is simple and matches user expectations.
+2. **Process-based:** Have the SessionDetector check if the Claude Code process is still running (via PID or lock file). If the process is gone, mark the session as `ended`. This is more accurate but requires process detection logic.
+3. **Explicit removal:** Add a `session-ended` status to the SessionInfo type. The SessionDetector transitions idle sessions to `ended` after the idle threshold. The renderer treats `ended` sessions as triggering label revert and agent fade-out.
+
+Option 3 is recommended because it gives the renderer a clear signal and does not require guessing. The idle-to-ended transition happens in the main process, and the renderer reacts to it deterministically.
 
 **Warning signs:**
-- `renderer.plugins.tilemap undefined` error at runtime
-- Tilemap renders blank with no console errors
-- Tiles flicker or disappear randomly on some machines (texture unit overflow)
+- Building labels never revert to RPG names even after all Claude sessions are closed
+- Labels flicker between project name and RPG name on a 3-second cycle
+- Closing all terminals does not change the world at all
 
 **Phase to address:**
-Phase 2 (tilemap). Lock the dependency version in package.json and document why.
+Phase 2 (building labels). The "when to revert" logic must be designed alongside the "when to assign" logic. These are complementary halves of the same feature.
 
 ---
 
-### Pitfall 6: Replacing GraphicsContext Frame-Swapping With AnimatedSprite Breaks Existing Tint System
+### Pitfall 10: Speech Bubble Shows Activity Text But Content Is Stale After Auto-Fade
 
 **What goes wrong:**
-The existing system uses `Container.tint` to apply status colors (active = green tint, waiting = yellow tint, etc.) to groups of Graphics primitives. When Graphics are replaced with Sprites, tint inheritance still works — but only if the sprite hierarchy is structured correctly. Sprites that are children of a tinted Container receive the inherited tint as expected. However, if a developer moves sprites to a separate non-tinted Container for z-ordering or layer reasons, the tint link is silently broken. Characters display the wrong status color or no color change at all.
+The v1.2 requirement says "speech bubbles show current activity text." The existing SpeechBubble shows an activity icon (coding wrench, reading magnifier, etc.) and auto-fades after 4 seconds. When the bubble fades and the activity changes again, the bubble reappears with a new icon. But if the activity does not change for a long time (agent sits at a building coding for 5 minutes), the bubble fades and stays hidden. The user cannot tell what the agent is doing. The bubble only reappears on activity change, but continuous work within the same activity type produces no visual feedback.
+
+If v1.2 changes bubbles to show text (e.g., "reading files" or "running tests") instead of icons, the problem is worse: the text fades, and there is no indication of what the agent is currently doing until the next activity change.
 
 **Why it happens:**
-PixiJS 8 tint inheritance is computed from the full parent-chain tint product (`getGlobalTint()`). If a Sprite is moved out of the status-tinted Container into a sibling Container, it no longer inherits the status tint. The visual result (untinted sprite) is easy to miss in testing if you only test one status at a time. Additionally, Sprite tinting is multiplicative — a tinted sprite atlas frame multiplied by a Container tint can produce unexpected color mixing if the sprite frames themselves contain non-white pixels.
+The current SpeechBubble design is event-driven: it shows on activity change and fades after a timeout. This works for icons (the activity type is shown on the agent's building assignment). But text-based bubbles create an expectation that the bubble reflects current state, not just the last state change. Users glancing at the screen expect to see what each agent is doing right now.
 
 **How to avoid:**
-Keep the Container hierarchy identical to the existing system. Each agent Container should own all visual children (body, shadow, status indicator). Do not use a separate top-level "sprites layer" that flattens the hierarchy. When introducing AnimatedSprite, keep it as a child of the same agent Container that currently holds the Graphics objects. Test all four status states (active, waiting, idle, error) with sprite art before declaring the status system complete. Note: tinting a colored sprite produces the tint color multiplied by the sprite's RGB values — design status colors in combination with the sprite palette, not independently.
+Two approaches:
+1. **Keep bubbles event-driven, rely on building context:** The bubble shows on activity change and fades. Users know the agent is at the Wizard Tower (coding). The bubble is supplementary, not the primary status indicator. This preserves the current pattern and avoids clutter.
+2. **Add periodic re-show:** If the activity text is important, re-show the bubble every N seconds while the agent is working (e.g., flash briefly every 30 seconds). This risks visual noise.
+
+Approach 1 is recommended for this app. The building assignment is the primary "what is this agent doing" signal. The speech bubble is a change notification, not a persistent status display. Keep the auto-fade behavior as-is and do not try to make bubbles show persistent state.
 
 **Warning signs:**
-- Status color changes stop working after sprite replacement
-- Only one status state shows tint correctly
-- Tint color looks "muddy" compared to the old Graphics version
+- Users complain they cannot tell what an agent is doing (signals the bubble is relied upon too heavily)
+- Bubbles re-appearing repeatedly create visual noise that distracts from the dashboard's at-a-glance purpose
+- Attempting to keep bubbles always-visible defeats the "clean dashboard" aesthetic
 
 **Phase to address:**
-Phase 2 (sprite replacement). Add explicit status-tint regression tests to the checklist before marking each agent state as complete.
-
----
-
-### Pitfall 7: Mixing Different-Source Sprite Packs Breaks Visual Cohesion
-
-**What goes wrong:**
-The world looks like a collage — characters from one pack, tiles from another, UI elements from a third. Pixel density, line weight, color palette, and shading style clash badly. A game that uses a soft-shaded RPG character pack alongside a hard-edged 1-bit tileset looks unprofessional and disjointed even if each individual asset is high quality.
-
-**Why it happens:**
-Public pixel art packs are designed in isolation. Each artist has a distinct style. RPG character packs often use 32x32 with anti-aliased outlines and pastel palettes. Dungeon tileset packs often use 16x16 or 32x32 with harsh outlines and saturated colors. Even at the same pixel grid size, the visual language (outline width, shadow direction, color count, shading style) differs enough to be obviously mismatched. This is the "sacred rule" of pixel art: do not mix resolutions or styles.
-
-**How to avoid:**
-Choose one primary pack that covers the widest range of needed assets (characters + tiles + environment). Kenney's RPG Urban/Fantasy packs (CC0) cover characters, tiles, and props in a consistent 16x16 or 32x32 style. LPC (Liberated Pixel Cup) packs all share a compatible visual standard designed explicitly for mixing. If a second pack must be used for a missing element, verify that: (1) pixel grid size matches exactly, (2) outline weight matches (1px vs. 2px outlines are immediately visible), (3) color count per sprite is similar, (4) shading direction is consistent (top-left light source is standard). It is better to skip an asset than include one that breaks visual cohesion.
-
-**Warning signs:**
-- Background tiles look flat/crisp while characters look round/blurry
-- Outlines on characters are 2px but tile outlines are 0px (or vice versa)
-- The scene looks like a LEGO character on a realistic landscape
-
-**Phase to address:**
-Phase 1 (asset sourcing). Make pack selection and consistency validation a gate before any integration work starts.
-
----
-
-### Pitfall 8: GPL-Licensed Sprite Packs Require Understanding Before Use in Non-GPL Projects
-
-**What goes wrong:**
-A sprite pack on OpenGameArt.org is downloaded without checking the license. The pack is licensed under GPL 2.0. The project ships without worrying about it. Later, if the project is ever distributed or open-sourced, it may have unexpected obligations — the FSF's position on GPL game assets is that the GPL applies to the complete work, but guidance specifically for art assets remains ambiguous.
-
-**Why it happens:**
-OpenGameArt.org hosts assets under many licenses: CC0, CC-BY, CC-BY-SA, OGA-BY, GPL 2.0, GPL 3.0, and mixed. The license picker in search results is easy to overlook. Artist profiles sometimes list a default license that doesn't apply uniformly to all their works. Multiple licenses on one pack mean you pick one — but it's easy to assume the most permissive one applies everywhere.
-
-**How to avoid:**
-Use only CC0-licensed packs for this project. CC0 (public domain dedication) requires no attribution, allows commercial use, and has no copyleft provisions. Kenney.nl provides hundreds of pixel art packs under CC0 explicitly. itch.io hosts CC0 game asset packs with a dedicated license filter. For any pack, verify the license directly on the asset page before downloading — do not rely on the artist's general policy or pack description. Avoid GPL packs, CC-BY-SA packs (share-alike is ambiguous for assets), and any pack with "all rights reserved" sections in the readme. Keep a license log: `ASSET_CREDITS.md` listing each pack's URL, license type, and what it's used for.
-
-**Warning signs:**
-- Downloaded pack has a README with phrases like "you must distribute source" or "share-alike"
-- License is listed as GPL without explicit "art exception"
-- Pack lists multiple licenses but only one is CC0 and others are restrictive
-
-**Phase to address:**
-Phase 1 (asset sourcing). Validate every pack license before touching integration. This is a one-time audit that takes 10 minutes and prevents legal ambiguity permanently.
-
----
-
-### Pitfall 9: Electron DPI Scaling Causes PixiJS Renderer Dimension Mismatch on Windows
-
-**What goes wrong:**
-On Windows with display scaling set to 125%, 150%, or 175% (common on high-DPI laptops), the Electron `BrowserWindow` created at 1024x768 does not match what PixiJS believes the canvas size to be. The renderer draws at the wrong resolution, causing the scene to be clipped, off-center, or showing a black border. The PixiJS canvas fills a different pixel count than the window's client area.
-
-**Why it happens:**
-Electron on Windows has a documented longstanding bug (issue #10659, issue #20463): when display scaling is not 100%, `BrowserWindow` dimensions are reported and set in physical pixels on some code paths and logical pixels on others. The actual DPI scaling factor (e.g., 1.5x at 150%) creates a mismatch between what `screen.getPrimaryDisplay().scaleFactor` reports and what `window.devicePixelRatio` reports in the renderer. Additionally, `resizable: false` combined with non-100% DPI has its own bugs: the window can gain 10px of extra size on some Windows versions (issue #20463). PixiJS renders using canvas pixel dimensions, which come from the DOM — if the DOM canvas size is wrong, the render is wrong.
-
-**How to avoid:**
-In the PixiJS initialization, use `window.devicePixelRatio` (not hardcoded values) for the resolution setting: `resolution: window.devicePixelRatio`. Set the canvas CSS size to exactly `1024px` and `768px`, and let PixiJS manage the backing store size based on the resolution factor. In Electron's main process, use `win.webContents.getZoomFactor()` to verify no zoom is applied. For the fixed-size window, set both `width` and `height` in `BrowserWindow` options and also set `minWidth`, `minHeight`, `maxWidth`, `maxHeight` to the same values — this is more reliable than `resizable: false` on Windows. Test explicitly at 100%, 125%, 150%, and 200% display scaling.
-
-**Warning signs:**
-- App looks correct on your dev machine (100% DPI) but reports from users show cutoff or blank areas
-- Black border appearing on one edge of the window
-- Canvas appears smaller than window with empty space
-- Characters positioned correctly in dev but offset in production
-
-**Phase to address:**
-Phase 1 (Electron window setup). The DPI resolution setup must be correct before any positioned rendering is built. Verify on a Windows machine with 125%+ display scaling before proceeding.
-
----
-
-### Pitfall 10: Electron backgroundThrottling Breaks the Adaptive Frame Rate System on Windows When Window Is Minimized
-
-**What goes wrong:**
-The existing adaptive frame rate system (30fps / 5fps / stopped) relies on PixiJS's Ticker, which uses `requestAnimationFrame`. When the Electron window is minimized on Windows, `requestAnimationFrame` is throttled to ~1fps regardless of `backgroundThrottling: false` settings. The app's "session state watcher" continues polling Claude Code sessions, but if it triggers animation updates through the render loop, those updates queue up and fire in a burst when the window is restored. Agents appear to teleport. Status changes are missed.
-
-**Why it happens:**
-Electron issue #31016 documents that `backgroundThrottling: false` does not prevent `requestAnimationFrame` throttling when the window is hidden via `win.hide()` on Windows specifically. Minimizing a window (`win.minimize()`) has different behavior: it throttles rAF but does not stop it completely. The result depends on which Electron version and Windows version is running, making it inconsistent across machines.
-
-**How to avoid:**
-Separate the session detection polling loop from the render loop entirely. Session polling should use `setInterval` in the main process (or a renderer-side `setInterval`), not a render-loop callback. `setInterval` is not throttled by `backgroundThrottling`. The render loop should only consume already-computed state — it should not be responsible for advancing agent state machines. This is a clean separation that also exists in the current architecture (the adaptive frame rate system already suggests this intent). Document `backgroundThrottling: false` in BrowserWindow config and explain why.
-
-**Warning signs:**
-- Session state updates work correctly when window is visible but lag or burst when window is restored from minimize
-- Agents "jump" to their current position when the window is restored instead of walking smoothly
-- Session detection stops working when window is minimized
-
-**Phase to address:**
-Phase 1 (architecture). The state update loop and render loop must be decoupled. This is an existing design principle — reinforce it during the milestone rather than introducing coupling through new animation systems.
-
----
-
-### Pitfall 11: ParticleContainer Requires All Particles to Share One TextureSource
-
-**What goes wrong:**
-The level-up celebration effect (golden light column + sparkles) is implemented using multiple particle textures — one for the light beam, one for sparkles, one for rising stars. Putting them all in a `ParticleContainer` fails because PixiJS 8's `ParticleContainer` requires all children to share the same `TextureSource`. Using particles from two different image files (even at the same path) causes silent rendering failures or visible artifacts.
-
-**Why it happens:**
-PixiJS 8's `ParticleContainer` achieves its performance (1M particles at 60fps) by batching all particles into a single draw call using instanced rendering. This is only possible if all particles reference the same GPU texture. Multiple `TextureSource` objects require multiple draw calls, breaking the batching optimization. Individual particle textures loaded from separate files each have their own `TextureSource`, so a mix of textures defeats the entire optimization.
-
-**How to avoid:**
-Pack all particle frame textures (sparkle, glow, star, beam slice) into the character sprite atlas or a dedicated effects atlas. Reference each particle type as a sub-texture (frame) within the same atlas. This gives every particle the same `TextureSource` while allowing different visual appearances. The `ParticleContainer` also requires a `boundsArea` specified at creation time since it does not compute bounds automatically. Provide a conservative bounding box (e.g., the full character cell area plus margin for the light column height) at creation.
-
-**Warning signs:**
-- Only one particle type renders; others are invisible
-- Sparkles render but the light column glow does not appear
-- Console warning about mismatched TextureSources in ParticleContainer
-
-**Phase to address:**
-Phase 3 (effects). Design the effects atlas alongside the character atlas in Phase 1 so frame slots are reserved. Implement ParticleContainer after atlas loading is proven.
+Phase 2 (speech bubbles). Decide the bubble's role (change notification vs. persistent status) before implementation. Document the decision.
 
 ---
 
@@ -248,12 +272,12 @@ Phase 3 (effects). Design the effects atlas alongside the character atlas in Pha
 
 | Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
 |----------|-------------------|----------------|-----------------|
-| Loading sprite frames as individual PNG files instead of an atlas | Simple to start, no atlas tooling needed | Each file = one GPU texture = VRAM multiplication; hits VRAM bug in PixiJS v8 | Never — build the atlas pipeline from the start |
-| Hard-coding tile coordinates instead of using a tilemap descriptor | Faster initial tile placement | Any tile layout change requires code edits; impossible to externalize levels | MVP only — acceptable for fixed layout if tilemap is never redesigned |
-| Using a single atlas for all assets (characters + tiles + effects combined) | One load call, simple management | Atlas exceeds 2048x2048 limit on some devices; everything loads even when some assets unused | Acceptable if total atlas stays under 2048x2048 — split by category if approaching limit |
-| Keeping some Graphics primitives alongside Sprites temporarily | Incremental migration without full rewrite | Mixed rendering modes; harder to debug visual issues; potential batch-breaking blend mode conflicts | Acceptable during Phase 2 migration only — remove Graphics completely before Phase 3 |
-| Skipping `destroy()` calls on AnimatedSprite during development | Faster iteration, no cleanup boilerplate | Growing memory leak visible only after extended use | Never in production paths — use the `destroyAnimatedSprite()` helper always |
-| Setting scale mode per-texture instead of globally | Fine-grained control | Easy to miss new textures; inconsistent rendering appears randomly | Never — set `TextureStyle.defaultOptions.scaleMode = 'nearest'` globally and override only for intentional exceptions |
+| Not storing BitmapText label as a class property on Building | No refactor of existing constructor | Cannot update label text later; must restructure to add dynamic labels | Never for v1.2 -- the label must be accessible |
+| Keeping `SessionStore` "never remove" policy for v1.2 | No main-process changes needed | Renderer must maintain its own "dismissed" set that grows without bound; stale sessions create ghost state | Acceptable for MVP only if the renderer handles staleness defensively |
+| Implementing agent fade without session cleanup IPC | Simpler (renderer-only change) | Faded agents get resurrected by next IPC poll; requires fadingOut guard that papers over the root cause | Never -- the resurrection bug will ship |
+| Hard-coding max 4 projects | Matches 4 quest zone buildings | If user runs 5+ projects, 5th project's agents have no building and fall through to Guild Hall | Acceptable -- document the limit clearly and handle the overflow gracefully (agents stay at Guild Hall with a speech bubble showing the project name) |
+| Using `Container.alpha` for agent fade-out (instead of a shader/filter) | Simple, no new dependencies | Alpha is multiplicative to children; speech bubble inherits alpha | Acceptable -- just deactivate children before fading parent |
+| Skipping the `session-dismiss` IPC channel | No IPC changes, renderer-only | SessionStore grows unbounded; renderer must filter stale sessions forever | Acceptable for MVP if session count stays low (< 50 over a day) |
 
 ---
 
@@ -261,14 +285,12 @@ Phase 3 (effects). Design the effects atlas alongside the character atlas in Pha
 
 | Integration | Common Mistake | Correct Approach |
 |-------------|----------------|------------------|
-| `@pixi/tilemap` | Installing without version lock or using old `pixi-tilemap` package name | `npm install @pixi/tilemap@^5.0.2`; verify version in package.json |
-| `@pixi/tilemap` | Calling `tilemap.clean()` without notifying the render group | Always follow `clean()` with `app.stage.renderGroup.onChildUpdate(tilemap)` |
-| Sprite atlas loading | Calling `Assets.load()` before `TextureStyle.defaultOptions.scaleMode = 'nearest'` | Set scale mode before any import or Application initialization |
-| Kenney/OpenGameArt packs | Treating "free" as "license-verified" | Check license on the specific asset page; only use CC0 packs; log in ASSET_CREDITS.md |
-| PixiJS tint on Sprites | Assuming tint inheritance works after restructuring sprite hierarchy | Test all four status states after each Container restructure; use `getGlobalTint()` debug checks |
-| Electron fixed window | Using only `resizable: false` on Windows | Set `minWidth/minHeight/maxWidth/maxHeight` equal to target size as backup; test at 125% and 150% DPI |
-| AnimatedSprite destruction | Calling `sprite.destroy()` without texture options | Use `sprite.destroy({ texture: true, textureSource: false })`; or wrap in `destroyAnimatedSprite()` helper that handles pre-fix versions |
-| SCALE_MODES.NEAREST pixel glitches | Enabling nearest-neighbor globally causes visible seams between sprites at certain positions | Use `roundPixels: true` in Application init and `Math.round()` all sprite coordinates |
+| BitmapText dynamic text | Setting `text` while BitmapText is `visible = false` -- update is silently lost (PixiJS issue #11294) | Keep BitmapText always visible; only change `text` property directly |
+| BitmapFont character set | Font installed with limited chars; project names with special characters render blank | Expand font chars to cover all printable ASCII (32-126) before any dynamic text is set |
+| Agent `destroy()` with children | Calling `agent.destroy({ children: true })` while speech bubble or level-up effect still referenced elsewhere | Null out all references (speechBubbles Map, levelUpEffect) before calling destroy |
+| SessionStore + renderer lifecycle | Renderer fades out agent, but SessionStore still pushes the session on next poll, recreating the agent | Add `fadingOut` guard in `manageAgents()` to skip routing for fading agents; add IPC dismiss channel |
+| PixiJS alpha inheritance | Parent alpha set to 0 makes children invisible, but children's local alpha is unchanged | Check worldAlpha (not local alpha) for visibility decisions; or deactivate children explicitly before parent fade |
+| Map deletion during iteration | Deleting from `this.agents` Map inside `for...of` loop during tick | Collect IDs to remove in array; delete after iteration completes |
 
 ---
 
@@ -276,13 +298,10 @@ Phase 3 (effects). Design the effects atlas alongside the character atlas in Pha
 
 | Trap | Symptoms | Prevention | When It Breaks |
 |------|----------|------------|----------------|
-| One `Texture.from()` call per animation frame | VRAM balloons to 10x expected; frames slow dramatically | Pack all frames into atlas; use sub-textures | Immediately on load — detectable via GPU memory in DevTools |
-| Interleaving sprite/graphics/sprite/graphics in the scene graph | Draw call count multiplies; render time jumps | Group all Graphics in one layer, all Sprites in another | At 10+ agents with both systems active during migration |
-| `SCALE_MODES.NEAREST` without `roundPixels` | Visible sub-pixel gaps between sprites during movement | Enable `roundPixels: true` on Application and/or round coordinates before setting sprite position | During any walk animation — visible on first character movement |
-| Not specifying `boundsArea` on ParticleContainer | PixiJS tries to compute bounds, negating performance gain | Always pass `boundsArea` at ParticleContainer creation | During any level-up effect that fires while agents are walking |
-| Multiple `ParticleContainer` instances each with a different `TextureSource` | Second particle type renders at 1fps | Pack all particle textures into one atlas; verify single TextureSource | When first adding a second particle type |
-| `AnimatedSprite.animationSpeed` in frames-per-frame instead of fps | Animations run at wrong speed on 30fps vs. 60fps; characters walk too fast or too slow | Convert: `animationSpeed = desiredFPS / app.ticker.FPS`; update on ticker FPS change | During adaptive frame rate transitions (30fps ↔ 5fps) |
-| Destroying the full atlas `TextureSource` when destroying one AnimatedSprite | All other sprites using the atlas go blank | Destroy only the texture slice (`{ textureSource: false }`), never the source | Any time an agent completes and is removed |
+| Ticking invisible faded-out agents | CPU usage grows linearly with session history; tick loop processes agents with alpha 0 | Remove agents from Map after fade-out completes; do not just hide them | After 20+ sessions complete over several hours of always-on use |
+| Updating BitmapText label every frame | Unnecessary layout recalculation on BitmapText even though text has not changed | Only set `label.text` when the value actually changes (compare before setting) | With 4 buildings updated every 3-second poll cycle -- unlikely to matter at this scale, but good hygiene |
+| Creating new SpeechBubble instances per activity change | Graphics objects and containers accumulate if bubbles are not reused | Reuse one SpeechBubble per agent (current design is correct -- preserve it) | If someone mistakenly creates new bubbles instead of calling `show()` on existing ones |
+| Running agent fade-out animation at 5fps idle ticker rate | Fade animation looks choppy and stuttery; 2-second fade at 5fps = only 10 frames of animation | Ensure fade-out keeps the ticker at active FPS (30fps) until fade completes; treat fading agents as "active" for frame rate purposes | When the only remaining activity is a fading agent and GameLoop drops to idle FPS |
 
 ---
 
@@ -290,27 +309,26 @@ Phase 3 (effects). Design the effects atlas alongside the character atlas in Pha
 
 | Pitfall | User Impact | Better Approach |
 |---------|-------------|-----------------|
-| 32x32 sprites at 1:1 scale in 1024x768 window | Characters are tiny and hard to see at a glance from normal viewing distance | Render sprites at 2x or 3x integer scale (64px or 96px characters); integer scale preserves pixel sharpness |
-| Walk animation speed disconnected from movement speed | Characters slide across tiles instead of appearing to walk on them | Tie `animationSpeed` to movement speed: if character covers N pixels/frame, cycle animation frames proportionally |
-| Level-up light column same color as sky/background | Effect is invisible against background color | Use a distinct golden-yellow hue that contrasts against the grass/dark-stone tileset; add additive blend mode for glow |
-| Tilemap static grass with no variation | World looks like a wallpaper tile pattern — obviously repetitive | Use at least 2-3 tile variants for grass, placed semi-randomly during tilemap construction |
-| Fixed-size window without `titleBarStyle` consideration | On Windows with custom title bar, the drag region and the minimize/close buttons may not work as expected | Use `titleBarStyle: 'hidden'` with `titleBarOverlay: { color, symbolColor, height }` for native Windows controls in a custom bar |
-| All sprites same animation speed | Scene feels mechanical and artificial | Randomize initial frame offset per agent: `sprite.currentFrame = Math.floor(Math.random() * sprite.totalFrames)` |
+| Building labels update instantly (no transition) | Labels snap from "Wizard Tower" to "Agent World" jarringly; feels like a glitch rather than a state change | Add a brief alpha crossfade on label change: fade old text to 0, set new text, fade to 1 (over 500ms) |
+| Agent fade-out is too fast (< 1 second) | Agent disappears abruptly after celebration; user misses it or thinks it is a bug | Use a 2-3 second fade duration; slow enough to be noticed, fast enough not to linger |
+| Agent fade-out is too slow (> 5 seconds) | Semi-transparent agents linger at Guild Hall, looking like ghosts; clutters the view | Keep fade duration to 2-3 seconds; begin fade immediately after arriving at Guild Hall |
+| Speech bubble shows raw tool names ("Bash", "Edit", "Grep") | Technical jargon meaningless to casual glances; defeats the "at-a-glance" dashboard purpose | Keep the current activity-type icons (wrench, magnifier, gear, antenna) -- they communicate category, not implementation |
+| All four buildings get project labels even when only one project is active | Three buildings with RPG names + one with a project name looks inconsistent; all four with project names when three are empty is misleading | Only label buildings that have at least one active session assigned; others keep RPG names |
+| Building label font size is too large for project names | Project names like "my-really-long-project" overflow the building width | Use smaller font (12px) for project names or truncate with ellipsis at 10-12 characters |
 
 ---
 
 ## "Looks Done But Isn't" Checklist
 
-- [ ] **Scale mode:** Sprites look crisp in dev — verify `TextureStyle.defaultOptions.scaleMode` was set before the first Assets.load by inspecting `texture.style.scaleMode` at runtime
-- [ ] **DPI on Windows:** App looks correct at 100% DPI — verify at 125% and 150% Windows display scaling before considering rendering complete
-- [ ] **Tint system:** Active/waiting/idle/error status colors show correctly with Graphics — verify all four states still show correctly after sprite replacement
-- [ ] **AnimatedSprite cleanup:** Sprites render correctly — cycle 10 agents through creation/destruction and confirm GPU memory returns to baseline
-- [ ] **Tilemap persistence:** Tilemap renders on first load — rebuild it programmatically and verify it renders correctly without GL errors
-- [ ] **License audit:** All packs look appropriate — open each pack's page and verify CC0 license is listed before committing any assets
-- [ ] **Atlas completeness:** All individual textures render correctly — verify the same assets work when packed into an atlas (sub-texture coordinates may shift)
-- [ ] **ParticleContainer:** Level-up sparkles appear — verify particles fire correctly when an agent completes a task while other agents are walking (concurrent use)
-- [ ] **Frame rate adaptive behavior:** Animations work at 30fps — verify they also work correctly when ticker drops to 5fps (agent walk cycle must not visually stall)
-- [ ] **Electron window fixed size:** Window is the right size in dev (100% DPI) — test that it does not resize, shift, or clip after a monitor sleep/wake cycle on Windows
+- [ ] **Dynamic labels:** Labels change correctly -- verify labels revert to RPG names when all sessions for a project end (not just when sessions go idle temporarily)
+- [ ] **Character set:** Labels show "Agent World" correctly -- test with a project name containing parentheses, numbers, and underscores like "my_app (v2.0)"
+- [ ] **Agent fade-out:** Agents fade and disappear -- confirm GPU memory returns to baseline after 10 agents cycle through creation/celebration/fade-out/destroy
+- [ ] **Agent resurrection:** Agent fades out -- verify the same session's stale IPC data does not recreate the agent on the next poll (wait 6+ seconds to span two poll cycles)
+- [ ] **Speech bubble cleanup:** Agent fades out while speech bubble is visible -- confirm bubble stops ticking and is destroyed with the agent, not leaked
+- [ ] **Label revert timing:** All sessions close -- verify building labels revert within a reasonable time (< 5 minutes), not remain stuck on project names forever
+- [ ] **Frame rate during fade:** Last active agent finishes and fades -- confirm the ticker stays at 30fps during the fade animation, then drops to 5fps after cleanup
+- [ ] **Overflow projects:** Start 5 simultaneous projects -- verify the 5th project's agents go to Guild Hall gracefully instead of crashing or displacing existing assignments
+- [ ] **Label truncation:** Create a project with a very long folder name (30+ characters) -- verify the label truncates with ellipsis and does not overlap neighboring buildings
 
 ---
 
@@ -318,14 +336,14 @@ Phase 3 (effects). Design the effects atlas alongside the character atlas in Pha
 
 | Pitfall | Recovery Cost | Recovery Steps |
 |---------|---------------|----------------|
-| Wrong scale mode (blurry art) | LOW | Add `TextureStyle.defaultOptions.scaleMode = 'nearest'` before any Assets.load; clear texture cache and reload |
-| VRAM explosion from individual textures | MEDIUM | Convert individual texture loads to atlas; update all texture references to use sub-texture names; re-verify performance |
-| Tilemap not updating after clean | LOW | Add `renderGroup.onChildUpdate(tilemap)` after every tilemap mutation; wrap in helper function |
-| GPL license discovered in shipped assets | HIGH | Replace asset immediately with CC0 equivalent; audit all other assets; update ASSET_CREDITS.md |
-| Tint system broken after sprite migration | LOW-MEDIUM | Audit Container hierarchy; ensure agent Container wraps all sprite children; re-test all status states |
-| AnimatedSprite memory leak | MEDIUM | Implement `destroyAnimatedSprite()` helper; run 1-hour soak test to confirm memory stabilizes |
-| DPI mismatch on Windows | MEDIUM | Add `resolution: window.devicePixelRatio` to PixiJS init; set min/max window bounds; test at 125%+ DPI |
-| Visual style clash between packs | HIGH | Remove mismatched assets; source replacement from the primary pack or a visually compatible pack; no code changes but significant art curation time |
+| BitmapText visibility bug (stale labels) | LOW | Keep BitmapText always visible; only change `text` property; no architectural change needed |
+| Missing font characters | LOW | Expand `chars` array in `installPixelFont()` to printable ASCII; one-line fix |
+| Memory leak from undestroyed agents | MEDIUM | Implement deferred cleanup in tick loop; add `faded_out` state; audit all six Maps for leftover entries |
+| Agent resurrection by stale IPC | MEDIUM | Add `fadingOut` guard in `manageAgents()`; add `session-dismiss` IPC channel; requires main + renderer changes |
+| Activity vs. project routing mismatch | HIGH | Replace `ACTIVITY_BUILDING` routing with dynamic `projectToBuilding` assignment; significant refactor of `manageAgents()` |
+| Label overflow/truncation | LOW | Add `setLabel()` method with truncation to Building class; purely additive change |
+| Double-fade on speech bubble | LOW | Deactivate bubble when agent enters fade-out; one-line addition to fade initiation |
+| Concurrent modification during tick | LOW | Switch to deferred removal pattern; collect IDs first, remove after iteration |
 
 ---
 
@@ -333,40 +351,35 @@ Phase 3 (effects). Design the effects atlas alongside the character atlas in Pha
 
 | Pitfall | Prevention Phase | Verification |
 |---------|------------------|--------------|
-| Scale mode set too late (blurry art) | Phase 1 (asset pipeline) | Runtime assert: `texture.style.scaleMode === 'nearest'` after first load |
-| VRAM explosion from per-frame textures | Phase 1 (asset pipeline) | Check GPU memory in DevTools after loading all assets; must be < 50MB |
-| AnimatedSprite destroy texture leak | Phase 2 (sprite system) | Cycle 10 agents; GPU memory must return to baseline |
-| Tilemap renderGroup.onChildUpdate | Phase 2 (tilemap) | Programmatically rebuild tilemap; verify no GL errors and correct render |
-| pixi-tilemap version compatibility | Phase 2 (tilemap) | Lock to @pixi/tilemap@^5.0.2 in package.json before any tilemap work |
-| Tint system broken after sprite migration | Phase 2 (sprite replacement) | All four status states verified after each agent type migrated |
-| Visual style clash between packs | Phase 1 (asset sourcing) | License and style audit checklist before integration begins |
-| GPL/non-CC0 license in assets | Phase 1 (asset sourcing) | ASSET_CREDITS.md completed and reviewed before commit |
-| Electron DPI mismatch | Phase 1 (window setup) | Tested at 100%, 125%, 150% DPI before any positioned rendering |
-| backgroundThrottling / minimize behavior | Phase 1 (architecture) | State polling tested while window is minimized for 30 seconds |
-| ParticleContainer TextureSource mismatch | Phase 3 (effects) | Effects atlas designed in Phase 1; verified at integration time |
-| roundPixels missing (sprite gaps) | Phase 2 (sprite rendering) | Walk animation verified at all integer scale levels for seam-free tiles |
+| BitmapText visibility bug | Phase 1 (dynamic labels) | Set label text 10 times while toggling visibility; confirm all updates render correctly |
+| BitmapFont missing characters | Phase 1 (dynamic labels) | Test with project name "(Test_App v2.0!)" -- all characters must render |
+| Building label property access | Phase 1 (dynamic labels) | Verify `Building.setLabel()` exists and updates the BitmapText before any caller code is written |
+| Label truncation/overflow | Phase 1 (dynamic labels) | Test with 30-character project name; label must not exceed building width |
+| Activity-to-project routing | Phase 2 (routing change) | Two agents from same project both appear at the same building, not split by activity |
+| Label revert timing | Phase 2 (routing + labels) | Close all sessions for a project; label reverts within defined threshold |
+| Speech bubble role decision | Phase 2 (speech bubbles) | Document whether bubble is "change notification" or "persistent status"; verify behavior matches |
+| Agent fade-out + cleanup | Phase 3 (agent lifecycle) | Cycle 10 agents; memory returns to baseline; no entries left in any Map |
+| Agent resurrection guard | Phase 3 (agent lifecycle) | Fade an agent; wait 6 seconds (2 poll cycles); confirm no resurrection |
+| Deferred removal pattern | Phase 3 (agent lifecycle) | Fade multiple agents simultaneously; no errors during tick loop |
+| Speech bubble deactivation during fade | Phase 3 (agent lifecycle) | Agent fades while bubble is visible; bubble stops immediately, no double-fade |
+| Frame rate during fade | Phase 3 (agent lifecycle) | Last agent fades; ticker stays at 30fps until cleanup, then drops to 5fps |
 
 ---
 
 ## Sources
 
-- [PixiJS 8 Performance Tips](https://pixijs.com/8.x/guides/concepts/performance-tips) — Batch ordering, Graphics vs. Sprites, texture ops (HIGH confidence)
-- [PixiJS 8 Garbage Collection](https://pixijs.com/8.x/guides/concepts/garbage-collection) — TextureGCSystem defaults, destroy() guidance (HIGH confidence)
-- [PixiJS 8 v8 Migration Guide](https://pixijs.com/8.x/guides/migrations/v8) — GraphicsContext API changes, children on leaf nodes (HIGH confidence)
-- [PixiJS GitHub Issue #11331](https://github.com/pixijs/pixijs/issues/11331) — VRAM management degradation in v8 with Texture.from (HIGH confidence)
-- [PixiJS GitHub Issue #11407](https://github.com/pixijs/pixijs/issues/11407) — AnimatedSprite destroy() not destroying textures (HIGH confidence, fixed in PR #11544)
-- [PixiJS GitHub Discussion #11018](https://github.com/pixijs/pixijs/discussions/11018) — Pixel art game setup in v8; TextureStyle.defaultOptions timing (HIGH confidence)
-- [PixiJS GitHub Issue #6087](https://github.com/pixijs/pixijs/issues/6087) — SCALE_MODES.NEAREST causing pixel glitches; need roundPixels (HIGH confidence)
-- [pixi-tilemap Issue #164](https://github.com/pixijs-userland/tilemap/issues/164) — Tilemap.clean() requires renderGroup.onChildUpdate in PixiJS 8 (HIGH confidence)
-- [pixi-tilemap Releases](https://github.com/pixijs/tilemap/releases) — Version 5.0.2 required for PixiJS v8.7.0+ (HIGH confidence)
-- [PixiJS ParticleContainer v8 Blog](https://pixijs.com/blog/particlecontainer-v8) — Single TextureSource requirement, boundsArea requirement (HIGH confidence)
-- [Electron Issue #31016](https://github.com/electron/electron/issues/31016) — backgroundThrottling not working with hide() on Windows (HIGH confidence)
-- [Electron Issue #10659](https://github.com/electron/electron/issues/10659) — DPI scaling causes incorrect window positioning/sizing on Windows (HIGH confidence)
-- [Electron Issue #20463](https://github.com/electron/electron/issues/20463) — resizable:false incorrect size with DPI scaling on Windows (HIGH confidence)
-- [OpenGameArt FAQ](https://opengameart.org/content/faq) — GPL vs. CC license explanation for game assets; App Store DRM incompatibility (HIGH confidence)
-- [Kenney.nl Support](https://kenney.nl/support) — CC0 license confirmed for all Kenney asset packs (HIGH confidence)
-- [saint11.art Consistency article](https://saint11.art/blog/consistency/) — Do not mix pixel art resolutions or styles (MEDIUM confidence)
+- [PixiJS BitmapText Visibility Bug - Issue #11294](https://github.com/pixijs/pixijs/issues/11294) -- BitmapText not updating while invisible (HIGH confidence, confirmed bug)
+- [PixiJS BitmapText Caching Issue - Issue #11877](https://github.com/pixijs/pixijs/issues/11877) -- Dynamic BitmapText style caching pitfalls (HIGH confidence)
+- [PixiJS BitmapFont Dynamic Warnings - PR #10627](https://github.com/pixijs/pixijs/pull/10627) -- Dynamic font texture warning threshold and fixes (HIGH confidence)
+- [PixiJS BitmapFont Space Corruption - Issue #11413](https://github.com/pixijs/pixijs/issues/11413) -- Space character corrupts dynamic BitmapFont (MEDIUM confidence, version-dependent)
+- [PixiJS Bitmap Text Guide](https://pixijs.com/8.x/guides/components/scene-objects/text/bitmap) -- Official BitmapText documentation for PixiJS 8 (HIGH confidence)
+- [PixiJS Garbage Collection](https://pixijs.com/8.x/guides/concepts/garbage-collection) -- TextureGCSystem and destroy() guidance (HIGH confidence)
+- [PixiJS Render Layer Destroy Bug - Issue #11373](https://github.com/pixijs/pixijs/issues/11373) -- Destroying parent with children and render layers (HIGH confidence)
+- [PixiJS visible vs renderable vs alpha](https://github.com/pixijs/pixijs/issues/3955) -- Performance difference: visible = false skips transforms; alpha = 0 still renders (HIGH confidence)
+- [PixiJS Performance Tips](https://pixijs.com/8.x/guides/concepts/performance-tips) -- Official optimization guidance for PixiJS 8 (HIGH confidence)
+- [PixiJS pixi-spine removeChild during event - Issue #203](https://github.com/pixijs-userland/spine/issues/203) -- Removing child during event trigger breaks display list (MEDIUM confidence, spine-specific but pattern applies)
+- Codebase inspection: `building.ts`, `agent.ts`, `speech-bubble.ts`, `world.ts`, `session-store.ts`, `bitmap-font.ts`, `constants.ts`, `types.ts` (HIGH confidence -- direct source code analysis)
 
 ---
-*Pitfalls research for: Agent World v1.1 — Fantasy RPG aesthetic overlay on existing PixiJS 8 + Electron system*
-*Researched: 2026-02-25*
+*Pitfalls research for: Agent World v1.2 -- Dynamic building labels, auto-fading speech bubbles, agent fade-out lifecycle*
+*Researched: 2026-02-26*

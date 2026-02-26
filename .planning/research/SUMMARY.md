@@ -1,279 +1,196 @@
 # Project Research Summary
 
-**Project:** Agent World v1.1 — Fantasy RPG Aesthetic Overhaul
-**Domain:** Animated 2D pixel-art desktop process visualizer (Electron + PixiJS 8, Windows)
-**Researched:** 2026-02-25
+**Project:** Agent World v1.2 -- Activity Monitoring & Labeling
+**Domain:** Incremental feature additions to an animated 2D pixel-art desktop process visualizer (Electron + PixiJS 8, Windows)
+**Researched:** 2026-02-26
 **Confidence:** HIGH
 
 ## Executive Summary
 
-Agent World v1.1 is a focused aesthetic overhaul of a fully working v1.0 system — not a rewrite. The core Electron + PixiJS 8 + TypeScript architecture remains intact; the work is replacing code-drawn `Graphics` primitives with real sprite-sheet art, swapping the flat-color background for a `@pixi/tilemap` tilemap, replacing dynamic project compounds with four fixed-position fantasy quest zones, and upgrading the celebration effect from Fireworks to a golden light column. This scope is well-defined, all required libraries are confirmed PixiJS 8 compatible, and the build order follows clear layer-by-layer dependencies. The single most consequential upstream decision is committing to an atlas-first asset pipeline from day one — every critical pitfall around VRAM, scale mode, and particle rendering flows from whether assets are packed into atlases or loaded as individual files.
+Agent World v1.2 is a focused feature increment on a fully working v1.1 Fantasy RPG visualizer. The three target features -- dynamic building labels showing project folder names, speech bubble auto-fade with broader trigger points, and agent fade-out lifecycle after task completion -- all operate purely in the renderer layer. The session detection pipeline already provides `projectName`, `activityType`, and `status` fields through IPC; the data is available but the display does not use it yet. No new npm dependencies are required. All three features are implementable with PixiJS 8 APIs already present in the codebase: `BitmapText.text` setter for labels, `Container.alpha` for fades, and the existing timer-based animation patterns used throughout the project.
 
-The recommended stack adds exactly two new npm packages: `@pixi/tilemap@^5.0.2` (tilemap rendering, confirmed PixiJS 8.16.0 compatible) and optionally `pixi-filters@^6.1.5` (GlowFilter for the level-up celebration only). All other v1.1 features — sprite animation, ambient lighting, particle effects — are implemented with PixiJS 8 built-in APIs. Two commonly attempted libraries are confirmed incompatible with PixiJS 8: `pixi-lights` (last release July 2023, targets v7) and `@pixi/particle-emitter` (GitHub issue #211 open since March 2024, no v8 support). Using either would cause integration failures. Assets should be exclusively CC0-licensed (Kenney.nl, OpenGameArt CC0 packs) and packed with Free Texture Packer before integration.
+The recommended approach is to implement the three features in sequence: building labels first (simplest, no dependencies), speech bubble trigger expansion second (builds familiarity with World.manageAgents()), and agent fade-out lifecycle last (most complex, touches the most files and tracking structures). All three features are technically independent and could be parallelized, but the fade-out lifecycle has the most gotchas and benefits from the implementer having already worked through the simpler World modifications. The single most consequential architectural decision is whether to change agent routing from activity-based to project-based. Currently, agents route to buildings by activity type (coding goes to Wizard Tower, testing to Training Grounds). Adding project-name labels to buildings without changing this routing creates a misleading UI where a building labeled "Agent World" might contain agents from multiple unrelated projects. The research strongly recommends project-based routing as the correct approach, though it is the largest refactor in the milestone.
 
-The key risk is not technical — it is asset visual cohesion and the ordering of rendering setup. All sprite assets must be sourced and packed into atlases before any code integration begins, because the `TextureStyle.defaultOptions.scaleMode = 'nearest'` call must be placed before the first `Assets.load()`, and the VRAM behavior (known PixiJS 8 regression, issue #11331) is undetectable if you only load a few test textures with individual files. The eight-phase build order defined in ARCHITECTURE.md (assets first, tilemap second, buildings third, agent sprites fourth, cleanup fifth, effects sixth, world simplification seventh, polish last) is the correct approach and should be followed without reordering. Each phase produces a runnable, testable app state.
+The key risks are: (1) agent fade-out without proper destroy causes memory leaks in this always-on app -- fading to alpha 0 is not the same as cleanup, and the `SessionStore` never-remove policy means stale sessions will resurrect faded agents unless guarded; (2) the BitmapFont character set needs expansion to cover all printable ASCII before any dynamic project names are displayed; (3) modifying agent alpha for fade-out conflicts with existing alpha manipulation for breathing effects, requiring the fade-out state to be dominant and exclusive. All risks have straightforward mitigations documented in the research files.
 
 ## Key Findings
 
 ### Recommended Stack
 
-The validated v1.0 stack (Electron 40.6.1, PixiJS 8.16.0, TypeScript 5.7, Webpack/Electron Forge) is unchanged. V1.1 adds minimal new dependencies, relying on PixiJS 8 built-in APIs for the majority of new features. See `STACK.md` for full code patterns and alternatives considered.
+No new npm dependencies are needed for v1.2. The validated core stack (Electron 40.6.1, PixiJS 8.16.0, TypeScript 5.7, pixi-filters 6.1.5, Webpack/Electron Forge) is unchanged. All three features use PixiJS primitives already imported in the codebase. See `.planning/research/STACK.md` for full API verification and code patterns.
 
-**Core technologies:**
-- **Electron 40.6.1**: Desktop shell — `titleBarStyle: 'hidden'` with `titleBarOverlay` for native Windows controls; `resizable: false` plus `min/maxWidth/Height` for reliable fixed-size window at 1024x768
-- **PixiJS 8.16.0**: Rendering engine — `AnimatedSprite` (sprite sheet animation), `ParticleContainer` + `Particle` (level-up effects), `FillGradient` + ADD blend mode (ambient lighting), all built-in; no separate packages needed for these features
-- **@pixi/tilemap ^5.0.2**: Tilemap rendering — `CompositeTilemap` batches ~768 grass/dirt tiles into a single draw call; the only new required npm package for this milestone
-- **pixi-filters ^6.1.5**: GlowFilter for level-up column (optional; add only if celebration glow is required); confirmed PixiJS 8 compatible via official GitHub compatibility table
-- **Free Texture Packer** (free-tex-packer.com): Asset pipeline tool for packing CC0 sprites into PixiJS JSON atlases; no npm install needed
+**Core technologies (unchanged):**
+- **PixiJS 8.16.0 BitmapText.text setter**: Dynamic label updates -- setting text is cheap because BitmapText renders from pre-generated atlas glyphs with no texture regeneration
+- **PixiJS 8.16.0 Container.alpha**: Fade effects for both speech bubbles (already implemented) and agent fade-out (new) -- when alpha reaches 0, rendering is automatically skipped
+- **PixiJS 8.16.0 Container.destroy({ children: true })**: Agent cleanup after fade-out -- destroys agent and all children but must NOT pass `{ texture: true }` since textures are shared atlas textures
 
 **What NOT to use:**
-- `pixi-lights`: PixiJS 7 only (v4.1.0, July 2023). No v8 path. Use native `FillGradient` radial gradients with ADD blend mode instead.
-- `@pixi/particle-emitter`: No PixiJS 8 support as of February 2026 (GitHub issue #211, open since March 2024). Use native `ParticleContainer` + `Particle`.
-- `@barvynkoa/particle-emitter`: Unofficial unmaintained community fork. Same verdict as above.
-- `pixi-tilemap` (old package name): Incompatible with PixiJS 8. Must use `@pixi/tilemap`.
+- GSAP or any tween library -- every animation in the project uses manual timer + linear interpolation in tick(); adding GSAP for one more fade is inconsistent and adds 30KB
+- PixiJS Text (canvas-rendered) -- heavier than BitmapText; generates a canvas texture on every text change
+- Object pooling for agents -- premature optimization for max 4 concurrent sessions
 
 ### Expected Features
 
-V1.1 is not adding new functional features to the Claude Code session monitoring system — it is replacing the visual layer. Session detection, IPC pipeline, agent FSM, and status display are all unchanged. See `FEATURES.md` for the full v1.0 feature analysis.
+All three v1.2 features address a specific user pain point: the world does not yet reflect what is actually happening. Buildings have static RPG names, speech bubbles only appear on building transitions, and completed agents pile up at Guild Hall forever. See `.planning/research/FEATURES.md` for full dependency analysis and prioritization matrix.
 
-**Must have (table stakes for v1.1 milestone):**
-- Real sprite-sheet characters replacing code-drawn `Graphics` agents — the visual identity of the product
-- Grass/dirt tilemap ground replacing the solid-color background — world feel instead of dashboard feel
-- Four fixed themed quest zone buildings (Wizard Tower, Training Grounds, Ancient Library, Tavern) replacing dynamic project compounds
-- Guild Hall building sprite replacing the Graphics-drawn spy HQ
-- Golden light column celebration replacing the Fireworks particle explosion
+**Must have (v1.2 table stakes):**
+- Dynamic building labels showing project folder names -- users need to know which building represents which project at a glance
+- Speech bubble triggers on initial agent assignment and same-building activity changes -- not just on building transitions
+- Agent fade-out after celebration + walk-back to Guild Hall -- completed agents must not accumulate forever
+- Dismissed session reactivation guard -- if a faded session becomes active again, create a new agent cleanly
 
-**Should have (quality threshold):**
-- At least 2-3 grass tile variants for visual texture (no wallpaper tiling)
-- Walk animation speed tied to movement speed (no character sliding)
-- Status tint system verified working with sprite art (critical regression risk from v1.0)
-- Agents rendered at 2x or 3x integer scale (32x32 source at 64-96px display size for visibility)
+**Should have (polish):**
+- Label crossfade animation -- smooth transition matching the existing tint crossfade aesthetic (~300ms each direction)
+- Graceful linger before fade -- 2-second pause at Guild Hall before fade begins, feels intentional rather than abrupt
+- Long project name truncation -- cap at ~14-16 characters with `..` ellipsis for readability
+- Agent count in building label -- "(2)" suffix when multiple sessions target the same building
 
-**Defer (post-v1.1):**
-- Ambient particle effects (fireflies, dust) — architecture supports it, Phase 8 item if time allows
-- Quest zone "active" glow aura when agent is present — Phase 8 polish
-- Day/night ambient cycle — v2+ feature from original FEATURES.md
+**Defer (v2+):**
+- Speech bubble text content showing actual tool/file descriptions instead of icons -- requires JSONL parsing changes and bubble UI redesign
+- Building visual state changes (door open/closed, lights on/off) based on occupancy
+- Agent "resurrection" animation when a faded session reactivates
 
-**Anti-features (confirmed out of scope — do not build):**
-- Click-to-interact with sessions
-- Audio/sound effects
-- 3D graphics
-- Token/cost tracking overlay
-- Session control (start/stop/restart)
-- Plugin/extension system
-- Web-hosted or remote access
+**Anti-features (do not build):**
+- Click building label to open project folder -- breaks the view-only constraint from PROJECT.md
+- Animated/scrolling label text -- unreadable at 16px BitmapText scale, unnecessary CPU cost
+- Permanent speech bubbles while working -- contradicts auto-fade purpose, causes visual clutter with overlapping bubbles
+- Fade ALL idle agents -- idle agents from running sessions should remain visible
 
 ### Architecture Approach
 
-V1.1 is a renderer-only change. `src/main/`, `src/preload/`, and the IPC boundary (SessionInfo, SessionStatus, ActivityType interfaces) are all unchanged. All work is in `src/renderer/`. The existing 7-state Agent FSM is preserved; only state names change (`driving_to_compound` → `walking_to_zone`, `driving_to_hq` → `walking_to_guild`) and the visual rendering layer changes (GraphicsContext frame-swapping → AnimatedSprite). See `ARCHITECTURE.md` for the complete file-by-file migration map.
+All three features touch `src/renderer/` only. No changes to `src/main/`, `src/preload/`, or IPC contracts are needed. The scene hierarchy is unchanged; modifications are to existing components (Building stores a mutable label reference, Agent gains a `fading_out` state, SpeechBubble gets broader trigger points). The World class continues to own lifecycle decisions while components own their rendering. See `.planning/research/ARCHITECTURE.md` for the complete component modification plan and data flow diagrams.
 
-**Scene hierarchy change (the core structural shift):**
-```
-Before: backgroundContainer → roadsContainer → hq → compoundsContainer → agentsContainer
-After:  tilemapLayer → buildingsLayer → agentsLayer → particlesLayer → uiLayer
-```
+**Major component modifications:**
 
-**Major components:**
-
-1. **asset-loader.ts (new)** — Centralizes `Assets.load()` for all four sprite atlases (characters, buildings, tiles, particles) before game starts; all other modules receive textures from cache synchronously after this runs
-2. **tilemap-builder.ts (new)** — Generates `CompositeTilemap` once at `World.init()` with grass field, seeded random variants, and Bresenham dirt paths from Guild Hall to each quest zone; static after creation
-3. **sprite-loader.ts (new, replaces agent-sprites.ts)** — Extracts LPC-format texture arrays per direction and state from character atlas; provides `AnimatedSprite`-ready arrays keyed by `(colorIndex, state, direction)`
-4. **quest-zone.ts (new, replaces compound.ts)** — Four fixed-position themed building sprites; positions hardcoded in `constants.ts` for fixed 1024x768 window; same `getEntrancePosition()` / `getSubLocationPosition()` API as Compound
-5. **guild-hall.ts (new, replaces hq.ts)** — Guild Hall building sprite with identical `getIdlePosition()` API
-6. **level-up-effect.ts (new, replaces fireworks.ts)** — Golden light column + sparkle shower via `ParticleContainer`; same 2500ms duration lifecycle as Fireworks
-7. **agent.ts (significant modification)** — `bodyGfx`/`accessoryGfx` → `sprite: AnimatedSprite`; Vehicle import removed; container hierarchy preserved for tint inheritance
-8. **world.ts (significant modification)** — `manageCompounds()` / `recalculateCompoundPositions()` replaced by `initQuestZones()` / `routeAgentToQuestZone()`; `resize()` removed; `particlesLayer` added
-
-**Files deleted in this milestone:** `vehicle.ts`, `fireworks.ts`, `agent-sprites.ts`, `compound.ts`, `hq.ts`, `compound-layout.ts`
-
-**Key routing simplification:** Dynamic compound lifecycle (does a compound exist for this project?) is replaced by fixed zone routing (every `activityType` always has a corresponding quest zone). Simpler, no edge cases.
+1. **Building (building.ts)** -- Store `private label: BitmapText` reference (currently anonymous addChild), add `setLabel(text)` and `resetLabel()` public methods for dynamic label updates
+2. **Agent (agent.ts)** -- Add `fading_out` as 6th state to FSM, implement alpha fade in tick(), add `isFadedOut()` for World cleanup, add `cancelFadeOut()` for reactivation edge case; skip all other visual updates (tint, breathing, shake) during fade-out
+3. **World (world.ts)** -- Track project-to-building mapping for labels, show speech bubbles on initial assignment and same-building activity changes, implement deferred removal pattern for faded agents, maintain `dismissedSessions` Set to prevent resurrection
+4. **SpeechBubble (speech-bubble.ts)** -- Existing auto-fade mechanism is complete and correct; work is adding 2-3 `bubble.show()` calls at the right trigger points in World
+5. **constants.ts** -- Add `AGENT_FADEOUT_DELAY_MS`, `AGENT_FADEOUT_MS`, `MAX_LABEL_CHARS`
+6. **bitmap-font.ts** -- Expand chars to full printable ASCII range (32-126) to support all possible project folder name characters
 
 ### Critical Pitfalls
 
-1. **TextureStyle.defaultOptions.scaleMode must be set before any Assets.load call** — Set `TextureStyle.defaultOptions.scaleMode = 'nearest'` as the very first line after PixiJS import, before `Application.init()` or any `Assets.load()`. Setting it after any texture loads silently has no effect on those textures, producing blurry pixel art that is hard to diagnose because it may appear correct for some textures and not others.
+Top 5 pitfalls synthesized from `.planning/research/PITFALLS.md`:
 
-2. **VRAM explosion from per-frame individual texture loading** — PixiJS 8 has a known regression (issue #11331) where loading sprites as individual files causes VRAM up to 28x higher than expected. Commit to atlas-first loading from Phase 1: all frames packed into atlases, all loading through `Assets.load([atlas.json, ...])`, never through per-frame `Texture.from()` calls. Validate with GPU memory in Chrome DevTools after loading all assets — target under 50MB.
+1. **Agent fade-out without destroy causes memory leak** -- Fading to alpha 0 is not cleanup. The agent container, AnimatedSprite, SpeechBubble, and 6+ Map entries remain in memory. Each invisible agent still gets `tick()` called every frame. Over 8-24 hours of always-on use, dozens of invisible agents accumulate. Prevention: implement a single `removeAgent(sessionId)` method in World that cleans ALL maps and calls `agent.destroy({ children: true })`. Use deferred removal pattern (collect IDs in array, remove after tick loop).
 
-3. **AnimatedSprite.destroy() texture leak on older PixiJS 8 releases** — `AnimatedSprite.destroy()` in some v8 versions does not destroy its frame textures (issue #11407, fixed in PR #11544). Always use `sprite.destroy({ texture: true, textureSource: false })` — destroys the texture slice but not the shared atlas source. Wrap in a `destroyAnimatedSprite()` helper used everywhere. Validate by cycling 10 agents through creation/destruction and confirming GPU memory returns to baseline.
+2. **Faded agent resurrected by stale IPC data** -- SessionStore never removes sessions. After visual fade-out, the next 3-second poll still includes the idle session. Without a guard, World recreates the agent, causing flicker. Prevention: add `fadingOut` guard in `manageAgents()` that skips routing for fading agents. Maintain a `dismissedSessions: Set<string>` in World. Consider adding `session-dismiss` IPC channel so SessionStore drops the session.
 
-4. **Tint system breaks if sprite hierarchy is restructured** — The existing `Container.tint` status color system (active/waiting/idle/error) works through parent-chain tint inheritance. If `AnimatedSprite` is moved to a separate top-level layer instead of remaining a child of the Agent Container, tint inheritance silently breaks and all agents show the wrong status color. Keep the sprite as a child of the Agent Container (not a sibling on a separate sprites layer). Test all four status states explicitly after sprite replacement.
+3. **BitmapFont character set gaps for project names** -- The existing font covers only a-z, A-Z, 0-9, and a few punctuation marks. Project folder names can contain parentheses, ampersands, plus signs, etc. Missing characters render as blank spaces. Prevention: expand `installPixelFont()` chars to cover all printable ASCII (code points 32-126) before any dynamic text is set. One-line fix, negligible cost.
 
-5. **Electron DPI scaling causes PixiJS dimension mismatch on Windows** — At 125%-175% display scaling (common on Windows laptops), `BrowserWindow` dimensions may be in physical vs. logical pixels, causing scene clipping or black borders. Use `resolution: window.devicePixelRatio` in PixiJS init, set `minWidth/minHeight/maxWidth/maxHeight` equal to target size (more reliable than `resizable: false` alone on Windows), and test at 100%, 125%, and 150% DPI before declaring rendering complete.
+4. **Activity-based routing conflicts with project-based labels** -- Buildings are labeled with project names but agents route by activity type. Two agents from the same project doing different activities go to different buildings, making labels misleading. Prevention: replace or supplement activity-based routing with project-based routing where each active project gets assigned to one of four buildings.
 
-6. **@pixi/tilemap requires version lock and renderGroup notification after mutation** — Install as `npm install @pixi/tilemap@^5.0.2` (not unpinned, not the old `pixi-tilemap` package name). After any `tilemap.clean()` call, `app.stage.renderGroup.onChildUpdate(tilemap)` must be called or tiles will not appear (WebGL GL_INVALID_OPERATION error). Since the tilemap is static in v1.1, wrap all tilemap mutation in a helper that includes this notification call.
-
-7. **ParticleContainer requires all particles to share one TextureSource** — All particles in a `ParticleContainer` must reference textures from the same atlas PNG. If the level-up effect uses textures from two different source files, only one particle type renders. Design the effects atlas in Phase 1 to include all particle frame types (column slice, sparkle, glow dot) in a single PNG.
-
-8. **Visual style clash from mixing incompatible pixel art packs** — Characters, tiles, and buildings from different artists will clash visually (different outline weights, color counts, shading directions) even at the same 32x32 pixel grid size. Commit to a single source pack family (LPC characters on OpenGameArt, Kenney fantasy tilesets) and verify visual compatibility before integration. Use only CC0-licensed packs — GPL packs carry share-alike obligations that are legally ambiguous for shipped software.
+5. **Multiple alpha writers conflict during fade-out** -- Agent `applyStatusVisuals()` sets alpha for breathing effect, and `fading_out` state also sets alpha. A breathing update during fade resets alpha to 0.5-1.0, breaking the fade. Prevention: in `fading_out` state, skip ALL other visual updates (tint, breathing, shake). The fade-out state must be dominant and exclusive.
 
 ## Implications for Roadmap
 
-The ARCHITECTURE.md build order is grounded in dependency analysis, tested against phase deliverables, and should be adopted directly as the phase structure. Each phase produces a runnable app. Reordering breaks the dependency chain: assets must exist before anything renders; tilemap must exist before buildings are placed on top; buildings must exist before agent navigation targets are defined.
+Based on combined research, the three features should be implemented in three phases. All are independent in terms of code dependencies, but the ordering below reflects increasing complexity and the benefit of building familiarity with World.manageAgents() before tackling the most stateful change.
 
-### Phase 1: Asset Pipeline and Foundation
+### Phase 1: Dynamic Building Labels
 
-**Rationale:** Every subsequent phase depends on assets being available and correctly configured. The most dangerous pitfalls (scale mode timing, VRAM, DPI, tilemap version, backgroundThrottling architecture) are all Phase 1 concerns. Getting the foundation wrong cascades through all later phases at increasing cost.
+**Rationale:** Simplest feature with the fewest moving parts. Modifies two files (Building and World) with no state machine changes. Establishes the pattern of World tracking per-building state and updating display components, which Phase 2 and 3 build upon. Must address the BitmapFont character set expansion before any dynamic text is displayed.
 
-**Delivers:** All four sprite atlases loading correctly in Electron DevTools, `TextureStyle.defaultOptions.scaleMode = 'nearest'` confirmed before any load call, DPI validated at 125%+ on actual hardware, Electron window config locked (`titleBarStyle: 'hidden'` + `titleBarOverlay`), `asset-loader.ts` written and tested, asset license audit complete (`ASSET_CREDITS.md`), state polling loop confirmed independent from render loop.
+**Delivers:** Buildings show active project folder names when sessions are working there; labels revert to RPG names when no active sessions target the building; long names truncated with ellipsis; BitmapFont expanded to full printable ASCII.
 
-**Addresses:** Table-stakes sprite art sourcing, visual identity foundation, Electron window fixed-size configuration
+**Addresses features:** Dynamic building labels (P1), building label revert to RPG names (P1), long project name truncation (P2), label crossfade animation (P2 stretch)
 
-**Avoids:** Blurry sprites (Pitfall 1 — scale mode config), VRAM explosion (Pitfall 2 — atlas-first commitment), DPI mismatch on Windows (Pitfall 9), GPL license exposure (Pitfall 8), visual style clash (Pitfall 7), backgroundThrottling/minimize loop coupling (Pitfall 10)
+**Avoids pitfalls:** BitmapText visibility bug (#11294) -- keep labels always visible, only change text; BitmapFont character set gaps -- expand before any dynamic text; label overflow -- truncate with `setLabel()` method
 
-**Research flag:** STANDARD — all patterns documented with code examples in STACK.md and ARCHITECTURE.md. No additional research needed.
+**Files modified:** `building.ts`, `bitmap-font.ts`, `world.ts`, `constants.ts`
 
-### Phase 2: Tilemap Ground Layer
+### Phase 2: Speech Bubble Trigger Expansion and Project-Based Routing
 
-**Rationale:** The background tilemap must exist before buildings are positioned on top of it. This phase confirms `@pixi/tilemap` integration works before any other rendering changes compound the complexity.
+**Rationale:** The speech bubble auto-fade mechanism is already fully implemented. The entire "feature" is adding 2-3 `bubble.show()` calls at correct trigger points in World.manageAgents(). This phase also addresses the critical routing decision: switching from activity-based to project-based building assignment. These two concerns are grouped because both modify `manageAgents()` and because the routing change determines how labels behave (which building gets which project name). The routing change is the single largest refactor in v1.2 and benefits from being tackled in its own focused phase before the more stateful fade-out work.
 
-**Delivers:** `tilemap-builder.ts`, grass field with seeded random variants (minimum 2-3 types), dirt paths from Guild Hall to four zone quadrant positions, existing `drawGround()` and `drawRoads()` removed from `world.ts`. App shows the tilemap world instead of a solid-color background.
+**Delivers:** Speech bubbles appear when agents first leave Guild Hall, when activity changes within the same building, and on building transitions (existing); project-based routing where each active project gets a dedicated building; "max 4 projects" overflow handling (5th project agents stay at Guild Hall).
 
-**Uses:** `@pixi/tilemap@^5.0.2`, `CompositeTilemap`, hardcoded zone positions from `constants.ts`, Bresenham line path generation
+**Addresses features:** Speech bubble on initial assignment (P1), speech bubble on same-building activity change (P1), project-based building routing (architectural prerequisite for accurate labels)
 
-**Avoids:** Tilemap renderGroup notification omission (Pitfall 4), pixi-tilemap wrong package name (Pitfall 5), wallpaper grass tiling (UX pitfall)
+**Avoids pitfalls:** Over-triggering bubbles by resetting fadeTimer on every poll -- only trigger on meaningful activity changes; label revert timing races with session polling -- define clear "session is dead" heuristic; stale activity text after fade -- keep bubbles as change notifications, not persistent status
 
-**Research flag:** STANDARD — tilemap pattern fully documented with code in STACK.md.
+**Files modified:** `world.ts`, `speech-bubble.ts` (minor), `constants.ts` (if timing needs adjustment)
 
-### Phase 3: Guild Hall and Quest Zone Buildings
+### Phase 3: Agent Fade-Out Lifecycle
 
-**Rationale:** Buildings define the landmark positions that agent navigation targets. Agent movement cannot be correctly tested until destination coordinates come from `QuestZone.getEntrancePosition()` calls against real building positions.
+**Rationale:** Most complex feature. Adds a 6th state to the agent FSM, requires timer-based transitions, cleanup of 7+ Maps, edge case handling for session reactivation, deferred removal during tick iteration, and coordination with the SessionStore's never-remove policy. Should be implemented last so the implementer has already worked through World modifications in Phases 1-2 and understands the agent lifecycle intimately.
 
-**Delivers:** `guild-hall.ts`, `quest-zone.ts` with all four themed zones (Wizard Tower, Training Grounds, Ancient Library, Tavern), `World.initQuestZones()` replacing `manageCompounds()`, positions finalized in `constants.ts`. App shows all buildings at correct positions on the tilemap.
+**Delivers:** Agents that complete celebration and walk back to Guild Hall linger briefly then fade out smoothly; faded agents are fully destroyed and cleaned from all tracking structures; dismissed sessions do not get resurrected by stale IPC data; fading agents can be reactivated if their session becomes active again; tick rate stays at 30fps during fade animations.
 
-**Implements:** Fixed-layout quest zone architecture pattern; eliminates dynamic compound lifecycle from `world.ts`
+**Addresses features:** Agent fade-out state (P1), agent cleanup after fade (P1), dismissed session reactivation guard (P1), graceful linger timing (P2 stretch), agent count in building label (P2 stretch)
 
-**Avoids:** Re-implementing dynamic compound layout for quest zones (architecture anti-pattern — quest zones are map features, not per-project allocations)
+**Avoids pitfalls:** Memory leak from undestroyed agents -- single `removeAgent()` method cleans all maps; resurrection by stale IPC -- `fadingOut` guard + `dismissedSessions` Set; concurrent modification during tick -- deferred removal pattern; double-fade on speech bubble -- deactivate bubble when agent enters fade-out; alpha writer conflicts -- fading_out state is dominant and exclusive, skips breathing/tint/shake
 
-**Research flag:** STANDARD — building sprite integration is straightforward. Positions are hardcoded constants for the fixed 1024x768 window.
+**Files modified:** `agent.ts`, `world.ts`, `constants.ts`, `types.ts` (if adding fading_out to AgentState union)
 
-### Phase 4: Agent Sprite Replacement
+### Phase 4: Polish and Verification (Optional)
 
-**Rationale:** Agent visual swap is the highest-risk code change because it must preserve the FSM, status tint system, and movement math while replacing the entire rendering layer. Isolating it in its own phase enables clean rollback if needed and clear attribution in git history.
+**Rationale:** Additive polish that is safe only after all three core features are verified working. These items improve visual quality but are not required for milestone sign-off.
 
-**Delivers:** `sprite-loader.ts`, `Agent` class updated with `sprite: AnimatedSprite`, walk/idle/work animation states per LPC format (64x64 frames, 8 walk frames per direction), agents navigating between Guild Hall and quest zones with walking animation. Vehicle references removed from Agent class (but `vehicle.ts` file deletion is Phase 5).
+**Delivers:** Label crossfade animation on text change, agent count suffix in building labels, final timing tuning for fade duration and linger period, end-to-end testing with multiple simultaneous Claude Code sessions.
 
-**Implements:** LPC spritesheet frame extraction (compute texture sub-rects from known grid layout); AnimatedSprite as leaf node within Agent Container (not as parent with children — PixiJS 8 breaking change)
-
-**Avoids:** AnimatedSprite texture leak (Pitfall 3 — write `destroyAnimatedSprite()` helper before any agent creation), tint system breakage (Pitfall 6 — test all four status states before declaring phase complete), AnimatedSprite-with-children mistake (Anti-Pattern 3 from ARCHITECTURE.md)
-
-**Research flag:** STANDARD — migration path fully documented in ARCHITECTURE.md with before/after code. One empirical validation needed: verify the downloaded LPC spritesheet matches the documented row/column layout before writing `sprite-loader.ts`.
-
-### Phase 5: Vehicle System Removal
-
-**Rationale:** Clean deletion of dead code after Phase 4 confirms sprite replacement works correctly. Separating deletion from replacement makes Phase 4 rollback cleaner and produces a clear, reviewable diff for the vehicle removal.
-
-**Delivers:** `vehicle.ts` deleted, all vehicle imports removed from `agent.ts`, state machine renamed to 6-state FSM (`walking_to_zone` / `walking_to_guild` instead of `driving_to_compound` / `driving_to_hq`), `AgentSlot` type updated (`vehicleType` removed, `characterClass` added), `AGENT_DRIVE_SPEED` constant removed.
-
-**Avoids:** Dead code confusion in FSM state handling (Anti-Pattern 5 from ARCHITECTURE.md)
-
-**Research flag:** STANDARD — straightforward deletion with no new patterns or libraries.
-
-### Phase 6: Level-Up Celebration Effect
-
-**Rationale:** Self-contained visual feature with no upstream dependencies beyond the agent system working. Replacing Fireworks with the golden light column is the last new visual component.
-
-**Delivers:** `level-up-effect.ts` using `ParticleContainer` (native PixiJS 8), golden column + sparkle shower effect, `Agent.startCelebration()` using `LevelUpEffect` instead of `Fireworks`, `particlesLayer` added to World scene hierarchy above agents layer.
-
-**Uses:** Native PixiJS 8 `ParticleContainer` + `Particle` (NOT `@pixi/particle-emitter` — incompatible with PixiJS 8), optionally `pixi-filters` GlowFilter for the halo effect
-
-**Avoids:** ParticleContainer TextureSource mismatch (Pitfall 11 — all particle textures must be in the same atlas PNG, designed in Phase 1), `boundsArea` omission on ParticleContainer (performance trap), using `@pixi/particle-emitter`
-
-**Research flag:** STANDARD — ParticleContainer v8 API documented with working code examples in STACK.md and ARCHITECTURE.md.
-
-### Phase 7: World Simplification
-
-**Rationale:** Architectural cleanup that is safe only after all prior phases are verified working. Removing the dynamic compound lifecycle from `world.ts` is a refactor enabled by the fixed quest zones already in place from Phase 3.
-
-**Delivers:** `manageCompounds()`, `recalculateCompoundPositions()`, `CompoundEntry` interface, `compounds` Map, and `resize()` all removed from `world.ts`. Agent routing uses simplified `agentZoneAssignment: Map<string, ActivityType>`. Session-to-zone routing verified end-to-end with real Claude Code sessions. `compound-layout.ts` file deleted.
-
-**Avoids:** Stale compound lifecycle code persisting as dead branches; `resize()` method that is meaningless on a fixed-size window
-
-**Research flag:** STANDARD — cleanup follows naturally from Phase 3 architectural decisions. No new patterns.
-
-### Phase 8: Polish and Ambient Effects (Conditional)
-
-**Rationale:** Ambient visual polish that is purely additive — no architecture changes. Only pursue if Phase 7 is complete and milestone scope allows. All patterns are documented; this phase has no research dependency.
-
-**Delivers (if pursued):** Ambient particle effect (floating fireflies or magical dust motes), quest zone "active" aura sprite when an agent is present, optional `ColorMatrixFilter` for warm color tone on the whole scene, final DPI and frame-rate verification, end-to-end test with real Claude Code sessions at 30fps and 5fps adaptive rates.
-
-**Research flag:** LOW PRIORITY — defer if milestone scope is tight. No blocking decisions required.
+**Files modified:** `building.ts` (crossfade), `world.ts` (agent count), `constants.ts` (timing)
 
 ### Phase Ordering Rationale
 
-- **Assets before everything**: Scale mode config, VRAM behavior, and atlas structure problems are cheapest to discover in Phase 1. A texture atlas format mismatch discovered in Phase 4 requires retroactive changes to every module that loaded textures.
-- **Tilemap before buildings**: Z-order dependency — the ground layer must exist before buildings are placed on top of it.
-- **Buildings before agents**: Agents navigate to building positions. Without `questZone.getEntrancePosition()` returning real coordinates, agent movement targets are undefined.
-- **Sprite replacement before cleanup**: Confirm the AnimatedSprite system works before deleting the vehicle system that previously coexisted with agents. Clean rollback path if Phase 4 hits an unexpected issue.
-- **Effects after agents**: The celebration effect fires from an Agent; the agent system must be complete and verified first.
-- **World simplification before polish**: World.ts refactor is a behavior change and should be verified with real sessions before adding cosmetic layers.
+- **Labels before routing/bubbles**: Building label infrastructure (setLabel/resetLabel, BitmapFont expansion) must exist before the routing change that determines which labels to show. Also the simplest change, building confidence before larger refactors.
+- **Routing + bubbles before fade-out**: The routing refactor in manageAgents() restructures how agents are assigned to buildings. The fade-out lifecycle also modifies manageAgents() for the fadingOut guard. Doing routing first means the fade-out code is written against the final routing logic, not the soon-to-be-replaced activity-based routing.
+- **Fade-out last**: It touches the most code, has the most edge cases (reactivation, concurrent modification, alpha conflicts, cleanup of 7+ maps), and benefits from the implementer's familiarity with World internals gained in Phases 1-2.
+- **All three features are fully independent in terms of code dependencies**: This ordering is a recommendation based on complexity gradient and practical implementation flow, not a hard dependency chain.
 
 ### Research Flags
 
-No phase requires `/gsd:research-phase` during planning. All patterns are documented with working code examples in STACK.md and ARCHITECTURE.md. The two major dead ends (pixi-lights, @pixi/particle-emitter) are identified and their alternatives are specified.
+Phases likely needing deeper research during planning:
+- **Phase 2 (routing change):** The switch from activity-based to project-based routing is the largest architectural change in v1.2. The exact assignment strategy (first-come-first-served building slots, project-to-building mapping lifecycle, overflow handling for 5+ projects) needs detailed design during phase planning. Consider `/gsd:research-phase` to validate the routing replacement strategy.
 
-Empirical validation needed during execution (not research, but testing gates):
-
-- **Phase 1**: DPI behavior at 125%+ must be tested on actual Windows hardware. VRAM after loading all four atlases must be measured in Chrome DevTools (target: under 50MB).
-- **Phase 4**: Verify downloaded LPC spritesheet frame layout matches the documented 64x64 grid (row 2 = walk, 9 columns, 4 directions) before writing `sprite-loader.ts`.
-- **Phase 4**: AnimatedSprite destroy memory baseline — cycle 10 agents through creation/destruction and confirm GPU memory returns to baseline.
-- **Phase 6**: Confirm the effects atlas (designed in Phase 1) has all particle frame types needed for the level-up effect before starting ParticleContainer implementation.
+Phases with standard patterns (skip research-phase):
+- **Phase 1 (dynamic labels):** Straightforward property addition to Building and data aggregation in World. All PixiJS APIs documented with code examples in STACK.md.
+- **Phase 3 (agent fade-out):** Timer-based state transitions, deferred removal, alpha fade -- all patterns already exist in the codebase (celebration timer, speech bubble fade, breathing alpha). The implementation mirrors existing code patterns.
+- **Phase 4 (polish):** Purely additive visual improvements using established patterns.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | All library versions confirmed via official GitHub releases and npm. Two incompatible libraries (pixi-lights, @pixi/particle-emitter) confirmed dead via GitHub issues with open dates and maintainer non-response. PixiJS 8 built-in APIs confirmed via official documentation. @pixi/tilemap v5.0.2 confirmed compatible with PixiJS 8.16.0 via GitHub release notes (released July 2025). |
-| Features | MEDIUM-HIGH | V1.1 feature scope is clearly defined (aesthetic overhaul — replace Graphics with sprites). Functional feature set (session detection, status display) is unchanged from validated v1.0 baseline. Main uncertainty is exact building sprite availability in consistent CC0 packs — requires art curation, not research. |
-| Architecture | HIGH | Comprehensive file-by-file migration plan grounded in direct analysis of the existing codebase. Build order tested against dependency graph. Anti-patterns identified with specific PixiJS 8 breaking changes (AnimatedSprite leaf node constraint, tint inheritance behavior). All new module APIs defined with signatures. |
-| Pitfalls | HIGH | All critical pitfalls sourced from official PixiJS 8 GitHub issues with issue numbers (VRAM #11331, AnimatedSprite destroy #11407, tilemap renderGroup #164). Electron DPI issues sourced from official Electron issue tracker (#10659, #20463, #31016). Asset license guidance from OpenGameArt FAQ. No single-source pitfalls in the critical tier. |
+| Stack | HIGH | No new dependencies needed. All PixiJS 8 APIs verified against official documentation. BitmapText.text setter, Container.alpha, Container.destroy() are stable core APIs. Known BitmapText visibility bug (#11294) documented with workaround. |
+| Features | HIGH | All features derived from direct codebase analysis of 22 source files. SessionInfo already carries all needed data (projectName, activityType, status). Feature dependencies and anti-features clearly identified with rationale. |
+| Architecture | HIGH | Comprehensive component modification plan grounded in existing code patterns. Timer-based state transitions, Map-per-concern tracking, and World-owns-lifecycle patterns are all established in the codebase. No new architectural patterns introduced. |
+| Pitfalls | HIGH | Critical pitfalls sourced from PixiJS 8 GitHub issues (#11294, #11877, #11373), official documentation (garbage collection, performance tips), and direct codebase inspection. Memory leak, resurrection, and alpha conflict pitfalls have concrete prevention strategies. |
 
 **Overall confidence:** HIGH
 
 ### Gaps to Address
 
-- **LPC spritesheet exact frame layout**: ARCHITECTURE.md documents the standard LPC layout (64x64 per frame, walk row at row 2, 9 columns, 4 directions). Verify the specific downloaded sheet matches this layout before writing `sprite-loader.ts` — different LPC generator outputs vary slightly. This is a 10-minute verification at the start of Phase 4, not a research task.
+- **Project-based routing strategy**: The research identifies the need to switch from activity-based to project-based building routing but does not fully design the assignment algorithm. Questions remain: What happens when a project's activity type changes -- does the agent stay at the same building or move? How are building slots reclaimed when all of a project's sessions end? What is the visual treatment for the 5th+ project that overflows the 4-building limit? These need resolution during Phase 2 planning.
 
-- **Free Texture Packer PixiJS JSON output format**: Confirmed it exports PixiJS JSON format, but the exact `animations` key format (whether it auto-generates the `animations` block or requires manual definition) should be validated with a test export before committing to it as the asset pipeline tool. One test export and `Assets.load()` in DevTools resolves this.
+- **Session "ended" detection heuristic**: The SessionStore never removes sessions, and there is no explicit "session ended" signal. The research proposes three options (time-based idle threshold, process-based PID check, explicit `ended` status). The choice affects when building labels revert and when agent fade-out triggers. This needs a design decision during Phase 2-3 planning. The simplest viable approach: treat any session that has been `idle` for more than N minutes (e.g., 5 minutes) as ended, triggering both label revert and agent fade-out.
 
-- **Building sprite availability in consistent CC0 packs**: STACK.md identifies CC0 character and tile packs but does not confirm that all four quest zone building types (Wizard Tower, Training Grounds, Ancient Library, Tavern) exist in visually compatible packs. This may require art curation or simple asset editing during Phase 3. Plan for it; do not assume all four building types are immediately available.
+- **Speech bubble scope clarification**: The v1.2 spec says "speech bubbles show current activity text" but the current implementation shows activity icons, not text. The research recommends keeping icons (readable at 28x24px bubble size; text would be illegible) and treating the "feature" as expanding trigger points rather than changing content. This interpretation should be validated against the original specification intent.
 
-- **titleBarOverlay behavior at non-100% DPI**: The `titleBarStyle: 'hidden'` + `titleBarOverlay` approach is documented for Windows. The exact behavior of `titleBarOverlay: { height: 28 }` at 125%+ DPI is not confirmed in sources. Validate during Phase 1 DPI testing alongside the canvas dimension check.
+- **Concurrent multiple-project-per-building display**: When multiple distinct projects route to the same building (possible if routing stays activity-based, or if project count exceeds 4), the label strategy needs a policy: show first project, show most recently active, cycle, or show with count suffix. The research recommends "primary name (+N)" format. Confirm this during Phase 1-2 implementation.
 
 ## Sources
 
 ### Primary (HIGH confidence)
 
-- [PixiJS 8.x Official Docs — Sprite Sheets, ParticleContainer, FillGradient, Filters](https://pixijs.com/8.x/guides) — stack patterns and API correctness
-- [PixiJS GitHub Issue #11331](https://github.com/pixijs/pixijs/issues/11331) — VRAM regression with Texture.from in v8
-- [PixiJS GitHub Issue #11407 + PR #11544](https://github.com/pixijs/pixijs/issues/11407) — AnimatedSprite destroy() texture leak and fix
-- [PixiJS GitHub Discussion #11018](https://github.com/pixijs/pixijs/discussions/11018) — TextureStyle.defaultOptions timing requirement for pixel art
-- [PixiJS GitHub Issue #6087](https://github.com/pixijs/pixijs/issues/6087) — SCALE_MODES.NEAREST causing pixel glitches; roundPixels required
-- [@pixi/tilemap GitHub — v5.0.2, PixiJS 8 compatibility confirmed](https://github.com/pixijs/tilemap)
-- [pixi-tilemap Issue #164](https://github.com/pixijs-userland/tilemap/issues/164) — renderGroup.onChildUpdate requirement after clean()
-- [pixi-filters GitHub — v6.1.5, PixiJS 8.x compatibility table](https://github.com/pixijs/filters)
-- [@pixi/particle-emitter GitHub Issue #211](https://github.com/pixijs/particle-emitter/issues/211) — confirmed no PixiJS 8 support as of Feb 2026
-- [pixijs-userland/lights GitHub — v4.1.0, PixiJS 7 only, no v8 support](https://github.com/pixijs-userland/lights)
-- [PixiJS ParticleContainer v8 Blog](https://pixijs.com/blog/particlecontainer-v8) — single TextureSource requirement, boundsArea requirement
-- [Electron Window Customization Docs](https://www.electronjs.org/docs/latest/tutorial/window-customization) — titleBarStyle + titleBarOverlay API
-- [Electron Issue #10659 + #20463](https://github.com/electron/electron/issues) — DPI scaling causes incorrect window positioning/sizing on Windows
-- [Electron Issue #31016](https://github.com/electron/electron/issues/31016) — backgroundThrottling not preventing rAF throttle with hide() on Windows
-- [Universal LPC Spritesheet Character Generator](https://github.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator) — frame layout reference (64x64, row/column structure)
-- [OpenGameArt FAQ](https://opengameart.org/content/faq) — license guidance for game assets
-- [Kenney.nl CC0 confirmation](https://kenney.nl/support) — all Kenney asset packs confirmed CC0
+- [PixiJS 8.x BitmapText API](https://pixijs.download/dev/docs/scene.BitmapText.html) -- text property setter, dynamic updates
+- [PixiJS 8.x Container API](https://pixijs.download/dev/docs/scene.Container.html) -- alpha, destroy, removeChild
+- [PixiJS 8.x Bitmap Text Guide](https://pixijs.com/8.x/guides/components/scene-objects/text/bitmap) -- BitmapText performance characteristics
+- [PixiJS 8.x Container Guide](https://pixijs.com/8.x/guides/components/scene-objects/container) -- container lifecycle, scene graph management
+- [PixiJS 8.x Garbage Collection](https://pixijs.com/8.x/guides/concepts/garbage-collection) -- destroy best practices
+- [PixiJS 8.x Performance Tips](https://pixijs.com/8.x/guides/concepts/performance-tips) -- optimization guidance
+- [PixiJS Issue #11294](https://github.com/pixijs/pixijs/issues/11294) -- BitmapText not updating while invisible
+- [PixiJS Issue #11877](https://github.com/pixijs/pixijs/issues/11877) -- Dynamic BitmapText style caching pitfalls
+- [PixiJS Issue #11373](https://github.com/pixijs/pixijs/issues/11373) -- Destroying parent with children and render layers
+- [PixiJS Issue #3955](https://github.com/pixijs/pixijs/issues/3955) -- visible vs renderable vs alpha performance differences
+- Direct codebase analysis of all 22 source files in `src/` -- existing patterns verified
 
 ### Secondary (MEDIUM confidence)
 
-- [Claude Code Hooks Reference](https://code.claude.com/docs/en/hooks) — session detection hooks (v1.0 feature baseline, unchanged in v1.1)
-- [claude-code-monitor GitHub](https://github.com/onikan27/claude-code-monitor) — adjacent product feature comparison (for FEATURES.md baseline)
-- [Free Texture Packer](https://free-tex-packer.com/app/) — PixiJS JSON atlas export tool (tool verified; workflow needs empirical validation)
-- [saint11.art — Consistency in pixel art](https://saint11.art/blog/consistency/) — mixed-pack visual cohesion pitfall
-- Direct codebase analysis of `src/renderer/*.ts` — existing Agent FSM, World, and rendering patterns verified by reading source files
-
-### Tertiary (LOW confidence, needs validation)
-
-- [~/.claude directory structure Gist](https://gist.github.com/samkeen/dc6a9771a78d1ecee7eb9ec1307f1b52) — session file format community reference (verify against actual filesystem before using)
-- [Claude Code Session File Format — community article](https://databunny.medium.com/inside-claude-code-the-session-file-format-and-how-to-inspect-it-b9998e66d56b) — JSONL format details (verify before implementing any session parsing changes)
+- [PixiJS BitmapFont Dynamic Warnings - PR #10627](https://github.com/pixijs/pixijs/pull/10627) -- dynamic font texture warning threshold
+- [PixiJS BitmapFont Space Corruption - Issue #11413](https://github.com/pixijs/pixijs/issues/11413) -- space character corruption (version-dependent)
+- [PixiJS v8.11.0 Release](https://pixijs.com/blog/8.11.0) -- SplitBitmapText, breakWords for BitmapText (confirms active development)
 
 ---
-*Research completed: 2026-02-25*
+*Research completed: 2026-02-26*
 *Ready for roadmap: yes*
