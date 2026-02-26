@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { SessionInfo, SessionStatus, ActivityType } from '../shared/types';
-import { IDLE_THRESHOLD_MS, TOOL_TO_ACTIVITY } from '../shared/constants';
+import { IDLE_THRESHOLD_MS, STALE_SESSION_MS, TOOL_TO_ACTIVITY } from '../shared/constants';
 import { readLastJsonlLine, readLastToolUse, JsonlEntry } from './jsonl-reader';
 
 /**
@@ -109,6 +109,11 @@ export class FilesystemSessionDetector implements SessionDetector {
       const stat = fs.statSync(filePath);
       const now = Date.now();
 
+      // Skip stale sessions (not modified in over 1 hour)
+      if (now - stat.mtimeMs > STALE_SESSION_MS) {
+        return null;
+      }
+
       // Check if mtime is unchanged -- reuse cached result (just update status)
       const cached = this.mtimeCache.get(sessionId);
       if (cached && cached.mtimeMs === stat.mtimeMs) {
@@ -132,10 +137,14 @@ export class FilesystemSessionDetector implements SessionDetector {
       const status = this.determineStatus(lastEntryType, stat.mtimeMs, now);
 
       // Extract activity type from last tool_use in JSONL progress entries
+      // Force idle when session has been idle long enough to be stale -- prevents
+      // ancient sessions from claiming building slots over active projects
       const lastToolName = readLastToolUse(filePath);
-      const activityType: ActivityType = lastToolName
-        ? (TOOL_TO_ACTIVITY[lastToolName] ?? 'coding')
-        : 'idle';
+      const timeSinceModified = now - stat.mtimeMs;
+      const activityType: ActivityType =
+        (status === 'idle' && timeSinceModified > STALE_SESSION_MS)
+          ? 'idle'
+          : (lastToolName ? (TOOL_TO_ACTIVITY[lastToolName] ?? 'coding') : 'idle');
 
       // Extract project path from JSONL cwd field, or use cached value, or fall back to dir name
       let projectPath: string;

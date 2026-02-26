@@ -2,6 +2,7 @@ import type { ActivityType, CharacterClass, AgentSlot, SessionStatus } from './t
 
 export const POLL_INTERVAL_MS = 3000;       // 3 seconds per user decision (3-5s range)
 export const IDLE_THRESHOLD_MS = 30_000;     // 30 seconds per user decision
+export const STALE_SESSION_MS = 30 * 60 * 1000; // 30 minutes -- sessions older than this are not shown
 
 export const STATUS_COLORS = {
   active:  0x00d4aa,  // Teal -- mission go
