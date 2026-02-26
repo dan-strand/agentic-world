@@ -55,6 +55,7 @@ Progress: [██████████] 100% (1/1 plans in phase 10)
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 1 | need to be able to move the window around the screen | 2026-02-26 | 1ef1e93 | [1-need-to-be-able-to-move-the-window-aroun](./quick/1-need-to-be-able-to-move-the-window-aroun/) |
+| 2 | add idle timeout fadeout for agents idle 5+ minutes | 2026-02-26 | 268cdfc | [2-add-idle-timeout-fadeout-agents-whose-se](./quick/2-add-idle-timeout-fadeout-agents-whose-se/) |
 
 ## Accumulated Context
 
@@ -74,6 +75,8 @@ Recent decisions affecting current work:
 - [09-01]: Removed unnecessary assignToCompound in working-state activity change (project routing keeps agent at same building)
 - [10-01]: Used early continue in manageAgents() for fading_out guard (TS type narrowing made else-block guard unreachable)
 - [10-01]: 2000ms linger delay + 2000ms fade duration for natural visual timing
+- [quick-2]: Idle timeout uses committed status (post-debounce) to avoid premature fade from raw status flicker
+- [quick-2]: Cancellation checks both activityType and status for comprehensive reactivation detection
 
 ### Blockers/Concerns
 
@@ -82,5 +85,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: Completed 10-01-PLAN.md (Phase 10 complete, v1.2 milestone complete)
+Stopped at: Completed quick task 2 (idle timeout fadeout)
 Resume file: None
