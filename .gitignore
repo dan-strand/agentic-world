@@ -90,3 +90,6 @@ typings/
 
 # Electron-Forge
 out/
+
+# Source sound files (copies live in assets/sounds/)
+*.mp3
