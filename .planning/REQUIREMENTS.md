@@ -14,9 +14,9 @@ Requirements for v1.2 Activity Monitoring & Labeling. Each maps to roadmap phase
 
 ### Speech Bubbles
 
-- [ ] **BUBBLE-01**: Speech bubbles display the agent's current activity as text
-- [ ] **BUBBLE-02**: Speech bubbles auto-fade after a few seconds
-- [ ] **BUBBLE-03**: Speech bubbles re-appear on any activity change, not just building transitions
+- [x] **BUBBLE-01**: Speech bubbles display the agent's current activity as text
+- [x] **BUBBLE-02**: Speech bubbles auto-fade after a few seconds
+- [x] **BUBBLE-03**: Speech bubbles re-appear on any activity change, not just building transitions
 
 ### Agent Lifecycle
 
@@ -53,9 +53,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | LABEL-01 | Phase 8 | Complete |
 | LABEL-02 | Phase 8 | Complete |
 | LIFE-03 | Phase 8 | Complete |
-| BUBBLE-01 | Phase 9 | Pending |
-| BUBBLE-02 | Phase 9 | Pending |
-| BUBBLE-03 | Phase 9 | Pending |
+| BUBBLE-01 | Phase 9 | Complete |
+| BUBBLE-02 | Phase 9 | Complete |
+| BUBBLE-03 | Phase 9 | Complete |
 | LIFE-01 | Phase 10 | Pending |
 | LIFE-02 | Phase 10 | Pending |
 
