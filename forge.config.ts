@@ -28,6 +28,8 @@ const config: ForgeConfig = {
     new WebpackPlugin({
       mainConfig,
       port: 3456,
+      devContentSecurityPolicy:
+        "default-src 'self' 'unsafe-inline' data:; script-src 'self' 'unsafe-eval' 'unsafe-inline' data:; worker-src 'self' blob:; img-src 'self' data: blob:",
       renderer: {
         config: rendererConfig,
         entryPoints: [

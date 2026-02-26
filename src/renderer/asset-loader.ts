@@ -8,7 +8,7 @@ import { Assets } from 'pixi.js';
  */
 export async function loadAllAssets(): Promise<void> {
   await Assets.load([
-    { alias: 'tiles', src: 'assets/sprites/tiles.json' },
+    { alias: 'tiles', src: '../assets/sprites/tiles.json' },
     // Future phases will add:
     // { alias: 'buildings', src: 'assets/sprites/buildings.json' },
     // { alias: 'characters', src: 'assets/sprites/characters.json' },
