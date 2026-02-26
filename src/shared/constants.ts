@@ -10,9 +10,26 @@ export const STATUS_COLORS = {
   error:   0xcc3333,  // Red -- compromised
 } as const;
 
-export const DEFAULT_WINDOW_WIDTH = 1200;
-export const DEFAULT_WINDOW_HEIGHT = 800;
+export const DEFAULT_WINDOW_WIDTH = 1024;
+export const DEFAULT_WINDOW_HEIGHT = 768;
 export const BACKGROUND_COLOR = 0x1a1a2e;
+
+// Tilemap
+export const TILE_SIZE = 32;
+export const WORLD_COLS = 32;  // 1024 / 32
+export const WORLD_ROWS = 24;  // 768 / 32
+export const WORLD_WIDTH = 1024;
+export const WORLD_HEIGHT = 768;
+
+// World layout positions (pixel coordinates, center of each zone)
+// Guild Hall at center, quest zones in four quadrants
+export const GUILD_HALL_POS = { x: 512, y: 384 };  // center of 1024x768
+export const QUEST_ZONE_POSITIONS = {
+  coding:  { x: 192, y: 160 },   // top-left quadrant -- Wizard Tower
+  testing: { x: 832, y: 160 },   // top-right quadrant -- Training Grounds
+  reading: { x: 192, y: 608 },   // bottom-left quadrant -- Ancient Library
+  comms:   { x: 832, y: 608 },   // bottom-right quadrant -- Tavern
+} as const;
 
 // Adaptive frame rate
 export const FPS_ACTIVE = 30;

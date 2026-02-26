@@ -1,6 +1,5 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, Menu } from 'electron';
 import { registerIpcHandlers } from './ipc-handlers';
-import { DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT } from '../shared/constants';
 import { FilesystemSessionDetector } from './session-detector';
 import { SessionStore } from './session-store';
 
@@ -13,15 +12,31 @@ if (require('electron-squirrel-startup')) {
   app.quit();
 }
 
+// Remove default menu bar (no File/Edit/View/Help menus)
+Menu.setApplicationMenu(null);
+
 // Create detector and store at module level so they're accessible for cleanup
 const detector = new FilesystemSessionDetector();
 const store = new SessionStore(detector);
 
 const createWindow = (): void => {
   const mainWindow = new BrowserWindow({
-    width: DEFAULT_WINDOW_WIDTH,
-    height: DEFAULT_WINDOW_HEIGHT,
-    // Standard Windows titlebar -- no frame:false, no titleBarStyle, no alwaysOnTop, no transparent
+    width: 1024,
+    height: 768,
+    minWidth: 1024,
+    minHeight: 768,
+    maxWidth: 1024,
+    maxHeight: 768,
+    resizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    autoHideMenuBar: true,
+    titleBarStyle: 'hidden',
+    titleBarOverlay: {
+      color: '#1a1a2e',
+      symbolColor: '#c9a96e',
+      height: 28,
+    },
     webPreferences: {
       preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
       contextIsolation: true,
