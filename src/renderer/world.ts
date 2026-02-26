@@ -1,4 +1,4 @@
-import { Application, Container } from 'pixi.js';
+import { Application, Container, ColorMatrixFilter } from 'pixi.js';
 import type { SessionInfo, ActivityType, SessionStatus } from '../shared/types';
 import {
   BACKGROUND_COLOR,
@@ -16,6 +16,7 @@ import { Building } from './building';
 import { buildingTextures } from './asset-loader';
 import { SpeechBubble } from './speech-bubble';
 import { buildWorldTilemap } from './tilemap-builder';
+import { AmbientParticles } from './ambient-particles';
 
 /** Per-agent status debounce tracking to prevent jittery visual flickering. */
 interface StatusDebounce {
@@ -32,18 +33,20 @@ interface StatusDebounce {
  * agents, vehicles, speech bubbles into a living fantasy RPG world.
  *
  * Scene hierarchy:
- *   app.stage
+ *   app.stage [warm ColorMatrixFilter]
  *   +-- tilemapLayer (canvas-rendered grass + dirt paths)
  *   +-- buildingsContainer (Guild Hall + 4 quest zone buildings)
+ *   +-- ambientParticles (floating firefly particles)
  *   +-- agentsContainer (dynamic Agent children)
  */
 export class World {
   private app!: Application;
 
-  // Scene containers (z-order: tilemap, buildings, agents)
+  // Scene containers (z-order: tilemap, buildings, ambient particles, agents)
   private tilemapLayer!: Container;
   private guildHall!: Building;
   private buildingsContainer!: Container;
+  private ambientParticles!: AmbientParticles;
   private agentsContainer!: Container;
 
   // State tracking
@@ -117,8 +120,17 @@ export class World {
       this.questZones.set(activityType as ActivityType, building);
     }
 
+    // Ambient floating particles (between buildings and agents in z-order)
+    this.ambientParticles = new AmbientParticles();
+    this.app.stage.addChild(this.ambientParticles);
+
     this.agentsContainer = new Container();
     this.app.stage.addChild(this.agentsContainer);
+
+    // Warm ambient lighting tint (FX-03)
+    const warmFilter = new ColorMatrixFilter();
+    warmFilter.tint(0xFFE8C0, false); // Warm golden tone for RPG atmosphere
+    this.app.stage.filters = [warmFilter];
   }
 
   /**
@@ -168,9 +180,28 @@ export class World {
       }
     }
 
+    // Tick ambient particles
+    this.ambientParticles.tick(deltaMs);
+
     // Tick speech bubbles
     for (const bubble of this.speechBubbles.values()) {
       bubble.tick(deltaMs);
+    }
+
+    // Quest zone active highlights (ENV-04)
+    const activeBuildingTypes = new Set<string>();
+    for (const agent of this.agents.values()) {
+      const agentState = agent.getState();
+      if (agentState === 'working' || agentState === 'walking_to_workspot') {
+        const activity = this.lastActivity.get(agent.sessionId);
+        if (activity && activity !== 'idle') {
+          activeBuildingTypes.add(ACTIVITY_BUILDING[activity]);
+        }
+      }
+    }
+    for (const [activityType, building] of this.questZones) {
+      const buildingType = ACTIVITY_BUILDING[activityType];
+      building.tint = activeBuildingTypes.has(buildingType) ? 0xFFDD88 : 0xFFFFFF;
     }
   }
 

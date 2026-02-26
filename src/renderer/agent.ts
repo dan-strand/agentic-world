@@ -16,7 +16,7 @@ import {
   hashSessionId,
 } from '../shared/constants';
 import { getCharacterAnimation } from './agent-sprites';
-import { Fireworks } from './fireworks';
+import { LevelUpEffect } from './level-up-effect';
 
 /**
  * Agent states form a walk-only cycle (no vehicle/driving):
@@ -40,7 +40,7 @@ export type AgentState =
  * - Linear interpolation movement (frame-rate independent via deltaMs)
  * - Staggered frame offsets via session hash for non-lockstep animation
  * - Status visual effects: tint crossfade, breathing alpha, error shake, animation speed
- * - Celebration state with Fireworks particle effect
+ * - Celebration state with LevelUpEffect golden column + sparkle shower
  */
 export class Agent extends Container {
   readonly sessionId: string;
@@ -77,7 +77,7 @@ export class Agent extends Container {
   private shakeOriginX = 0;
 
   // Celebration
-  private fireworks: Fireworks | null = null;
+  private levelUpEffect: LevelUpEffect | null = null;
   private celebrationTimer = 0;
 
   constructor(sessionId: string, slot: AgentSlot) {
@@ -157,16 +157,16 @@ export class Agent extends Container {
 
       case 'celebrating': {
         this.celebrationTimer += deltaMs;
-        if (this.fireworks) {
-          this.fireworks.tick(deltaMs);
+        if (this.levelUpEffect) {
+          this.levelUpEffect.tick(deltaMs);
         }
         this.setAnimation('idle'); // Stand still during celebration
         if (this.celebrationTimer >= CELEBRATION_DURATION_MS) {
-          // Clean up fireworks
-          if (this.fireworks) {
-            this.removeChild(this.fireworks);
-            this.fireworks.destroy({ children: true });
-            this.fireworks = null;
+          // Clean up level-up effect
+          if (this.levelUpEffect) {
+            this.removeChild(this.levelUpEffect);
+            this.levelUpEffect.destroy({ children: true });
+            this.levelUpEffect = null;
           }
           // Walk directly to HQ (no vehicle)
           this.state = 'walking_to_building';
@@ -299,15 +299,15 @@ export class Agent extends Container {
   }
 
   /**
-   * Begin celebration: play fireworks above agent, then transition to HQ.
+   * Begin celebration: play golden level-up effect above agent, then transition to HQ.
    * Called by World when a session completes successfully.
    */
   startCelebration(): void {
     this.state = 'celebrating';
     this.celebrationTimer = 0;
-    // Position fireworks above agent head
-    this.fireworks = new Fireworks(0, -40);
-    this.addChild(this.fireworks);
+    // Position level-up effect above agent head
+    this.levelUpEffect = new LevelUpEffect(0, -40);
+    this.addChild(this.levelUpEffect);
   }
 
   // --- Public API (called by World) ---
