@@ -103,6 +103,8 @@ export class World {
 
     // Tilemap ground layer (replaces backgroundContainer + roadsContainer)
     this.tilemapLayer = new Container();
+    this.tilemapLayer.eventMode = 'none';
+    this.tilemapLayer.interactiveChildren = false;
     this.app.stage.addChild(this.tilemapLayer);
 
     const tilemap = buildWorldTilemap(
