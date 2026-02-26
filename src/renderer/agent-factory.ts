@@ -5,7 +5,7 @@ import { getAgentSlot } from '../shared/constants';
  * AgentFactory -- Maps sessionId to deterministic visual identity.
  *
  * Caches slot assignments to avoid rehashing the same sessionId.
- * The slot determines the agent's color, accessory, and vehicle type.
+ * The slot determines the agent's color and character class.
  *
  * Same sessionId always produces the same AgentSlot, ensuring
  * stable visual identity across app restarts.

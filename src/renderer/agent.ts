@@ -1,8 +1,7 @@
-import { Container, Graphics } from 'pixi.js';
-import type { AgentSlot, SessionStatus } from '../shared/types';
+import { Container, AnimatedSprite } from 'pixi.js';
+import type { AgentSlot, SessionStatus, CharacterClass } from '../shared/types';
 import {
   AGENT_WALK_SPEED,
-  AGENT_DRIVE_SPEED,
   ANIMATION_FRAME_MS,
   STATUS_TINTS,
   STATUS_ANIM_SPEED,
@@ -14,60 +13,53 @@ import {
   BREATH_ALPHA_MAX,
   CELEBRATION_DURATION_MS,
   lerpColor,
+  hashSessionId,
 } from '../shared/constants';
-import { getBodyFrames, getAccessoryContext } from './agent-sprites';
-import { Vehicle } from './vehicle';
+import { getCharacterAnimation } from './agent-sprites';
 import { Fireworks } from './fireworks';
-import type { GraphicsContext } from 'pixi.js';
 
 /**
- * Agent states form a cycle:
- *   idle_at_hq -> driving_to_compound -> walking_to_sublocation -> working
- *                                                                     |
- *   idle_at_hq <- driving_to_hq <- walking_to_entrance <- celebrating +
+ * Agent states form a walk-only cycle (no vehicle/driving):
+ *   idle_at_hq -> walking_to_building -> walking_to_workspot -> working
+ *                                                                  |
+ *   idle_at_hq <- walking_to_building (to HQ) <--- celebrating ---+
  */
 export type AgentState =
   | 'idle_at_hq'
-  | 'driving_to_compound'
-  | 'walking_to_sublocation'
+  | 'walking_to_building'
+  | 'walking_to_workspot'
   | 'working'
-  | 'celebrating'
-  | 'walking_to_entrance'
-  | 'driving_to_hq';
+  | 'celebrating';
 
 /**
  * Agent -- The main visual entity for each Claude Code session.
  *
  * Extends PixiJS Container with:
- * - 7-state state machine governing behavior (includes celebrating)
+ * - 5-state walk-only state machine (no vehicle/driving states)
+ * - AnimatedSprite from character atlas (mage/warrior/ranger/rogue)
  * - Linear interpolation movement (frame-rate independent via deltaMs)
- * - GraphicsContext frame-swapping animation (never graphics.clear() in tick)
- * - Vehicle child container for driving states
- * - Composited body + accessory layers
+ * - Staggered frame offsets via session hash for non-lockstep animation
  * - Status visual effects: tint crossfade, breathing alpha, error shake, animation speed
  * - Celebration state with Fireworks particle effect
  */
 export class Agent extends Container {
   readonly sessionId: string;
   private state: AgentState = 'idle_at_hq';
-  private bodyGfx: Graphics;
-  private accessoryGfx: Graphics;
-  private vehicle: Vehicle;
-  private slot: AgentSlot;
+  private sprite: AnimatedSprite;
+  private characterClass: CharacterClass;
+  private currentAnimState: 'idle' | 'walk' | 'work' = 'idle';
 
   // Movement
   private targetX = 0;
   private targetY = 0;
 
-  // Animation
-  private frameIndex = 0;
+  // Animation frame timing (for manual update)
   private frameTimer = 0;
-  private currentBodyFrames: GraphicsContext[] = [];
 
-  // Position references (set by world when assigning to compound/HQ)
+  // Position references (set by world when assigning to building/HQ)
   private hqPosition: { x: number; y: number } = { x: 0, y: 0 };
-  private compoundEntrance: { x: number; y: number } | null = null;
-  private subLocationTarget: { x: number; y: number } | null = null;
+  private buildingEntrance: { x: number; y: number } | null = null;
+  private workSpotTarget: { x: number; y: number } | null = null;
 
   // Status visuals
   private visualStatus: SessionStatus = 'active';
@@ -91,22 +83,21 @@ export class Agent extends Container {
   constructor(sessionId: string, slot: AgentSlot) {
     super();
     this.sessionId = sessionId;
-    this.slot = slot;
+    this.characterClass = slot.characterClass;
 
-    // Body graphics - composited layer 1
-    const idleFrames = getBodyFrames(slot.colorIndex, 'idle');
-    this.currentBodyFrames = idleFrames;
-    this.bodyGfx = new Graphics(idleFrames[0]);
-    this.addChild(this.bodyGfx);
+    // Create AnimatedSprite from idle animation
+    const idleTextures = getCharacterAnimation(this.characterClass, 'idle');
+    this.sprite = new AnimatedSprite(idleTextures);
+    this.sprite.anchor.set(0.5, 1.0); // Bottom-center for ground placement
+    this.sprite.autoUpdate = false;    // Manual tick control -- CRITICAL to avoid double-speed
+    this.sprite.animationSpeed = 0.15; // ~4.5fps at 30fps ticker
+    this.sprite.loop = true;
 
-    // Accessory graphics - composited layer 2 (rendered on top of body)
-    const accCtx = getAccessoryContext(slot.accessory);
-    this.accessoryGfx = new Graphics(accCtx);
-    this.addChild(this.accessoryGfx);
+    // Staggered frame offset (AGENT-03 requirement)
+    const startFrame = hashSessionId(sessionId) % this.sprite.totalFrames;
+    this.sprite.gotoAndPlay(startFrame);
 
-    // Vehicle (hidden by default, shown during driving states)
-    this.vehicle = new Vehicle(slot.vehicleType, slot.color);
-    this.addChild(this.vehicle);
+    this.addChild(this.sprite);
   }
 
   /**
@@ -119,36 +110,49 @@ export class Agent extends Container {
     this.updateBreathing(deltaMs);
     this.updateShake(deltaMs);
 
+    // Advance AnimatedSprite animation manually
+    // Convert deltaMs to frame-relative units and apply status speed multiplier
+    const speedMultiplier = STATUS_ANIM_SPEED[this.visualStatus];
+    this.frameTimer += deltaMs * speedMultiplier;
+    if (this.frameTimer >= ANIMATION_FRAME_MS) {
+      this.frameTimer -= ANIMATION_FRAME_MS;
+      this.sprite.currentFrame = (this.sprite.currentFrame + 1) % this.sprite.totalFrames;
+    }
+
     switch (this.state) {
       case 'idle_at_hq':
-        this.animateFrames(deltaMs, 'idle');
+        this.setAnimation('idle');
         break;
 
-      case 'driving_to_compound': {
-        if (!this.compoundEntrance) break;
-        const dx1 = this.compoundEntrance.x - this.x;
-        const dy1 = this.compoundEntrance.y - this.y;
-        this.vehicle.setDirection(dx1, dy1);
-        this.moveToward(this.compoundEntrance.x, this.compoundEntrance.y, AGENT_DRIVE_SPEED, deltaMs);
-        this.vehicle.tick(deltaMs);
-        if (this.hasArrived(this.compoundEntrance.x, this.compoundEntrance.y)) {
-          this.onArrivedAtCompound();
+      case 'walking_to_building': {
+        if (!this.buildingEntrance) break;
+        this.setAnimation('walk');
+        this.moveToward(this.buildingEntrance.x, this.buildingEntrance.y, AGENT_WALK_SPEED, deltaMs);
+        if (this.hasArrived(this.buildingEntrance.x, this.buildingEntrance.y)) {
+          if (this.workSpotTarget) {
+            this.state = 'walking_to_workspot';
+          } else {
+            // No work spot means we're heading to HQ (from celebration or assignToHQ)
+            this.state = 'idle_at_hq';
+            this.setAnimation('idle');
+          }
         }
         break;
       }
 
-      case 'walking_to_sublocation': {
-        if (!this.subLocationTarget) break;
-        this.moveToward(this.subLocationTarget.x, this.subLocationTarget.y, AGENT_WALK_SPEED, deltaMs);
-        this.animateFrames(deltaMs, 'walking');
-        if (this.hasArrived(this.subLocationTarget.x, this.subLocationTarget.y)) {
-          this.onArrivedAtSubLocation();
+      case 'walking_to_workspot': {
+        if (!this.workSpotTarget) break;
+        this.setAnimation('walk');
+        this.moveToward(this.workSpotTarget.x, this.workSpotTarget.y, AGENT_WALK_SPEED, deltaMs);
+        if (this.hasArrived(this.workSpotTarget.x, this.workSpotTarget.y)) {
+          this.state = 'working';
+          this.setAnimation('work');
         }
         break;
       }
 
       case 'working':
-        this.animateFrames(deltaMs, 'working');
+        this.setAnimation('work');
         break;
 
       case 'celebrating': {
@@ -156,7 +160,7 @@ export class Agent extends Container {
         if (this.fireworks) {
           this.fireworks.tick(deltaMs);
         }
-        this.animateFrames(deltaMs, 'idle'); // Stand still during celebration
+        this.setAnimation('idle'); // Stand still during celebration
         if (this.celebrationTimer >= CELEBRATION_DURATION_MS) {
           // Clean up fireworks
           if (this.fireworks) {
@@ -164,79 +168,30 @@ export class Agent extends Container {
             this.fireworks.destroy({ children: true });
             this.fireworks = null;
           }
-          // Transition: walk to compound entrance, then drive to HQ
-          if (this.compoundEntrance) {
-            this.state = 'walking_to_entrance';
-            this.setBodyFrames('walking');
-          } else {
-            this.onArrivedAtHQ();
-          }
-        }
-        break;
-      }
-
-      case 'walking_to_entrance': {
-        if (!this.compoundEntrance) break;
-        this.moveToward(this.compoundEntrance.x, this.compoundEntrance.y, AGENT_WALK_SPEED, deltaMs);
-        this.animateFrames(deltaMs, 'walking');
-        if (this.hasArrived(this.compoundEntrance.x, this.compoundEntrance.y)) {
-          this.onArrivedAtEntrance();
-        }
-        break;
-      }
-
-      case 'driving_to_hq': {
-        const dx2 = this.hqPosition.x - this.x;
-        const dy2 = this.hqPosition.y - this.y;
-        this.vehicle.setDirection(dx2, dy2);
-        this.moveToward(this.hqPosition.x, this.hqPosition.y, AGENT_DRIVE_SPEED, deltaMs);
-        this.vehicle.tick(deltaMs);
-        if (this.hasArrived(this.hqPosition.x, this.hqPosition.y)) {
-          this.onArrivedAtHQ();
+          // Walk directly to HQ (no vehicle)
+          this.state = 'walking_to_building';
+          this.buildingEntrance = this.hqPosition;
+          this.workSpotTarget = null; // null signals "going to HQ" in walking_to_building handler
+          this.setAnimation('walk');
         }
         break;
       }
     }
   }
 
-  // --- State transition handlers ---
+  // --- Animation ---
 
-  private onArrivedAtCompound(): void {
-    // Park vehicle at entrance, show agent, start walking to sub-location
-    this.vehicle.visible = false;
-    this.bodyGfx.visible = true;
-    this.accessoryGfx.visible = true;
-
-    if (this.subLocationTarget) {
-      this.state = 'walking_to_sublocation';
-      this.setBodyFrames('walking');
-    } else {
-      // No sub-location assigned; go straight to working at entrance
-      this.state = 'working';
-      this.setBodyFrames('working');
-    }
-  }
-
-  private onArrivedAtSubLocation(): void {
-    this.state = 'working';
-    this.setBodyFrames('working');
-  }
-
-  private onArrivedAtEntrance(): void {
-    // Hide agent, show vehicle, start driving to HQ
-    this.bodyGfx.visible = false;
-    this.accessoryGfx.visible = false;
-    this.vehicle.visible = true;
-    this.state = 'driving_to_hq';
-  }
-
-  private onArrivedAtHQ(): void {
-    // Park vehicle, show agent idle at HQ
-    this.vehicle.visible = false;
-    this.bodyGfx.visible = true;
-    this.accessoryGfx.visible = true;
-    this.state = 'idle_at_hq';
-    this.setBodyFrames('idle');
+  /**
+   * Switch AnimatedSprite textures when animation state changes.
+   * Only swaps textures when the state actually changes to avoid unnecessary work.
+   */
+  private setAnimation(state: 'idle' | 'walk' | 'work'): void {
+    if (this.currentAnimState === state) return; // Only switch when state changes
+    this.currentAnimState = state;
+    const textures = getCharacterAnimation(this.characterClass, state);
+    this.sprite.textures = textures;
+    this.sprite.play();
+    // Preserve staggered offset -- don't reset to frame 0
   }
 
   // --- Movement ---
@@ -265,37 +220,6 @@ export class Agent extends Container {
    */
   private hasArrived(tx: number, ty: number): boolean {
     return Math.abs(this.x - tx) < 1 && Math.abs(this.y - ty) < 1;
-  }
-
-  // --- Animation ---
-
-  /**
-   * Animate body frames using GraphicsContext swapping.
-   * Advances frame index based on accumulated time.
-   */
-  private animateFrames(deltaMs: number, state: 'idle' | 'walking' | 'working'): void {
-    // Switch frame set if state changed
-    const targetFrames = getBodyFrames(this.slot.colorIndex, state);
-    if (this.currentBodyFrames !== targetFrames) {
-      this.setBodyFrames(state);
-    }
-
-    this.frameTimer += deltaMs * STATUS_ANIM_SPEED[this.visualStatus];
-    if (this.frameTimer >= ANIMATION_FRAME_MS) {
-      this.frameTimer -= ANIMATION_FRAME_MS;
-      this.frameIndex = (this.frameIndex + 1) % this.currentBodyFrames.length;
-      this.bodyGfx.context = this.currentBodyFrames[this.frameIndex];
-    }
-  }
-
-  /**
-   * Switch to a different animation state's frame set.
-   */
-  private setBodyFrames(state: 'idle' | 'walking' | 'working'): void {
-    this.currentBodyFrames = getBodyFrames(this.slot.colorIndex, state);
-    this.frameIndex = 0;
-    this.frameTimer = 0;
-    this.bodyGfx.context = this.currentBodyFrames[0];
   }
 
   // --- Status Visuals ---
@@ -389,30 +313,22 @@ export class Agent extends Container {
   // --- Public API (called by World) ---
 
   /**
-   * Trigger transition from HQ to a compound.
-   * Agent gets in vehicle and drives to compound entrance,
-   * then walks to sub-location and starts working.
+   * Trigger transition from Guild Hall to a quest zone building.
+   * Agent walks directly to building entrance, then to work spot.
    */
   assignToCompound(entrance: { x: number; y: number }, subLocation: { x: number; y: number }): void {
-    if (this.state === 'celebrating') {
-      // Let celebration finish -- world will reassign after agent returns to HQ
-      return;
-    }
+    if (this.state === 'celebrating') return;
 
-    this.compoundEntrance = entrance;
-    this.subLocationTarget = subLocation;
-
-    // Hide agent body, show vehicle
-    this.bodyGfx.visible = false;
-    this.accessoryGfx.visible = false;
-    this.vehicle.visible = true;
-
-    this.state = 'driving_to_compound';
+    this.buildingEntrance = entrance;
+    this.workSpotTarget = subLocation;
+    this.state = 'walking_to_building';
+    this.setAnimation('walk');
+    // No vehicle visibility toggling -- agent is always visible as AnimatedSprite
   }
 
   /**
-   * Trigger transition from compound back to HQ.
-   * Agent walks to compound entrance, gets in vehicle, drives to HQ.
+   * Trigger transition from quest zone back to Guild Hall.
+   * Agent walks directly to HQ position (no vehicle intermediary).
    */
   assignToHQ(position: { x: number; y: number }): void {
     // Don't interrupt celebration -- agent will head to HQ after fireworks finish
@@ -430,37 +346,23 @@ export class Agent extends Container {
       return;
     }
 
-    if (this.state === 'working' || this.state === 'walking_to_sublocation') {
-      // Walk to entrance first
-      if (this.compoundEntrance) {
-        this.state = 'walking_to_entrance';
-        this.setBodyFrames('walking');
-      } else {
-        // No compound entrance known, teleport to HQ
-        this.x = position.x;
-        this.y = position.y;
-        this.state = 'idle_at_hq';
-        this.setBodyFrames('idle');
-        this.bodyGfx.visible = true;
-        this.accessoryGfx.visible = true;
-        this.vehicle.visible = false;
-      }
-    }
-    // If already driving, let current drive complete
+    // Walk directly to HQ (no vehicle intermediary)
+    this.buildingEntrance = position;
+    this.workSpotTarget = null; // null signals "going to HQ" in walking_to_building handler
+    this.state = 'walking_to_building';
+    this.setAnimation('walk');
   }
 
   /**
-   * Update the agent's activity by moving to a new sub-location within the compound.
-   * Only applies when agent is already at a compound (working or walking).
+   * Update the agent's activity by moving to a new work spot within the building.
+   * Only applies when agent is already at a building (working or walking).
    */
   updateActivity(subLocation: { x: number; y: number }): void {
-    this.subLocationTarget = subLocation;
-
-    if (this.state === 'working' || this.state === 'walking_to_sublocation') {
-      this.state = 'walking_to_sublocation';
-      this.setBodyFrames('walking');
+    this.workSpotTarget = subLocation;
+    if (this.state === 'working' || this.state === 'walking_to_workspot') {
+      this.state = 'walking_to_workspot';
+      this.setAnimation('walk');
     }
-    // If not at compound yet, the sub-location will be used when agent arrives
   }
 
   /**
