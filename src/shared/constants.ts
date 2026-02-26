@@ -167,6 +167,7 @@ export function lerpColor(from: number, to: number, t: number): number {
 // Building sizes (pixels)
 export const BUILDING_WIDTH = 96;   // 3 tiles
 export const BUILDING_HEIGHT = 96;  // 3 tiles
+export const MAX_LABEL_CHARS = 15;  // Truncation threshold for building labels
 
 // Building type identifiers matching atlas frame names
 export type BuildingType = 'guild_hall' | 'wizard_tower' | 'training_grounds' | 'ancient_library' | 'tavern';

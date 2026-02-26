@@ -14,15 +14,7 @@ export function installPixelFont(): void {
       fill: '#ffffff',
     },
     chars: [
-      ['a', 'z'],
-      ['A', 'Z'],
-      ['0', '9'],
-      [' ', ' '],
-      ['-', '-'],
-      ['.', '.'],
-      ['_', '_'],
-      ['/', '/'],
-      ['\\', '\\'],
+      [' ', '~'],  // ASCII 32-126: all printable characters
     ],
     textureStyle: {
       scaleMode: 'nearest', // crisp pixels, no interpolation
