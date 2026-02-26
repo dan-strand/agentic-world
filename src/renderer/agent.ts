@@ -345,6 +345,19 @@ export class Agent extends Container {
   }
 
   /**
+   * Cancel an in-progress fade-out and return to idle_at_hq state.
+   * Used when an idle-timeout fade is interrupted by session reactivation.
+   * No-op if agent is not currently fading out.
+   */
+  cancelFadeOut(): void {
+    if (this.state !== 'fading_out') return;
+    this.state = 'idle_at_hq';
+    this.fadeOutTimer = 0;
+    this.alpha = 1;
+    this.setAnimation('idle');
+  }
+
+  /**
    * Begin celebration: play golden level-up effect above agent, then transition to HQ.
    * Called by World when a session completes successfully.
    */
