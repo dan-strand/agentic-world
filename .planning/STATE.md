@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Activity Monitoring & Labeling
-status: defining_requirements
-last_updated: "2026-02-26T17:30:00.000Z"
+status: roadmap_complete
+last_updated: "2026-02-26T18:00:00.000Z"
 progress:
-  total_phases: 0
+  total_phases: 3
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -18,14 +18,30 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-26)
 
 **Core value:** Instantly see the status of all Claude Code sessions so you know which one needs attention next.
-**Current focus:** Milestone v1.2 Activity Monitoring & Labeling
+**Current focus:** Phase 8 - Dynamic Building Labels
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-02-26 — Milestone v1.2 started
+Phase: 8 of 10 (Dynamic Building Labels) -- first of 3 phases in v1.2
+Plan: --
+Status: Ready to plan
+Last activity: 2026-02-26 -- Roadmap created for v1.2 (3 phases, 8 requirements)
+
+Progress: [░░░░░░░░░░] 0%
+
+## Performance Metrics
+
+**Velocity:**
+- Total plans completed: 18 (v1.0: 9, v1.1: 9)
+- Average duration: --
+- Total execution time: ~2 days
+
+**By Phase:**
+
+| Phase | Plans | Total | Avg/Plan |
+|-------|-------|-------|----------|
+| v1.0 Phases 1-3 | 9 | ~1 day | -- |
+| v1.1 Phases 4-7 | 9 | ~1 day | -- |
 
 ## Shipped Milestones
 
@@ -38,8 +54,23 @@ Last activity: 2026-02-26 — Milestone v1.2 started
 |---|-------------|------|--------|-----------|
 | 1 | need to be able to move the window around the screen | 2026-02-26 | 1ef1e93 | [1-need-to-be-able-to-move-the-window-aroun](./quick/1-need-to-be-able-to-move-the-window-aroun/) |
 
+## Accumulated Context
+
+### Decisions
+
+Decisions are logged in PROJECT.md Key Decisions table.
+Recent decisions affecting current work:
+
+- [v1.2 Roadmap]: Project-based routing replaces activity-based routing (agents from same project go to same building)
+- [v1.2 Roadmap]: BitmapFont charset must expand to full printable ASCII before dynamic labels
+- [v1.2 Roadmap]: Agent fade-out must fully destroy containers, not just set alpha to 0
+
+### Blockers/Concerns
+
+None yet.
+
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: Defining v1.2 requirements
+Stopped at: Roadmap created for v1.2 milestone
 Resume file: None

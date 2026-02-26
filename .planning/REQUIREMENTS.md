@@ -50,20 +50,20 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| LABEL-01 | — | Pending |
-| LABEL-02 | — | Pending |
-| BUBBLE-01 | — | Pending |
-| BUBBLE-02 | — | Pending |
-| BUBBLE-03 | — | Pending |
-| LIFE-01 | — | Pending |
-| LIFE-02 | — | Pending |
-| LIFE-03 | — | Pending |
+| LABEL-01 | Phase 8 | Pending |
+| LABEL-02 | Phase 8 | Pending |
+| LIFE-03 | Phase 8 | Pending |
+| BUBBLE-01 | Phase 9 | Pending |
+| BUBBLE-02 | Phase 9 | Pending |
+| BUBBLE-03 | Phase 9 | Pending |
+| LIFE-01 | Phase 10 | Pending |
+| LIFE-02 | Phase 10 | Pending |
 
 **Coverage:**
 - v1.2 requirements: 8 total
-- Mapped to phases: 0
-- Unmapped: 8
+- Mapped to phases: 8
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-26*
-*Last updated: 2026-02-26 after initial definition*
+*Last updated: 2026-02-26 after roadmap creation*

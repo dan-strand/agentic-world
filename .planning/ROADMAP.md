@@ -4,6 +4,7 @@
 
 - ✅ **v1.0 MVP** - Phases 1-3 (shipped 2026-02-25)
 - ✅ **v1.1 Fantasy RPG Aesthetic** - Phases 4-7 (shipped 2026-02-26)
+- 🚧 **v1.2 Activity Monitoring & Labeling** - Phases 8-10 (in progress)
 
 ## Phases
 
@@ -20,53 +21,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Visual World** - PixiJS scene with animated spy agents, world locations, labels, and speech bubbles (completed 2026-02-25)
 - [x] **Phase 3: Status and Lifecycle** - Visual status states, celebration animation, and walk-back-to-HQ completion flow (completed 2026-02-25)
 
-### Phase 1: Foundation and Detection
-**Goal**: User can launch a lightweight desktop app that automatically discovers all running Claude Code sessions and displays their project names and status data
-**Depends on**: Nothing (first phase)
-**Requirements**: APP-01, APP-02, APP-03, DETECT-01, DETECT-02, DETECT-03, DETECT-04
-**Success Criteria** (what must be TRUE):
-  1. User can launch the app and see an Electron window appear with a themed background
-  2. User can see placeholder representations of each running Claude Code session appear automatically without any configuration
-  3. Each detected session displays its project directory name and current status (active/waiting/idle/error)
-  4. App uses under 100MB RAM and under 2% CPU when sessions are idle (verified via Task Manager)
-  5. App closes cleanly with no orphaned processes remaining
-**Plans**: 3 plans
-
-Plans:
-- [x] 01-01-PLAN.md -- Scaffold Electron app, shared types/constants, IPC bridge
-- [x] 01-02-PLAN.md -- Session detection pipeline (filesystem scanning, JSONL reading, status determination, polling store)
-- [x] 01-03-PLAN.md -- PixiJS world with placeholder agents, adaptive game loop, visual verification
-
-### Phase 2: Visual World
-**Goal**: User sees a living 2D pixel art spy world where each session is a distinct animated agent character working at themed locations
-**Depends on**: Phase 1
-**Requirements**: WORLD-01, WORLD-02, WORLD-03, WORLD-04, WORLD-05, WORLD-06
-**Success Criteria** (what must be TRUE):
-  1. User sees a 2D pixel art world with an HQ building and distinct mission locations (Lab, Server Room, Library)
-  2. Each detected session appears as a unique animated pixel art spy agent with idle, walking, and working animations
-  3. Agents are positioned at different locations based on their current activity type
-  4. Each agent displays its project name as a visible label and shows a speech bubble with current activity (e.g., "Reading files", "Running tests")
-**Plans**: 4 plans
-
-Plans:
-- [x] 02-01-PLAN.md -- Shared types/constants extensions, activity detection from JSONL tool_use, agent identity slot system
-- [x] 02-02-PLAN.md -- Agent sprites (GraphicsContext frames), factory, state machine, vehicle system
-- [x] 02-03-PLAN.md -- HQ building, project compounds, radial layout, bitmap font, speech bubbles, activity icons
-- [x] 02-04-PLAN.md -- Integration: wire world.ts with compounds/agents/roads, remove placeholders, visual verification
-
-### Phase 3: Status and Lifecycle
-**Goal**: User can distinguish agent status at a glance and sees satisfying lifecycle animations when sessions complete
-**Depends on**: Phase 2
-**Requirements**: STATUS-01, STATUS-02, STATUS-03
-**Success Criteria** (what must be TRUE):
-  1. User can visually distinguish active, waiting, idle, and error agents through distinct appearance or animation differences
-  2. When a session completes its task, the corresponding agent plays a celebration animation
-  3. After celebrating, the agent walks back to the HQ building and remains there
-**Plans**: 2 plans
-
-Plans:
-- [x] 03-01-PLAN.md -- Status constants, agent visual differentiation (tint/breathing/shake/speed), fireworks particle class
-- [x] 03-02-PLAN.md -- World integration: status debouncing, completion detection, celebration trigger, compound lifecycle, visual verification
+See: [`.planning/milestones/v1.0-ROADMAP.md`](milestones/v1.0-ROADMAP.md) for full phase details.
 
 </details>
 
@@ -81,3 +36,73 @@ Plans:
 See: [`.planning/milestones/v1.1-ROADMAP.md`](milestones/v1.1-ROADMAP.md) for full phase details.
 
 </details>
+
+### v1.2 Activity Monitoring & Labeling (In Progress)
+
+- [ ] **Phase 8: Dynamic Building Labels** - Buildings show active project folder names; revert to RPG names when vacant
+- [ ] **Phase 9: Speech Bubbles and Project Routing** - Speech bubbles trigger on all meaningful activity changes; project-based building assignment
+- [ ] **Phase 10: Agent Fade-Out Lifecycle** - Completed agents fade out at Guild Hall; stale sessions cleaned up properly
+
+## Phase Details
+
+### Phase 8: Dynamic Building Labels
+**Goal**: Buildings reflect which projects are active -- users see project folder names on occupied buildings and RPG names on vacant ones
+**Depends on**: Phase 7 (existing building and label infrastructure)
+**Requirements**: LABEL-01, LABEL-02, LIFE-03
+**Success Criteria** (what must be TRUE):
+  1. When a Claude session is working at a building, that building's label shows the session's project folder name instead of the RPG name
+  2. When all sessions for a project end or leave a building, the label reverts to the original RPG name (e.g., "Wizard Tower")
+  3. Only the first 4 active projects get assigned to buildings; any additional project sessions remain at Guild Hall without a dedicated building
+  4. Project folder names longer than ~15 characters are truncated with ellipsis so labels stay readable
+**Plans**: TBD
+
+Plans:
+- [ ] 08-01: TBD
+- [ ] 08-02: TBD
+
+### Phase 9: Speech Bubbles and Project Routing
+**Goal**: Agents communicate their current activity through speech bubbles that appear on meaningful changes and fade naturally, with agents routed to buildings by project rather than activity type
+**Depends on**: Phase 8 (building label infrastructure, project-to-building mapping)
+**Requirements**: BUBBLE-01, BUBBLE-02, BUBBLE-03
+**Success Criteria** (what must be TRUE):
+  1. When an agent first leaves Guild Hall for a building, a speech bubble appears showing its current activity
+  2. When an agent's activity changes while already at a building (e.g., switches from reading to editing), a new speech bubble appears
+  3. Speech bubbles fade out automatically after a few seconds without user intervention
+  4. Agents from the same project go to the same building, so building labels accurately reflect which project is working there
+**Plans**: TBD
+
+Plans:
+- [ ] 09-01: TBD
+- [ ] 09-02: TBD
+
+### Phase 10: Agent Fade-Out Lifecycle
+**Goal**: Completed agents gracefully leave the world instead of accumulating at Guild Hall forever
+**Depends on**: Phase 9 (project routing and activity tracking must be stable before adding lifecycle cleanup)
+**Requirements**: LIFE-01, LIFE-02
+**Success Criteria** (what must be TRUE):
+  1. After an agent celebrates and walks back to Guild Hall, it lingers briefly then fades out and disappears
+  2. Faded-out agents do not reappear due to stale session polling -- only genuinely reactivated sessions create new agents
+  3. After running for 30+ minutes with sessions completing, no invisible agents accumulate in memory (Guild Hall area stays clean)
+**Plans**: TBD
+
+Plans:
+- [ ] 10-01: TBD
+- [ ] 10-02: TBD
+
+## Progress
+
+**Execution Order:**
+Phases execute in numeric order: 8 -> 9 -> 10
+
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 1. Foundation and Detection | v1.0 | 3/3 | Complete | 2026-02-25 |
+| 2. Visual World | v1.0 | 4/4 | Complete | 2026-02-25 |
+| 3. Status and Lifecycle | v1.0 | 2/2 | Complete | 2026-02-25 |
+| 4. Asset Pipeline and World Ground | v1.1 | 2/2 | Complete | 2026-02-26 |
+| 5. Buildings and World Layout | v1.1 | 3/3 | Complete | 2026-02-26 |
+| 6. Agent Sprite Overhaul | v1.1 | 2/2 | Complete | 2026-02-26 |
+| 7. Effects and Atmosphere | v1.1 | 2/2 | Complete | 2026-02-26 |
+| 8. Dynamic Building Labels | v1.2 | 0/? | Not started | - |
+| 9. Speech Bubbles and Project Routing | v1.2 | 0/? | Not started | - |
+| 10. Agent Fade-Out Lifecycle | v1.2 | 0/? | Not started | - |
