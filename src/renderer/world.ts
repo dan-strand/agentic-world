@@ -195,11 +195,11 @@ export class World {
       // Advance status debounce and check for committed changes
       const newStatus = this.advanceStatusDebounce(agent.sessionId, deltaMs);
       if (newStatus !== null) {
-        // Status just committed -- apply visuals
         agent.applyStatusVisuals(newStatus);
 
-        // Check for completion (non-idle -> idle transition)
-        if (this.checkForCompletion(agent.sessionId, newStatus, prevCommitted)) {
+        // Check for completion (active → waiting transition)
+        const isCompletion = this.checkForCompletion(agent.sessionId, newStatus, prevCommitted);
+        if (isCompletion) {
           const agentState = agent.getState();
           if (agentState !== 'celebrating' && agentState !== 'fading_out') {
             agent.startCelebration();
@@ -354,12 +354,13 @@ export class World {
 
       // Skip dismissed sessions -- prevents resurrection from stale IPC data
       if (this.dismissedSessions.has(session.sessionId)) {
-        // Only clear dismissal if session shows genuine reactivation
-        if (session.activityType !== 'idle' && session.status === 'active') {
+        // Clear dismissal if session shows any non-idle activity.
+        // Status can be 'active' OR 'waiting' (between turns) for a valid session.
+        if (session.status !== 'idle') {
           this.dismissedSessions.delete(session.sessionId);
           // Fall through to normal agent creation below
         } else {
-          continue; // Skip this session entirely
+          continue; // Still idle, keep dismissed
         }
       }
 
@@ -555,8 +556,9 @@ export class World {
   }
 
   /**
-   * Detect task completion: session was active, now committed to idle.
-   * Returns true only on the transition, not on sustained idle.
+   * Detect task completion: session was active, now committed to waiting.
+   * In Claude Code, "waiting" means the agent finished and awaits user input.
+   * Returns true only on the active→waiting transition.
    *
    * @param prevCommitted - The committed status BEFORE advanceStatusDebounce updated it
    */
@@ -565,9 +567,7 @@ export class World {
     newCommittedStatus: SessionStatus,
     prevCommitted: SessionStatus | undefined,
   ): boolean {
-    // Completion = was doing something (active or waiting), now idle
-    // Session lifecycle: active → waiting → idle, so checking only active→idle never fires
-    return prevCommitted !== undefined && prevCommitted !== 'idle' && newCommittedStatus === 'idle';
+    return prevCommitted === 'active' && newCommittedStatus === 'waiting';
   }
 
   // --- Private: Project-to-Building Assignment ---

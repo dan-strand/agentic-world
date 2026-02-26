@@ -10,13 +10,12 @@ export class SoundManager {
   private _muted = false;
 
   private constructor() {
-    // Webpack CopyWebpackPlugin copies assets/ into the renderer output directory.
-    // The renderer runs from .webpack/renderer/main_window/ so sounds are at assets/sounds/
-    // relative to the HTML file's location.
-    this.jobsDoneAudio = new Audio('assets/sounds/jobs-done.mp3');
+    // Absolute paths required -- page is served from /main_window/ so relative
+    // paths would resolve to /main_window/assets/... which doesn't exist.
+    this.jobsDoneAudio = new Audio('/assets/sounds/jobs-done.mp3');
     this.jobsDoneAudio.volume = this._volume;
 
-    this.reminderAudio = new Audio('assets/sounds/ready-to-work.mp3');
+    this.reminderAudio = new Audio('/assets/sounds/ready-to-work.mp3');
     this.reminderAudio.volume = this._volume;
   }
 
@@ -32,7 +31,7 @@ export class SoundManager {
     if (this._muted) return;
     this.jobsDoneAudio.currentTime = 0;
     this.jobsDoneAudio.play().catch(() => {
-      // Ignore autoplay policy errors -- user interaction will have occurred by this point
+      // Ignore autoplay policy errors
     });
   }
 

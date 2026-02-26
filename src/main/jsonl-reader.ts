@@ -80,12 +80,12 @@ export function readLastJsonlLine(
  * Scans backward through the tail buffer for a progress entry containing
  * a tool_use content block with a name field.
  *
- * Uses 8KB buffer (vs 4KB for status) since progress entries with tool_use
- * content may be further from the file tail during rapid tool sequences.
+ * Uses same buffer size as status reader -- assistant entries with tool_use
+ * can be very large (100KB+), pushing tool_use entries far from file tail.
  */
 export function readLastToolUse(
   filePath: string,
-  bufferSize: number = 8192
+  bufferSize: number = JSONL_TAIL_BUFFER_SIZE
 ): string | null {
   let fd: number | null = null;
   try {

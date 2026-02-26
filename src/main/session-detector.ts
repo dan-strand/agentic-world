@@ -136,15 +136,18 @@ export class FilesystemSessionDetector implements SessionDetector {
       const lastEntryType = lastEntry?.type ?? 'unknown';
       const status = this.determineStatus(lastEntryType, stat.mtimeMs, now);
 
-      // Extract activity type from last tool_use in JSONL progress entries
+      // Extract activity type from last tool_use in JSONL progress entries.
       // Force idle when session has been idle long enough to be stale -- prevents
-      // ancient sessions from claiming building slots over active projects
+      // ancient sessions from claiming building slots over active projects.
+      // Default to 'coding' for active/waiting sessions when tool detection fails
+      // (large JSONL files may not have tool_use in the tail buffer).
       const lastToolName = readLastToolUse(filePath);
       const timeSinceModified = now - stat.mtimeMs;
+      const fallbackActivity: ActivityType = (status === 'active' || status === 'waiting') ? 'coding' : 'idle';
       const activityType: ActivityType =
         (status === 'idle' && timeSinceModified > STALE_SESSION_MS)
           ? 'idle'
-          : (lastToolName ? (TOOL_TO_ACTIVITY[lastToolName] ?? 'coding') : 'idle');
+          : (lastToolName ? (TOOL_TO_ACTIVITY[lastToolName] ?? 'coding') : fallbackActivity);
 
       // Extract project path from JSONL cwd field, or use cached value, or fall back to dir name
       let projectPath: string;
