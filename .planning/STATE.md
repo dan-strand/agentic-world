@@ -58,5 +58,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-27
-Stopped at: Roadmap created for v1.4 milestone
-Resume file: None
+Stopped at: Phase 14 context gathered
+Resume file: .planning/phases/14-world-layout-reorganization/14-CONTEXT.md
