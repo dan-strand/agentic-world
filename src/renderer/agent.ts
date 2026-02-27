@@ -269,7 +269,8 @@ export class Agent extends Container {
     // Breathing: only when waiting
     this.isBreathing = (status === 'waiting');
     if (!this.isBreathing) {
-      this.alpha = 1; // Reset alpha when not breathing
+      this.alpha = 1; // Force alpha=1 to clear any breathing oscillation residue
+      this.breathTimer = 0; // Reset timer so next waiting period starts from consistent state
     }
 
     // Shake: only on initial transition TO error
@@ -347,6 +348,7 @@ export class Agent extends Container {
   /**
    * Cancel an in-progress fade-out and return to idle_at_hq state.
    * Used when an idle-timeout fade is interrupted by session reactivation.
+   * Fully resets all visual state to prevent stale effects from lingering.
    * No-op if agent is not currently fading out.
    */
   cancelFadeOut(): void {
@@ -354,6 +356,14 @@ export class Agent extends Container {
     this.state = 'idle_at_hq';
     this.fadeOutTimer = 0;
     this.alpha = 1;
+    // Reset breathing in case it was active before fade started
+    this.isBreathing = false;
+    this.breathTimer = 0;
+    // Reset tint to default (active) since the agent is being reactivated
+    this.currentTint = 0xffffff;
+    this.targetTint = 0xffffff;
+    this.tintTimer = 0;
+    this.tint = 0xffffff;
     this.setAnimation('idle');
   }
 
