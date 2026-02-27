@@ -126,5 +126,5 @@ Plans:
 | 12. Jobs Done Global Signal | v1.3 | - | REMOVED | - |
 | 13. Ready to Work Reminders | v1.3 | 1/1 | Complete | 2026-02-27 |
 | 14. World Layout Reorganization | v1.4 | Complete    | 2026-02-27 | 2026-02-27 |
-| 15. Workspace Interior Art | v1.4 | 2/2 | Complete | 2026-02-27 |
+| 15. Workspace Interior Art | v1.4 | Complete    | 2026-02-27 | 2026-02-27 |
 | 16. Agent Stations and Info Overlay | v1.4 | 0/? | Not started | - |
