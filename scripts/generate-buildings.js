@@ -861,312 +861,927 @@ function drawTrainingGrounds(ox) {
 }
 
 // =====================================================================
-// Building 2 (offset 928): Ancient Library
-// Classical stone with columns, pediment, arched doorways, books
+// Building 2 (offset 928): Ancient Library Interior
+// Top-down study hall: teal/gold theme, polished marble floor/walls
+// Stations: crystal ball, bookshelves, map table
 // =====================================================================
 function drawAncientLibrary(ox) {
   const W = BLDG_W;
   const H = BLDG_H;
 
-  // Light stone background
-  fillRect(ox, 0, W, H, 155, 150, 135);
+  // --- FLOOR: Polished marble base ---
+  fillRect(ox, 0, W, H, 195, 190, 175);
 
-  // Stone floor with tile pattern
-  fillRect(ox, H - 50, W, 50, 140, 135, 115);
-  for (let row = 0; row < 3; row++) {
-    for (let col = 0; col < 16; col++) {
-      const tx = ox + col * 30 + (row % 2) * 15;
-      const ty = H - 48 + row * 16;
-      fillRect(tx, ty, 28, 14, 148, 143, 123);
-      for (let dx = 0; dx < 28; dx++) setPixel(tx + dx, ty, 155, 150, 130);
-    }
-  }
-
-  // Main stone walls
-  fillRect(ox + 20, 30, W - 40, H - 85, 165, 160, 145);
-
-  // Wall stone block texture
-  for (let row = 0; row < 18; row++) {
-    const y = 40 + row * 16;
-    if (y >= H - 60) break;
-    for (let x = ox + 20; x < ox + W - 20; x++) {
-      setPixel(x, y, 150, 145, 128);
-    }
-    const offset = (row % 2) * 14;
-    for (let col = 0; col < 32; col++) {
-      const mx = ox + 30 + col * 14 + offset;
-      if (mx < ox + W - 20) {
-        for (let dy = 0; dy < 16 && y + dy < H - 60; dy++) {
-          setPixel(mx, y + dy, 150, 145, 128);
-        }
+  // Subtle gradient: lighter center, slightly darker near walls
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const dx = x - W / 2, dy = y - H / 2;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const maxDist = Math.sqrt((W / 2) * (W / 2) + (H / 2) * (H / 2));
+      const darken = Math.floor((dist / maxDist) * 12);
+      const bx = ox + x, by = y;
+      if (bx >= ox && bx < ox + W && by >= 0 && by < H) {
+        const idx = (by * WIDTH + bx) * 4;
+        png.data[idx] = Math.max(0, png.data[idx] - darken);
+        png.data[idx + 1] = Math.max(0, png.data[idx + 1] - darken);
+        png.data[idx + 2] = Math.max(0, png.data[idx + 2] - darken);
       }
     }
   }
 
-  // Triangular pediment/roof
-  for (let row = 0; row < 30; row++) {
-    const halfW = Math.floor(W / 2) - 10 - Math.floor(row * (W / 2 - 10) / 30);
-    const cx = ox + W / 2;
-    fillRect(cx - halfW, row, halfW * 2, 1, 175, 170, 155);
+  // Tile grid pattern (light lines every ~40px forming large square tiles)
+  for (let ty = 0; ty < H; ty += 40) {
+    for (let x = ox + 10; x < ox + W - 10; x++) {
+      if (ty > 10 && ty < H - 10) setPixel(x, ty, 205, 200, 185);
+    }
   }
-  // Pediment edge
-  for (let row = 0; row < 30; row++) {
-    const halfW = Math.floor(W / 2) - 10 - Math.floor(row * (W / 2 - 10) / 30);
-    const cx = ox + W / 2;
-    setPixel(cx - halfW, row, 185, 180, 165);
-    setPixel(cx + halfW - 1, row, 145, 140, 125);
-  }
-  // Gold ornament at top
-  drawCircle(ox + W / 2, 4, 4, 200, 180, 80);
-
-  // Stone columns (4 evenly spaced)
-  const colSpacing = Math.floor((W - 60) / 5);
-  for (let c = 1; c <= 4; c++) {
-    const cx = ox + 30 + c * colSpacing;
-    fillRect(cx - 6, 34, 12, H - 85, 185, 180, 165);
-    // Capital
-    fillRect(cx - 8, 34, 16, 5, 195, 190, 175);
-    // Base
-    fillRect(cx - 8, H - 54, 16, 5, 195, 190, 175);
-    // Fluting
-    for (let y = 39; y < H - 54; y++) {
-      setPixel(cx - 4, y, 170, 165, 150);
-      setPixel(cx, y, 195, 190, 175);
-      setPixel(cx + 3, y, 170, 165, 150);
+  for (let tx = 10; tx < W; tx += 40) {
+    for (let y = 10; y < H - 10; y++) {
+      setPixel(ox + tx, y, 205, 200, 185);
     }
   }
 
-  // Central arched doorway
-  const doorCx = ox + W / 2;
-  fillRect(doorCx - 20, 120, 40, H - 170, 50, 42, 35);
-  // Arch
-  for (let i = -20; i <= 20; i++) {
-    const archY = 120 - Math.floor(Math.sqrt(400 - i * i) * 0.5);
-    for (let y = archY; y <= 120; y++) {
-      setPixel(doorCx + i, y, 50, 42, 35);
+  // Marble veining -- 4 meandering lines across the floor
+  const veins = [
+    { startX: 30, startY: 60, endX: 430, endY: 100 },
+    { startX: 50, startY: 180, endX: 400, endY: 220 },
+    { startX: 100, startY: 20, endX: 350, endY: 300 },
+    { startX: 20, startY: 280, endX: 440, endY: 260 },
+  ];
+  veins.forEach(v => {
+    let x = v.startX, y = v.startY;
+    const steps = 80;
+    for (let i = 0; i < steps; i++) {
+      const t = i / steps;
+      const px = Math.round(v.startX + (v.endX - v.startX) * t + Math.sin(t * 8) * 12);
+      const py = Math.round(v.startY + (v.endY - v.startY) * t + Math.cos(t * 6) * 8);
+      if (px > 10 && px < W - 10 && py > 10 && py < H - 10) {
+        setPixel(ox + px, py, 210, 205, 192);
+      }
+    }
+  });
+
+  // Gold inlay lines along some tile edges (1px gold-tinted)
+  for (let ty = 40; ty < H - 40; ty += 80) {
+    for (let x = ox + 12; x < ox + W - 12; x++) {
+      if (ty > 10 && ty < H - 10) setPixel(x, ty, 200, 180, 80, 100);
     }
   }
-  // Gold arch border
-  for (let i = -20; i <= 20; i++) {
-    const archY = 120 - Math.floor(Math.sqrt(400 - i * i) * 0.5);
-    setPixel(doorCx + i, archY, 200, 180, 80);
-    setPixel(doorCx + i, archY + 1, 200, 180, 80);
-  }
-
-  // Bookshelves along walls -- left
-  fillRect(ox + 40, 60, 80, 180, 80, 55, 35);
-  for (let shelf = 0; shelf < 6; shelf++) {
-    const sy = 70 + shelf * 30;
-    fillRect(ox + 40, sy, 80, 4, 65, 42, 28);
-    for (let b = 0; b < 10; b++) {
-      const bx = ox + 44 + b * 8;
-      const bh = 12 + (b * 5) % 10;
-      const colors = [[70, 100, 170], [170, 60, 50], [60, 130, 60], [130, 80, 160], [100, 100, 50]];
-      const col = colors[b % 5];
-      fillRect(bx, sy - bh, 6, bh, col[0], col[1], col[2]);
-    }
-  }
-
-  // Bookshelves along walls -- right
-  fillRect(ox + W - 120, 60, 80, 180, 80, 55, 35);
-  for (let shelf = 0; shelf < 6; shelf++) {
-    const sy = 70 + shelf * 30;
-    fillRect(ox + W - 120, sy, 80, 4, 65, 42, 28);
-    for (let b = 0; b < 10; b++) {
-      const bx = ox + W - 116 + b * 8;
-      const bh = 12 + (b * 7) % 10;
-      const colors = [[170, 60, 50], [70, 100, 170], [130, 80, 160], [60, 130, 60], [140, 120, 50]];
-      const col = colors[b % 5];
-      fillRect(bx, sy - bh, 6, bh, col[0], col[1], col[2]);
+  for (let tx = 40; tx < W - 40; tx += 80) {
+    for (let y = 12; y < H - 12; y++) {
+      setPixel(ox + tx, y, 200, 180, 80, 100);
     }
   }
 
-  // Crystal ball on pedestal -- center-left
-  fillRect(ox + 155, H - 80, 12, 30, 140, 135, 120);  // pedestal
-  drawCircle(ox + 161, H - 88, 8, 160, 200, 240, 200);
-  drawCircle(ox + 159, H - 90, 3, 220, 240, 255, 150);
+  // --- WALLS: 10px marble border on all sides ---
+  fillRect(ox, 0, W, 10, 175, 170, 155);
+  fillRect(ox, H - 10, W, 10, 175, 170, 155);
+  fillRect(ox, 0, 10, H, 175, 170, 155);
+  fillRect(ox + W - 10, 0, 10, H, 175, 170, 155);
 
-  // Map table -- center-right
-  fillRect(ox + W - 200, H - 75, 70, 8, 110, 80, 50);
-  fillRect(ox + W - 195, H - 67, 5, 27, 90, 65, 40);
-  fillRect(ox + W - 140, H - 67, 5, 27, 90, 65, 40);
-  // Map on table
-  fillRect(ox + W - 190, H - 82, 50, 5, 200, 185, 140);
-
-  // Gold trim line across top of walls
-  for (let x = ox + 20; x < ox + W - 20; x++) {
-    setPixel(x, 30, 200, 180, 80);
-    setPixel(x, 31, 200, 180, 80);
+  // Gold trim line (1px) along inner wall edge
+  for (let x = ox + 10; x < ox + W - 10; x++) {
+    setPixel(x, 10, 200, 180, 80);
+    setPixel(x, H - 11, 200, 180, 80);
+  }
+  for (let y = 10; y < H - 10; y++) {
+    setPixel(ox + 10, y, 200, 180, 80);
+    setPixel(ox + W - 11, y, 200, 180, 80);
   }
 
-  // Scroll decorations on wall
-  for (let s = 0; s < 3; s++) {
-    const sx = ox + 145 + s * 60;
-    fillRect(sx, 50, 16, 5, 200, 185, 120);
-    setPixel(sx - 1, 50, 210, 195, 130);
-    setPixel(sx + 16, 50, 210, 195, 130);
+  // Marble columns at corners and along walls (3 per long wall)
+  const columnPositions = [
+    // Corners
+    { cx: ox + 14, cy: 14 }, { cx: ox + W - 15, cy: 14 },
+    { cx: ox + 14, cy: H - 15 }, { cx: ox + W - 15, cy: H - 15 },
+    // Top wall
+    { cx: ox + 120, cy: 7 }, { cx: ox + 232, cy: 7 }, { cx: ox + 344, cy: 7 },
+    // Bottom wall
+    { cx: ox + 120, cy: H - 8 }, { cx: ox + 232, cy: H - 8 }, { cx: ox + 344, cy: H - 8 },
+    // Left wall
+    { cx: ox + 7, cy: 90 }, { cx: ox + 7, cy: 168 }, { cx: ox + 7, cy: 246 },
+    // Right wall
+    { cx: ox + W - 8, cy: 90 }, { cx: ox + W - 8, cy: 168 }, { cx: ox + W - 8, cy: 246 },
+  ];
+  columnPositions.forEach(col => {
+    // Column: 14x14 circle with lighter center and darker edge
+    drawCircle(col.cx, col.cy, 7, 160, 155, 140);
+    drawCircle(col.cx, col.cy, 5, 185, 180, 165);
+    drawCircle(col.cx, col.cy, 2, 210, 205, 195);
+  });
+
+  // ============================================================
+  // CARPET/RUG under reading area (center-left area)
+  // Deep teal with gold border pattern ~80x60px
+  // ============================================================
+  fillRect(ox + 130, 120, 80, 60, 30, 80, 75);
+  // Gold border
+  fillRect(ox + 130, 120, 80, 2, 200, 180, 80);
+  fillRect(ox + 130, 178, 80, 2, 200, 180, 80);
+  fillRect(ox + 130, 120, 2, 60, 200, 180, 80);
+  fillRect(ox + 208, 120, 2, 60, 200, 180, 80);
+  // Inner border
+  fillRect(ox + 134, 124, 72, 1, 180, 160, 70);
+  fillRect(ox + 134, 175, 72, 1, 180, 160, 70);
+  fillRect(ox + 134, 124, 1, 52, 180, 160, 70);
+  fillRect(ox + 205, 124, 1, 52, 180, 160, 70);
+  // Teal pattern inside carpet
+  for (let cy = 128; cy < 174; cy += 8) {
+    for (let cx = ox + 138; cx < ox + 202; cx += 8) {
+      setPixel(cx, cy, 50, 110, 100);
+    }
   }
+
+  // ============================================================
+  // STATION 1: Crystal Ball (top-left area, ~x:60-140, y:60-140)
+  // ============================================================
+
+  // Constellation charts table beside crystal ball (~30x20px)
+  fillRect(ox + 100, 90, 30, 20, 80, 60, 45);
+  fillRect(ox + 102, 92, 26, 16, 90, 70, 55);
+  // Tiny dot patterns on surface (constellation)
+  setPixel(ox + 106, 96, 200, 200, 220); setPixel(ox + 110, 94, 200, 200, 220);
+  setPixel(ox + 115, 99, 200, 200, 220); setPixel(ox + 120, 95, 200, 200, 220);
+  setPixel(ox + 108, 101, 200, 200, 220); setPixel(ox + 118, 102, 200, 200, 220);
+  // Connect some dots (constellation lines)
+  drawLine(ox + 106, 96, ox + 110, 94, 180, 180, 200);
+  drawLine(ox + 110, 94, ox + 115, 99, 180, 180, 200);
+  drawLine(ox + 115, 99, ox + 120, 95, 180, 180, 200);
+
+  // Ornate pedestal (~14x30px stone column)
+  fillRect(ox + 80, 100, 14, 30, 165, 160, 150);
+  fillRect(ox + 78, 128, 18, 4, 175, 170, 160); // base
+  fillRect(ox + 78, 98, 18, 4, 175, 170, 160); // top
+  // Pedestal fluting
+  for (let y = 102; y < 128; y++) {
+    setPixel(ox + 83, y, 155, 150, 138);
+    setPixel(ox + 87, y, 180, 175, 165);
+    setPixel(ox + 90, y, 155, 150, 138);
+  }
+
+  // Large crystal sphere on top (~20px diameter)
+  // Glow aura first (behind the ball)
+  drawCircle(ox + 87, 88, 16, 40, 140, 140, 40);
+  drawCircle(ox + 87, 88, 13, 50, 160, 155, 50);
+  // The sphere itself
+  drawCircle(ox + 87, 88, 10, 60, 170, 180, 220);
+  drawCircle(ox + 87, 88, 8, 80, 200, 210, 235);
+  drawCircle(ox + 87, 88, 5, 120, 220, 230, 245);
+  drawCircle(ox + 87, 88, 2, 200, 245, 250, 255);
+  // Teal-blue rim glow
+  for (let a = 0; a < 360; a += 3) {
+    const rad = a * Math.PI / 180;
+    const px = Math.round(ox + 87 + Math.cos(rad) * 10);
+    const py = Math.round(88 + Math.sin(rad) * 10);
+    setPixel(px, py, 40, 180, 180, 180);
+  }
+
+  // Divination cards scattered nearby (3-4 small rectangles)
+  fillRect(ox + 67, 120, 5, 4, 200, 180, 120);
+  fillRect(ox + 74, 118, 5, 4, 140, 100, 160);
+  fillRect(ox + 62, 114, 5, 4, 100, 140, 160);
+  fillRect(ox + 72, 126, 5, 4, 180, 160, 100);
+
+  // ============================================================
+  // STATION 2: Ancient Bookshelves (right side, ~x:320-440, y:60-260)
+  // Massive floor-to-wall bookshelf system (~100x180px)
+  // ============================================================
+
+  // Main bookshelf frame (dark wood)
+  fillRect(ox + 330, 30, 110, 210, 65, 42, 28);
+  // Shelf frame border
+  fillRect(ox + 330, 30, 110, 3, 55, 35, 22);
+  fillRect(ox + 330, 237, 110, 3, 55, 35, 22);
+  fillRect(ox + 330, 30, 3, 210, 55, 35, 22);
+  fillRect(ox + 437, 30, 3, 210, 55, 35, 22);
+
+  // Multiple shelf rows (7 shelves) with books
+  for (let shelf = 0; shelf < 7; shelf++) {
+    const sy = 42 + shelf * 28;
+    // Shelf plank
+    fillRect(ox + 333, sy + 22, 104, 4, 80, 55, 35);
+    // Highlight on shelf front edge
+    for (let x = ox + 333; x < ox + 437; x++) setPixel(x, sy + 22, 90, 65, 42);
+
+    // Books of varying heights, widths, and colors
+    let bx = ox + 335;
+    const bookColors = [
+      [40, 80, 120], [120, 40, 40], [40, 100, 50], [100, 60, 120],
+      [80, 80, 40], [60, 40, 100], [140, 80, 40], [50, 90, 90],
+      [100, 40, 60], [70, 110, 70], [90, 50, 80], [120, 100, 40],
+    ];
+    let bookIdx = shelf * 3;
+    while (bx < ox + 434) {
+      const bw = 4 + (bookIdx * 3) % 4; // 4-7px wide
+      const bh = 8 + (bookIdx * 7) % 10; // 8-17px tall
+      const col = bookColors[bookIdx % bookColors.length];
+
+      // Some books leaning (every 5th)
+      if (bookIdx % 5 === 3 && bx + bw + 3 < ox + 434) {
+        // Leaning book -- draw at slight offset
+        for (let dy = 0; dy < bh; dy++) {
+          const lean = Math.floor(dy / 4);
+          fillRect(bx + lean, sy + 22 - bh + dy, bw, 1, col[0], col[1], col[2]);
+        }
+        // Gold spine highlight on some larger books
+        if (bh > 13) {
+          for (let dy = 2; dy < bh - 2; dy += 3) {
+            const lean = Math.floor(dy / 4);
+            setPixel(bx + lean + Math.floor(bw / 2), sy + 22 - bh + dy, 200, 180, 80);
+          }
+        }
+      } else {
+        fillRect(bx, sy + 22 - bh, bw, bh, col[0], col[1], col[2]);
+        // Gold-lettered spine highlights on larger volumes
+        if (bh > 13) {
+          for (let dy = 2; dy < bh - 2; dy += 3) {
+            setPixel(bx + Math.floor(bw / 2), sy + 22 - bh + dy, 200, 180, 80);
+          }
+        }
+      }
+
+      // Some pulled-out books (every 7th)
+      if (bookIdx % 7 === 2) {
+        fillRect(bx, sy + 22 - bh - 2, bw, 2, col[0] + 20, col[1] + 20, col[2] + 20);
+      }
+
+      bx += bw + 1;
+      bookIdx++;
+    }
+
+    // Scrolls tucked between books on some shelves (parchment cylinders)
+    if (shelf % 3 === 1) {
+      const scrollX = ox + 420;
+      fillRect(scrollX, sy + 14, 8, 6, 200, 185, 140);
+      drawCircle(scrollX, sy + 17, 3, 200, 185, 140);
+      drawCircle(scrollX + 8, sy + 17, 3, 200, 185, 140);
+    }
+  }
+
+  // Reading ladder leaning against shelf (thin angled line + rungs)
+  drawLine(ox + 322, 230, ox + 335, 40, 100, 70, 40);
+  drawLine(ox + 326, 230, ox + 339, 40, 100, 70, 40);
+  // Rungs
+  for (let i = 0; i < 7; i++) {
+    const t = 0.1 + i * 0.12;
+    const lx = Math.round(322 + (335 - 322) * t);
+    const ly = Math.round(230 + (40 - 230) * t);
+    drawLine(ox + lx, ly, ox + lx + 4, ly, 110, 80, 45);
+  }
+
+  // ============================================================
+  // STATION 3: Map Table (bottom-center, ~x:140-300, y:230-310)
+  // Large heavy table (~120x60px) in rich dark wood
+  // ============================================================
+
+  // Table body
+  fillRect(ox + 160, 245, 120, 50, 70, 50, 35);
+  // Table top surface (slightly lighter)
+  fillRect(ox + 158, 243, 124, 48, 80, 60, 42);
+  // Dark edge shading (2px bottom/right)
+  fillRect(ox + 158, 289, 124, 2, 55, 38, 25);
+  fillRect(ox + 280, 243, 2, 48, 55, 38, 25);
+  // Highlight top/left (1px)
+  for (let x = ox + 158; x < ox + 282; x++) setPixel(x, 243, 90, 70, 52);
+  for (let y = 243; y < 291; y++) setPixel(ox + 158, y, 90, 70, 52);
+  // Wood grain lines on table
+  for (let y = 248; y < 288; y += 5) {
+    for (let x = ox + 162; x < ox + 278; x++) {
+      setPixel(x, y, 72, 52, 36);
+    }
+  }
+
+  // Map on table surface (parchment rectangle with details)
+  fillRect(ox + 175, 250, 80, 40, 220, 205, 160);
+  // Parchment edge darkening
+  fillRect(ox + 175, 250, 80, 1, 200, 185, 140);
+  fillRect(ox + 175, 289, 80, 1, 200, 185, 140);
+
+  // Coastline-like irregular lines on map
+  const coastPoints = [
+    [ox + 185, 258], [ox + 190, 262], [ox + 195, 260], [ox + 200, 265],
+    [ox + 208, 263], [ox + 215, 268], [ox + 220, 266], [ox + 228, 270],
+    [ox + 235, 268], [ox + 240, 272], [ox + 245, 269],
+  ];
+  for (let i = 0; i < coastPoints.length - 1; i++) {
+    drawLine(coastPoints[i][0], coastPoints[i][1], coastPoints[i + 1][0], coastPoints[i + 1][1], 100, 140, 120);
+  }
+  // Second coastline
+  const coast2 = [
+    [ox + 188, 275], [ox + 195, 278], [ox + 205, 276], [ox + 212, 280],
+    [ox + 220, 278], [ox + 230, 282], [ox + 238, 279],
+  ];
+  for (let i = 0; i < coast2.length - 1; i++) {
+    drawLine(coast2[i][0], coast2[i][1], coast2[i + 1][0], coast2[i + 1][1], 100, 140, 120);
+  }
+
+  // Tiny dot "cities" on map
+  setPixel(ox + 198, 257, 140, 40, 40); setPixel(ox + 210, 260, 140, 40, 40);
+  setPixel(ox + 225, 262, 140, 40, 40); setPixel(ox + 240, 266, 140, 40, 40);
+
+  // Compass rose on map (small star/cross shape)
+  const crx = ox + 245, cry = 256;
+  setPixel(crx, cry - 3, 120, 80, 40); setPixel(crx, cry - 2, 120, 80, 40);
+  setPixel(crx, cry + 2, 120, 80, 40); setPixel(crx, cry + 3, 120, 80, 40);
+  setPixel(crx - 3, cry, 120, 80, 40); setPixel(crx - 2, cry, 120, 80, 40);
+  setPixel(crx + 2, cry, 120, 80, 40); setPixel(crx + 3, cry, 120, 80, 40);
+  setPixel(crx - 1, cry - 1, 120, 80, 40); setPixel(crx + 1, cry - 1, 120, 80, 40);
+  setPixel(crx - 1, cry + 1, 120, 80, 40); setPixel(crx + 1, cry + 1, 120, 80, 40);
+
+  // Map pins/markers (colored dots on map)
+  drawCircle(ox + 200, 259, 1, 200, 50, 50);
+  drawCircle(ox + 222, 264, 1, 50, 50, 200);
+  drawCircle(ox + 238, 270, 1, 50, 180, 50);
+  drawCircle(ox + 212, 277, 1, 200, 180, 50);
+
+  // Magnifying glass (circle with handle)
+  for (let a = 0; a < 360; a += 5) {
+    const rad = a * Math.PI / 180;
+    const mgx = Math.round(ox + 170 + Math.cos(rad) * 5);
+    const mgy = Math.round(260 + Math.sin(rad) * 5);
+    setPixel(mgx, mgy, 140, 140, 150);
+  }
+  drawCircle(ox + 170, 260, 3, 200, 220, 240, 80);
+  drawLine(ox + 174, 264, ox + 178, 268, 140, 140, 150);
+
+  // Navigation instruments: protractor triangle
+  drawLine(ox + 258, 252, ox + 270, 270, 120, 110, 90);
+  drawLine(ox + 270, 270, ox + 258, 270, 120, 110, 90);
+  drawLine(ox + 258, 270, ox + 258, 252, 120, 110, 90);
+
+  // Ink wells at table edge
+  fillRect(ox + 268, 248, 6, 5, 30, 30, 50);
+  fillRect(ox + 269, 249, 4, 3, 20, 20, 60);
+  // Quill
+  drawLine(ox + 271, 247, ox + 276, 240, 200, 185, 140);
+  setPixel(ox + 271, 247, 40, 40, 60);
+
+  // Hourglass on map table (narrow figure-8 shape ~4x10px)
+  fillRect(ox + 250, 282, 4, 1, 200, 180, 80); // top frame
+  fillRect(ox + 250, 291, 4, 1, 200, 180, 80); // bottom frame
+  setPixel(ox + 251, 283, 200, 180, 120); setPixel(ox + 252, 283, 200, 180, 120);
+  setPixel(ox + 251, 284, 200, 180, 120); setPixel(ox + 252, 284, 200, 180, 120);
+  setPixel(ox + 251, 285, 220, 200, 140); // narrow middle
+  setPixel(ox + 252, 286, 220, 200, 140);
+  setPixel(ox + 251, 287, 200, 180, 120); setPixel(ox + 252, 287, 200, 180, 120);
+  setPixel(ox + 251, 288, 200, 180, 120); setPixel(ox + 252, 288, 200, 180, 120);
+  setPixel(ox + 251, 289, 200, 180, 120); setPixel(ox + 252, 289, 200, 180, 120);
+  setPixel(ox + 251, 290, 200, 180, 120); setPixel(ox + 252, 290, 200, 180, 120);
+
+  // ============================================================
+  // AMBIENT FURNITURE
+  // ============================================================
+
+  // Globe on stand (top-right area, circle ~16px)
+  const gx = ox + 410, gy = 70;
+  // Stand
+  fillRect(gx - 1, gy + 8, 3, 14, 140, 120, 80);
+  fillRect(gx - 5, gy + 21, 11, 2, 140, 120, 80);
+  // Globe sphere
+  drawCircle(gx, gy, 8, 50, 120, 110);
+  drawCircle(gx, gy, 6, 60, 140, 130);
+  // Cross-hatch continent lines
+  drawLine(gx - 6, gy, gx + 6, gy, 40, 100, 90);
+  drawLine(gx, gy - 7, gx, gy + 7, 40, 100, 90);
+  for (let a = 0; a < 360; a += 45) {
+    const rad = a * Math.PI / 180;
+    const px = Math.round(gx + Math.cos(rad) * 5);
+    const py = Math.round(gy + Math.sin(rad) * 5);
+    setPixel(px, py, 40, 100, 90);
+  }
+  // Gold axis ring
+  for (let a = 0; a < 360; a += 8) {
+    const rad = a * Math.PI / 180;
+    setPixel(Math.round(gx + Math.cos(rad) * 9), Math.round(gy + Math.sin(rad) * 3 - 1), 200, 180, 80, 160);
+  }
+
+  // Reading nook with armchair (center-left, on carpet)
+  fillRect(ox + 150, 135, 25, 25, 35, 85, 75); // seat
+  fillRect(ox + 152, 137, 21, 21, 40, 95, 85); // seat cushion
+  // Armrests
+  fillRect(ox + 148, 135, 4, 25, 30, 70, 65);
+  fillRect(ox + 173, 135, 4, 25, 30, 70, 65);
+  // Back
+  fillRect(ox + 150, 132, 25, 5, 30, 75, 70);
+  // Small side table next to armchair
+  fillRect(ox + 180, 140, 16, 14, 80, 60, 42);
+  fillRect(ox + 181, 141, 14, 12, 90, 70, 50);
+  // Book on side table
+  fillRect(ox + 183, 143, 8, 6, 40, 80, 120);
+
+  // Candelabra with 5 candles (near center, ~12x30px)
+  const candX = ox + 230, candY = 160;
+  // Main stand
+  fillRect(candX + 5, candY + 10, 3, 20, 180, 170, 100);
+  fillRect(candX + 2, candY + 28, 9, 3, 180, 170, 100);
+  // Branches
+  drawLine(candX + 6, candY + 12, candX, candY + 6, 180, 170, 100);
+  drawLine(candX + 6, candY + 12, candX + 12, candY + 6, 180, 170, 100);
+  drawLine(candX + 6, candY + 14, candX + 2, candY + 8, 180, 170, 100);
+  drawLine(candX + 6, candY + 14, candX + 10, candY + 8, 180, 170, 100);
+  // Candles (small rectangles)
+  fillRect(candX - 1, candY + 2, 3, 5, 230, 225, 200);
+  fillRect(candX + 11, candY + 2, 3, 5, 230, 225, 200);
+  fillRect(candX + 1, candY + 4, 3, 5, 230, 225, 200);
+  fillRect(candX + 9, candY + 4, 3, 5, 230, 225, 200);
+  fillRect(candX + 5, candY + 6, 3, 5, 230, 225, 200);
+  // Warm flame dots
+  setPixel(candX, candY + 1, 255, 200, 80);
+  setPixel(candX + 12, candY + 1, 255, 200, 80);
+  setPixel(candX + 2, candY + 3, 255, 200, 80);
+  setPixel(candX + 10, candY + 3, 255, 200, 80);
+  setPixel(candX + 6, candY + 5, 255, 200, 80);
+
+  // Document chest (bottom-right area, ~30x20px)
+  fillRect(ox + 380, 280, 30, 20, 90, 65, 40);
+  fillRect(ox + 382, 282, 26, 16, 100, 75, 50);
+  // Gold clasp
+  fillRect(ox + 393, 280, 6, 3, 200, 180, 80);
+  setPixel(ox + 396, 282, 220, 200, 100);
+  // Wood grain on chest
+  for (let x = ox + 384; x < ox + 406; x += 4) {
+    for (let y = 284; y < 296; y++) setPixel(x, y, 88, 62, 38);
+  }
+  // Dark bottom edge
+  fillRect(ox + 380, 298, 30, 2, 70, 50, 30);
+
+  // Astrolabe on small pedestal (metallic gold circles)
+  const astX = ox + 290, astY = 140;
+  fillRect(astX - 2, astY + 5, 5, 10, 160, 150, 120);
+  // Concentric rings
+  for (let a = 0; a < 360; a += 4) {
+    const rad = a * Math.PI / 180;
+    setPixel(Math.round(astX + Math.cos(rad) * 6), Math.round(astY + Math.sin(rad) * 6), 200, 180, 80);
+    setPixel(Math.round(astX + Math.cos(rad) * 4), Math.round(astY + Math.sin(rad) * 4), 190, 170, 70);
+    setPixel(Math.round(astX + Math.cos(rad) * 2), Math.round(astY + Math.sin(rad) * 2), 210, 190, 90);
+  }
+  setPixel(astX, astY, 220, 200, 100);
+
+  // Stone bust on pedestal (near top wall)
+  fillRect(ox + 270, 18, 6, 15, 175, 170, 160); // pedestal column
+  fillRect(ox + 268, 32, 10, 2, 180, 175, 165); // pedestal base
+  // Head (oval)
+  drawCircle(ox + 273, 16, 4, 185, 180, 170);
+  drawCircle(ox + 273, 16, 2, 195, 190, 180);
+  // Shoulders hint
+  fillRect(ox + 269, 20, 8, 3, 180, 175, 165);
+
+  // Quill pen rack on wall (near bookshelves)
+  fillRect(ox + 316, 50, 15, 8, 90, 65, 42);
+  fillRect(ox + 317, 51, 13, 6, 100, 75, 50);
+  // Vertical quill lines
+  for (let q = 0; q < 4; q++) {
+    const qx = ox + 319 + q * 3;
+    drawLine(qx, 48, qx, 56, 200, 185, 140);
+    setPixel(qx, 47, 40, 40, 60); // quill tip
+  }
+
+  // Scattered loose parchment on floor (2-3 small tan rectangles)
+  fillRect(ox + 250, 200, 5, 4, 220, 205, 160);
+  fillRect(ox + 310, 270, 5, 4, 215, 200, 155);
+  fillRect(ox + 55, 200, 5, 4, 225, 210, 165);
+  // Slight rotation appearance: offset pixel
+  setPixel(ox + 254, 199, 220, 205, 160);
+  setPixel(ox + 314, 269, 215, 200, 155);
 }
 
 // =====================================================================
-// Building 3 (offset 1392): Tavern
-// Timber-frame with warm glowing windows, chimney, cozy feel
+// Building 3 (offset 1392): Tavern Interior
+// Top-down gathering space: amber/orange theme, wooden plank floor/walls
+// Stations: bar counter, notice board, pigeon roost
 // =====================================================================
 function drawTavern(ox) {
   const W = BLDG_W;
   const H = BLDG_H;
 
-  // Warm interior background
-  fillRect(ox, 0, W, H, 180, 140, 80);
+  // --- FLOOR: Wooden plank base ---
+  fillRect(ox, 0, W, H, 140, 100, 55);
 
-  // Wooden floor planks
-  fillRect(ox, H - 50, W, 50, 120, 85, 45);
-  for (let row = 0; row < 5; row++) {
-    const y = H - 48 + row * 10;
+  // Plank lines every ~12px (1px slightly darker)
+  for (let py = 0; py < H; py += 12) {
     for (let x = ox; x < ox + W; x++) {
-      setPixel(x, y, 105, 72, 35);
+      setPixel(x, py, 125, 88, 45);
     }
   }
 
-  // Back wall -- cream with timber frame
-  fillRect(ox + 15, 20, W - 30, H - 75, 200, 185, 150);
-
-  // Timber frame beams (dark brown)
-  // Horizontal
-  fillRect(ox + 12, 16, W - 24, 5, 90, 60, 30);
-  fillRect(ox + 12, H / 2, W - 24, 4, 90, 60, 30);
-  fillRect(ox + 12, H - 58, W - 24, 4, 90, 60, 30);
-  // Vertical
-  fillRect(ox + 12, 16, 5, H - 72, 90, 60, 30);
-  fillRect(ox + W - 17, 16, 5, H - 72, 90, 60, 30);
-  fillRect(ox + W / 2, 16, 5, H - 72, 90, 60, 30);
-  // Diagonal braces in left section
-  for (let i = 0; i < 80; i++) {
-    const factor = i / 80;
-    const x1 = ox + 17 + Math.floor(factor * (W / 2 - 20));
-    const y1 = 21 + Math.floor(factor * (H / 2 - 25));
-    setPixel(x1, y1, 90, 60, 30);
-    setPixel(x1 + 1, y1, 90, 60, 30);
-    // Opposite diagonal
-    const x2 = ox + W / 2 - 3 - Math.floor(factor * (W / 2 - 20));
-    setPixel(x2, y1, 90, 60, 30);
-    setPixel(x2 + 1, y1, 90, 60, 30);
-  }
-
-  // Roof area
-  for (let row = 0; row < 18; row++) {
-    const halfW = Math.floor(W / 2) - 5 - Math.floor(row * 15 / 18);
-    const cx = ox + W / 2;
-    fillRect(cx - halfW, row, halfW * 2, 1, 90, 60, 30);
-  }
-  // Shingle texture
-  for (let row = 0; row < 6; row++) {
-    const y = 2 + row * 3;
-    const halfW = Math.floor(W / 2) - 5 - Math.floor(y * 15 / 18);
-    const cx = ox + W / 2;
-    for (let x = cx - halfW; x < cx + halfW; x++) {
-      if ((x + row) % 8 === 0) setPixel(x, y, 75, 48, 22);
+  // Wood grain variation: occasional knot circles
+  const knots = [
+    [50, 25], [150, 70], [300, 50], [400, 95], [80, 140],
+    [220, 160], [370, 180], [110, 240], [280, 270], [430, 300],
+    [60, 310], [190, 30], [340, 130], [250, 220], [420, 250],
+  ];
+  knots.forEach(([kx, ky]) => {
+    drawCircle(ox + kx, ky, 1, 115, 78, 38);
+    // Ring around knot
+    for (let a = 0; a < 360; a += 30) {
+      const rad = a * Math.PI / 180;
+      setPixel(ox + kx + Math.round(Math.cos(rad) * 2), ky + Math.round(Math.sin(rad) * 2), 120, 82, 40);
     }
+  });
+
+  // Some planks slightly different shade for variety
+  for (let py = 24; py < H; py += 36) {
+    fillRect(ox + 10, py, W - 20, 10, 145, 105, 58);
   }
 
-  // Chimney (right side)
-  fillRect(ox + W - 70, 0, 18, 30, 140, 75, 55);
-  // Chimney brick texture
-  for (let row = 0; row < 7; row++) {
-    const y = 2 + row * 4;
-    for (let x = ox + W - 70; x < ox + W - 52; x++) {
-      setPixel(x, y, 120, 60, 42);
+  // Sawdust patches near bar area (slightly lighter spots)
+  const sawdust = [[80, 75], [120, 60], [200, 80], [300, 65], [350, 85]];
+  sawdust.forEach(([sx, sy]) => {
+    for (let dy = -2; dy <= 2; dy++) {
+      for (let dx = -2; dx <= 2; dx++) {
+        if (Math.abs(dx) + Math.abs(dy) <= 3) {
+          setPixel(ox + sx + dx, sy + dy, 155, 115, 65, 120);
+        }
+      }
     }
-  }
-  fillRect(ox + W - 72, 0, 22, 3, 120, 60, 42);
-  // Smoke
-  setPixel(ox + W - 63, 0, 180, 180, 190, 80);
-  setPixel(ox + W - 61, 0, 180, 180, 190, 60);
+  });
 
-  // Warm glowing windows -- upper row
-  for (let w = 0; w < 4; w++) {
-    const wx = ox + 50 + w * 95;
-    if (wx + 30 > ox + W - 20) break;
-    fillRect(wx, 50, 30, 22, 70, 48, 25);
-    fillRect(wx + 2, 52, 26, 18, 220, 160, 60);
-    fillRect(wx + 13, 52, 4, 18, 70, 48, 25);  // mullion
-    fillRect(wx + 2, 60, 26, 3, 70, 48, 25);   // cross bar
-    // Glow halo
-    for (let dy = -2; dy <= 21; dy++) {
-      for (let dx = -2; dx <= 31; dx++) {
-        const x = wx + dx;
-        const y = 50 + dy;
-        if (x >= wx + 2 && x < wx + 28 && y >= 52 && y < 70) continue;
-        if (x >= ox && x < ox + W) setPixel(x, y, 200, 140, 40, 30);
+  // --- WALLS: 10px timber frame border ---
+  // Wall infill (cream/plaster)
+  fillRect(ox, 0, W, 10, 200, 185, 150);
+  fillRect(ox, H - 10, W, 10, 200, 185, 150);
+  fillRect(ox, 0, 10, H, 200, 185, 150);
+  fillRect(ox + W - 10, 0, 10, H, 200, 185, 150);
+
+  // Thick timber beams at corners and mid-points (4px wide)
+  // Corner beams
+  fillRect(ox, 0, 4, H, 90, 60, 30);
+  fillRect(ox + W - 4, 0, 4, H, 90, 60, 30);
+  fillRect(ox, 0, W, 4, 90, 60, 30);
+  fillRect(ox, H - 4, W, 4, 90, 60, 30);
+  // Mid-point beams
+  fillRect(ox + W / 2 - 2, 0, 4, 10, 90, 60, 30);
+  fillRect(ox + W / 2 - 2, H - 10, 4, 10, 90, 60, 30);
+  fillRect(ox, H / 2 - 2, 10, 4, 90, 60, 30);
+  fillRect(ox + W - 10, H / 2 - 2, 10, 4, 90, 60, 30);
+
+  // Cross-brace diagonal beams in wall sections (top wall)
+  for (let section = 0; section < 4; section++) {
+    const sx = ox + 4 + section * (W / 4);
+    const ex = sx + W / 4 - 8;
+    const midX = (sx + ex) / 2;
+    // X brace
+    drawLine(Math.round(sx), 2, Math.round(ex), 8, 90, 60, 30);
+    drawLine(Math.round(ex), 2, Math.round(sx), 8, 90, 60, 30);
+  }
+  // Bottom wall cross braces
+  for (let section = 0; section < 4; section++) {
+    const sx = ox + 4 + section * (W / 4);
+    const ex = sx + W / 4 - 8;
+    drawLine(Math.round(sx), H - 8, Math.round(ex), H - 2, 90, 60, 30);
+    drawLine(Math.round(ex), H - 8, Math.round(sx), H - 2, 90, 60, 30);
+  }
+
+  // ============================================================
+  // STATION 1: Bar Counter (top area, spanning most of width)
+  // L-shaped: ~300x50px main + 50x60px end section
+  // ============================================================
+
+  // Main bar counter (horizontal)
+  fillRect(ox + 60, 50, 300, 50, 80, 55, 30);
+  // Bar top surface (lighter/shinier)
+  fillRect(ox + 62, 52, 296, 46, 95, 68, 38);
+  // Polished highlight
+  for (let x = ox + 64; x < ox + 356; x++) setPixel(x, 53, 110, 80, 48);
+  // Dark edge bottom
+  fillRect(ox + 60, 98, 300, 2, 65, 42, 22);
+  // Dark edge right
+  fillRect(ox + 358, 50, 2, 50, 65, 42, 22);
+
+  // L-shape end section (vertical extension on right)
+  fillRect(ox + 310, 50, 50, 60, 80, 55, 30);
+  fillRect(ox + 312, 52, 46, 56, 95, 68, 38);
+  fillRect(ox + 310, 108, 50, 2, 65, 42, 22);
+
+  // Tap handles (4 small vertical rectangles, metallic)
+  for (let t = 0; t < 4; t++) {
+    const tx = ox + 100 + t * 40;
+    fillRect(tx, 54, 3, 8, 160, 150, 130);
+    fillRect(tx, 53, 5, 2, 180, 170, 140); // handle top
+  }
+
+  // Mugs on bar (6 small shapes with foam)
+  const mugPositions = [ox + 80, ox + 140, ox + 195, ox + 240, ox + 280, ox + 330];
+  mugPositions.forEach((mx, i) => {
+    fillRect(mx, 70, 5, 6, 160, 120, 50);
+    fillRect(mx + 5, 72, 2, 3, 160, 120, 50); // handle
+    if (i % 2 === 0) {
+      // Foam on top
+      drawCircle(mx + 2, 69, 2, 240, 235, 215);
+    }
+  });
+
+  // Bottles behind bar on shelf (row of colored rectangles)
+  const bottleColors = [
+    [160, 120, 40], [100, 70, 30], [40, 100, 50], [180, 180, 200],
+    [160, 120, 40], [100, 70, 30], [120, 40, 40], [40, 80, 100],
+  ];
+  for (let b = 0; b < 8; b++) {
+    const bx = ox + 75 + b * 30;
+    const bc = bottleColors[b];
+    fillRect(bx, 56, 4, 10, bc[0], bc[1], bc[2]);
+    fillRect(bx + 1, 52, 2, 4, bc[0], bc[1], bc[2]); // neck
+  }
+
+  // Cash box/coin pile on bar
+  fillRect(ox + 340, 72, 10, 7, 120, 100, 50);
+  setPixel(ox + 342, 74, 200, 180, 60); setPixel(ox + 345, 73, 200, 180, 60);
+  setPixel(ox + 347, 75, 200, 180, 60);
+
+  // Bar stools along customer side (4 circles for seat tops)
+  const stoolPositions = [ox + 110, ox + 180, ox + 250, ox + 310];
+  stoolPositions.forEach(sx => {
+    drawCircle(sx, 108, 4, 100, 70, 40);
+    drawCircle(sx, 108, 3, 115, 82, 48);
+    // Stool legs
+    setPixel(sx - 2, 112, 80, 55, 30); setPixel(sx + 2, 112, 80, 55, 30);
+  });
+
+  // ============================================================
+  // STATION 2: Notice Board (left wall area, ~x:20-100, y:140-250)
+  // Large wooden board (~70x90px) mounted on wall
+  // ============================================================
+
+  // Board frame (darker wood)
+  fillRect(ox + 25, 140, 70, 90, 100, 70, 40);
+  // Cork/fabric backing
+  fillRect(ox + 28, 143, 64, 84, 180, 160, 120);
+
+  // Multiple pinned notices (5-7 papers)
+  // Paper 1 (largest - WANTED poster)
+  fillRect(ox + 32, 148, 14, 16, 235, 230, 210);
+  // Simple stick-figure head on wanted poster
+  drawCircle(ox + 39, 155, 3, 80, 70, 60);
+  setPixel(ox + 37, 162, 80, 70, 60); setPixel(ox + 41, 162, 80, 70, 60);
+  fillRect(ox + 38, 158, 3, 4, 80, 70, 60);
+
+  // Paper 2
+  fillRect(ox + 50, 146, 10, 8, 240, 235, 200);
+  // Paper 3
+  fillRect(ox + 64, 150, 12, 10, 230, 225, 190);
+  // Paper 4 (yellow tint)
+  fillRect(ox + 34, 170, 12, 9, 240, 230, 170);
+  // Paper 5
+  fillRect(ox + 50, 168, 14, 12, 235, 230, 210);
+  // Paper 6 (overlapping paper 5)
+  fillRect(ox + 58, 172, 10, 8, 230, 220, 195);
+  // Paper 7
+  fillRect(ox + 68, 165, 8, 14, 240, 235, 205);
+
+  // Quest marker (gold star on one notice)
+  setPixel(ox + 56, 170, 220, 200, 60);
+  setPixel(ox + 55, 171, 220, 200, 60); setPixel(ox + 57, 171, 220, 200, 60);
+  setPixel(ox + 54, 172, 220, 200, 60); setPixel(ox + 58, 172, 220, 200, 60);
+
+  // Push pin dots (red, blue, green at tops of papers)
+  drawCircle(ox + 38, 148, 1, 200, 50, 50); // red
+  drawCircle(ox + 54, 146, 1, 50, 50, 200); // blue
+  drawCircle(ox + 69, 150, 1, 200, 50, 50); // red
+  drawCircle(ox + 39, 170, 1, 50, 180, 50); // green
+  drawCircle(ox + 56, 168, 1, 50, 50, 200); // blue
+  drawCircle(ox + 71, 165, 1, 200, 50, 50); // red
+
+  // Ink stamps/seals on some papers (tiny colored circles)
+  drawCircle(ox + 42, 162, 1, 140, 40, 40);
+  drawCircle(ox + 62, 178, 1, 40, 40, 140);
+
+  // Lower notice board area -- more overlapping papers
+  fillRect(ox + 30, 186, 14, 10, 230, 225, 195);
+  fillRect(ox + 48, 190, 12, 12, 235, 230, 205);
+  fillRect(ox + 65, 184, 10, 14, 240, 235, 200);
+  fillRect(ox + 38, 200, 16, 10, 230, 220, 180);
+  fillRect(ox + 58, 204, 14, 8, 235, 230, 210);
+  // More pins
+  drawCircle(ox + 36, 186, 1, 50, 50, 200);
+  drawCircle(ox + 53, 190, 1, 200, 50, 50);
+  drawCircle(ox + 70, 184, 1, 50, 180, 50);
+
+  // ============================================================
+  // STATION 3: Pigeon Roost (bottom-right, ~x:320-440, y:230-320)
+  // Wooden dovecote structure (~80x70px) with compartments
+  // ============================================================
+
+  // Main structure frame
+  fillRect(ox + 335, 238, 80, 70, 110, 78, 42);
+  // Inner frame (lighter)
+  fillRect(ox + 338, 241, 74, 64, 130, 95, 55);
+
+  // 3x3 grid of compartments
+  for (let row = 0; row < 3; row++) {
+    for (let col = 0; col < 3; col++) {
+      const cx = ox + 340 + col * 23;
+      const cy = 243 + row * 20;
+      // Compartment opening (darker)
+      fillRect(cx, cy, 20, 17, 80, 55, 30);
+      // Lighter interior
+      fillRect(cx + 1, cy + 1, 18, 15, 90, 65, 38);
+
+      // Straw/hay in some compartments (tiny yellow lines)
+      if ((row + col) % 2 === 0) {
+        for (let s = 0; s < 4; s++) {
+          const sx = cx + 3 + s * 4;
+          setPixel(sx, cy + 13, 190, 180, 100);
+          setPixel(sx + 1, cy + 14, 190, 180, 100);
+        }
       }
     }
   }
 
-  // Lower windows
-  for (let w = 0; w < 4; w++) {
-    const wx = ox + 50 + w * 95;
-    if (wx + 30 > ox + W - 20) break;
-    fillRect(wx, H / 2 + 20, 30, 22, 70, 48, 25);
-    fillRect(wx + 2, H / 2 + 22, 26, 18, 220, 160, 60);
-    fillRect(wx + 13, H / 2 + 22, 4, 18, 70, 48, 25);
+  // Perch bars (horizontal lines across front)
+  for (let row = 0; row < 3; row++) {
+    const py = 260 + row * 20;
+    fillRect(ox + 338, py, 74, 2, 100, 70, 38);
   }
 
-  // Bar counter -- long horizontal bar across the back
-  fillRect(ox + 40, H - 90, W - 80, 14, 90, 60, 30);
-  // Bar supports
-  for (let s = 0; s < 6; s++) {
-    const sx = ox + 60 + s * 60;
-    if (sx > ox + W - 60) break;
-    fillRect(sx, H - 76, 5, 26, 80, 52, 25);
-  }
-  // Mugs and bottles on bar
-  for (let m = 0; m < 8; m++) {
-    const mx = ox + 55 + m * 45;
-    if (mx > ox + W - 60) break;
-    if (m % 2 === 0) {
-      // Mug
-      fillRect(mx, H - 98, 8, 8, 160, 120, 50);
-      fillRect(mx + 8, H - 96, 3, 4, 160, 120, 50);
-    } else {
-      // Bottle
-      fillRect(mx + 1, H - 104, 6, 14, 60, 100, 60, 180);
-      fillRect(mx + 2, H - 108, 4, 4, 60, 100, 60, 180);
+  // Pigeons in compartments (3-4 bird silhouettes)
+  // Pigeon 1 (top-left compartment)
+  const p1x = ox + 347, p1y = 249;
+  drawCircle(p1x + 3, p1y + 2, 3, 170, 170, 175); // body
+  drawCircle(p1x, p1y, 2, 180, 180, 185); // head
+  setPixel(p1x - 2, p1y, 200, 160, 60); // beak
+
+  // Pigeon 2 (top-right compartment)
+  const p2x = ox + 393, p2y = 250;
+  drawCircle(p2x + 3, p2y + 2, 3, 160, 160, 165); // body
+  drawCircle(p2x, p2y, 2, 175, 175, 180); // head
+  setPixel(p2x - 2, p2y, 200, 160, 60); // beak
+
+  // Pigeon 3 (middle-center compartment)
+  const p3x = ox + 370, p3y = 269;
+  drawCircle(p3x + 3, p3y + 2, 3, 200, 200, 205); // white pigeon body
+  drawCircle(p3x, p3y, 2, 210, 210, 215); // head
+  setPixel(p3x - 2, p3y, 200, 160, 60); // beak
+
+  // Pigeon 4 (bottom-left compartment)
+  const p4x = ox + 348, p4y = 290;
+  drawCircle(p4x + 3, p4y + 2, 3, 150, 150, 155); // body
+  drawCircle(p4x, p4y, 2, 165, 165, 170); // head
+  setPixel(p4x - 2, p4y, 200, 160, 60); // beak
+
+  // Feathers scattered below (tiny curved lines in light gray)
+  setPixel(ox + 350, 312, 190, 190, 195); setPixel(ox + 351, 313, 185, 185, 190);
+  setPixel(ox + 370, 315, 195, 195, 200); setPixel(ox + 371, 314, 190, 190, 195);
+  setPixel(ox + 390, 310, 185, 185, 190); setPixel(ox + 391, 311, 180, 180, 185);
+  setPixel(ox + 380, 316, 192, 192, 197); setPixel(ox + 381, 317, 188, 188, 193);
+
+  // Feeding trough (rectangle with grain dots)
+  fillRect(ox + 345, 310, 20, 5, 110, 78, 42);
+  fillRect(ox + 347, 311, 16, 3, 120, 88, 50);
+  // Grain dots
+  setPixel(ox + 350, 312, 200, 180, 100); setPixel(ox + 354, 312, 200, 180, 100);
+  setPixel(ox + 358, 312, 200, 180, 100); setPixel(ox + 352, 313, 200, 180, 100);
+
+  // Message scroll basket nearby
+  fillRect(ox + 420, 280, 18, 14, 140, 110, 70);
+  fillRect(ox + 422, 282, 14, 10, 150, 120, 80);
+  // Scrolls in basket (small cylinder shapes)
+  fillRect(ox + 424, 278, 8, 4, 220, 205, 160);
+  fillRect(ox + 426, 276, 6, 3, 215, 200, 155);
+  // Colored ribbon on scrolls
+  setPixel(ox + 428, 278, 180, 50, 50); // red ribbon
+  setPixel(ox + 430, 277, 50, 50, 180); // blue ribbon
+
+  // ============================================================
+  // AMBIENT FURNITURE
+  // ============================================================
+
+  // Fireplace on right wall (rectangular opening with flames)
+  fillRect(ox + 420, 145, 30, 25, 150, 140, 130); // stone surround
+  fillRect(ox + 423, 148, 24, 19, 40, 30, 25); // dark opening
+  // Flames inside
+  fillRect(ox + 428, 155, 4, 10, 220, 120, 30); // flame 1
+  fillRect(ox + 433, 153, 3, 12, 240, 150, 40); // flame 2
+  fillRect(ox + 438, 156, 3, 8, 200, 100, 25); // flame 3
+  setPixel(ox + 430, 154, 255, 200, 80); setPixel(ox + 435, 152, 255, 220, 100);
+  // Embers
+  setPixel(ox + 427, 165, 200, 80, 30); setPixel(ox + 432, 164, 200, 80, 30);
+  setPixel(ox + 437, 165, 180, 60, 20); setPixel(ox + 441, 164, 200, 80, 30);
+  // Mantle shelf above
+  fillRect(ox + 418, 142, 34, 4, 110, 78, 42);
+  // Warm glow around fireplace
+  for (let dy = -6; dy <= 28; dy++) {
+    for (let dx = -6; dx <= 36; dx++) {
+      const gx = ox + 420 + dx, gy = 145 + dy;
+      if (gx >= ox + 423 && gx < ox + 447 && gy >= 148 && gy < 167) continue;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < 30 && dist > 0) {
+        setPixel(gx, gy, 200, 140, 40, Math.max(0, Math.floor(25 - dist * 0.8)));
+      }
     }
   }
 
-  // Hanging sign (left wall)
-  fillRect(ox + 20, 70, 3, 20, 70, 48, 25);
-  fillRect(ox + 16, 85, 12, 8, 90, 60, 30);
-  // Sign icon (mug)
-  setPixel(ox + 20, 87, 220, 180, 80);
-  setPixel(ox + 21, 87, 220, 180, 80);
-  setPixel(ox + 22, 86, 220, 180, 80);
+  // Dining table with chairs (center-right area)
+  fillRect(ox + 240, 180, 50, 30, 100, 70, 40);
+  fillRect(ox + 242, 182, 46, 26, 110, 80, 48);
+  // Table edge shading
+  fillRect(ox + 240, 208, 50, 2, 80, 55, 30);
+  // Chairs (4 small squares around table)
+  fillRect(ox + 250, 172, 10, 8, 90, 62, 35); // top
+  fillRect(ox + 270, 172, 10, 8, 90, 62, 35);
+  fillRect(ox + 250, 210, 10, 8, 90, 62, 35); // bottom
+  fillRect(ox + 270, 210, 10, 8, 90, 62, 35);
+  // Plates/food on table
+  drawCircle(ox + 255, 190, 3, 200, 195, 185);
+  drawCircle(ox + 275, 195, 3, 200, 195, 185);
 
-  // Notice board -- right wall
-  fillRect(ox + W - 80, 60, 50, 40, 150, 120, 70);
-  fillRect(ox + W - 78, 62, 46, 36, 180, 150, 100);
-  // Pinned notes
-  fillRect(ox + W - 74, 65, 14, 10, 230, 220, 190);
-  fillRect(ox + W - 56, 68, 12, 8, 230, 220, 190);
-  fillRect(ox + W - 72, 80, 10, 12, 230, 220, 190);
-  fillRect(ox + W - 58, 82, 16, 8, 230, 220, 190);
-  // Pin dots
-  setPixel(ox + W - 68, 66, 200, 50, 50);
-  setPixel(ox + W - 50, 69, 50, 50, 200);
-
-  // Welcoming open door -- center
-  fillRect(ox + W / 2 - 22, H / 2 + 10, 44, H / 2 - 64, 70, 48, 25);
-  fillRect(ox + W / 2 - 18, H / 2 + 14, 36, H / 2 - 70, 200, 140, 50);
-  fillRect(ox + W / 2 - 14, H / 2 + 18, 28, H / 2 - 76, 180, 120, 40);
-
-  // Barrel in corner
-  drawCircle(ox + 35, H - 65, 12, 100, 70, 35);
-  drawCircle(ox + 35, H - 65, 10, 120, 85, 45);
+  // Barrel stack in corner (top-right, 3 circles)
+  drawCircle(ox + 430, 30, 7, 100, 70, 35);
+  drawCircle(ox + 430, 30, 5, 120, 85, 45);
   // Barrel bands
-  for (let x = ox + 25; x < ox + 45; x++) {
-    setPixel(x, H - 70, 80, 55, 25);
-    setPixel(x, H - 60, 80, 55, 25);
+  for (let a = 0; a < 360; a += 5) {
+    const rad = a * Math.PI / 180;
+    setPixel(Math.round(ox + 430 + Math.cos(rad) * 6), Math.round(30 + Math.sin(rad) * 6), 80, 55, 25);
   }
+  drawCircle(ox + 445, 25, 6, 100, 70, 35);
+  drawCircle(ox + 445, 25, 4, 120, 85, 45);
+  drawCircle(ox + 438, 18, 5, 100, 70, 35);
+  drawCircle(ox + 438, 18, 3, 120, 85, 45);
+
+  // Hanging lanterns (3 scattered -- diamond shapes with warm glow)
+  const lanternPos = [[ox + 180, 130], [ox + 300, 140], [ox + 130, 220]];
+  lanternPos.forEach(([lx, ly]) => {
+    // Diamond shape
+    setPixel(lx, ly - 3, 180, 160, 80);
+    setPixel(lx - 1, ly - 2, 180, 160, 80); setPixel(lx + 1, ly - 2, 180, 160, 80);
+    setPixel(lx - 2, ly - 1, 180, 160, 80); setPixel(lx + 2, ly - 1, 180, 160, 80);
+    setPixel(lx - 2, ly, 180, 160, 80); setPixel(lx + 2, ly, 180, 160, 80);
+    setPixel(lx - 1, ly + 1, 180, 160, 80); setPixel(lx + 1, ly + 1, 180, 160, 80);
+    setPixel(lx, ly + 2, 180, 160, 80);
+    // Center glow
+    setPixel(lx, ly - 1, 255, 220, 100);
+    setPixel(lx - 1, ly, 255, 220, 100); setPixel(lx, ly, 255, 240, 120);
+    setPixel(lx + 1, ly, 255, 220, 100);
+    setPixel(lx, ly + 1, 255, 220, 100);
+    // Warm glow halo
+    drawCircle(lx, ly, 6, 200, 140, 40, 20);
+  });
+
+  // Trophy moose/deer head mount on top wall
+  const trophy_x = ox + 200, trophy_y = 14;
+  fillRect(trophy_x - 3, trophy_y - 2, 7, 6, 120, 90, 55); // mount plate
+  // Head
+  drawCircle(trophy_x, trophy_y + 1, 2, 130, 100, 60);
+  // Antlers (small branching lines)
+  drawLine(trophy_x - 2, trophy_y - 1, trophy_x - 6, trophy_y - 4, 100, 80, 45);
+  drawLine(trophy_x - 4, trophy_y - 2, trophy_x - 5, trophy_y - 5, 100, 80, 45);
+  drawLine(trophy_x + 2, trophy_y - 1, trophy_x + 6, trophy_y - 4, 100, 80, 45);
+  drawLine(trophy_x + 4, trophy_y - 2, trophy_x + 5, trophy_y - 5, 100, 80, 45);
+
+  // Broom leaning against wall (thin line with wider bottom)
+  drawLine(ox + 15, 280, ox + 20, 310, 140, 120, 70);
+  fillRect(ox + 16, 310, 8, 6, 160, 140, 80);
+  // Bristles
+  for (let b = 0; b < 6; b++) {
+    drawLine(ox + 17 + b, 316, ox + 16 + b, 322, 180, 160, 100);
+  }
+
+  // Mop and bucket near bar
+  drawLine(ox + 50, 110, ox + 52, 135, 140, 120, 70);
+  // Bucket
+  fillRect(ox + 44, 130, 12, 10, 100, 100, 110);
+  fillRect(ox + 45, 131, 10, 8, 80, 80, 90);
+  // Water in bucket
+  fillRect(ox + 46, 133, 8, 4, 100, 140, 180, 150);
+
+  // Welcome mat at bottom center (small rectangle, entrance area)
+  fillRect(ox + 210, 318, 24, 10, 120, 80, 50);
+  fillRect(ox + 212, 319, 20, 8, 130, 90, 55);
+  // Mat texture
+  for (let x = ox + 214; x < ox + 230; x += 2) {
+    setPixel(x, 321, 110, 70, 40);
+    setPixel(x, 324, 110, 70, 40);
+  }
+
+  // Keg stand behind bar (near bar end)
+  drawCircle(ox + 380, 65, 9, 100, 70, 35);
+  drawCircle(ox + 380, 65, 7, 120, 85, 45);
+  // Bands
+  for (let a = 0; a < 360; a += 6) {
+    const rad = a * Math.PI / 180;
+    setPixel(Math.round(ox + 380 + Math.cos(rad) * 8), Math.round(65 + Math.sin(rad) * 8), 80, 55, 25);
+  }
+  // Tap fixture
+  fillRect(ox + 380, 73, 3, 5, 160, 150, 130);
+  setPixel(ox + 381, 78, 140, 140, 150);
+
+  // Coin purse on dining table (small gold lump)
+  drawCircle(ox + 262, 188, 2, 180, 160, 60);
+  setPixel(ox + 264, 187, 200, 180, 80);
+
+  // Dartboard on wall (circle with concentric rings, near notice board)
+  const dart_x = ox + 30, dart_y = 125;
+  drawCircle(dart_x, dart_y, 7, 40, 80, 40);
+  drawCircle(dart_x, dart_y, 5, 180, 50, 50);
+  drawCircle(dart_x, dart_y, 3, 40, 80, 40);
+  drawCircle(dart_x, dart_y, 1, 180, 50, 50);
+  // Wire/divider lines
+  setPixel(dart_x, dart_y - 7, 160, 160, 160);
+  setPixel(dart_x, dart_y + 7, 160, 160, 160);
+  setPixel(dart_x - 7, dart_y, 160, 160, 160);
+  setPixel(dart_x + 7, dart_y, 160, 160, 160);
+
+  // --- Ambient warm amber glow increases near fireplace and lanterns ---
+  // Already applied via fireplace glow and lantern halos above
 }
 
 // =====================================================================
