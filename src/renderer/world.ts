@@ -107,6 +107,9 @@ export class World {
   // Track which agents have been reparented into building interior containers
   private agentsInBuildings: Set<string> = new Set();
 
+  // Track the current tool label per building (for change detection)
+  private buildingToolName: Map<Building, string> = new Map();
+
   // Layout
   private centerX = 0;
   private centerY = 0;
@@ -578,6 +581,9 @@ export class World {
       this.lastActivity.set(session.sessionId, session.activityType);
     }
 
+    // Update tool name overlays on each active building
+    this.updateToolLabels(sessions);
+
     // Release building slots for projects with no active sessions
     this.releaseInactiveProjectSlots(sessions);
 
@@ -741,7 +747,52 @@ export class World {
     for (const [projectName, building] of this.projectToBuilding) {
       if (!activeProjects.has(projectName)) {
         building.resetLabel();
+        building.hideToolLabel();
+        this.buildingToolName.delete(building);
         this.projectToBuilding.delete(projectName);
+      }
+    }
+  }
+
+  // --- Private: Tool Label Updates ---
+
+  /**
+   * Update tool name overlays on each building based on active sessions.
+   * Shows the most recent tool name from the most recently modified session in each building.
+   */
+  private updateToolLabels(sessions: SessionInfo[]): void {
+    // Build a map of building -> most recent tool name
+    const buildingBestTool: Map<Building, { toolName: string; lastModified: number }> = new Map();
+
+    for (const session of sessions) {
+      if (session.activityType === 'idle' || !session.lastToolName) continue;
+
+      const building = this.projectToBuilding.get(session.projectName);
+      if (!building) continue;
+
+      const existing = buildingBestTool.get(building);
+      if (!existing || session.lastModified > existing.lastModified) {
+        buildingBestTool.set(building, {
+          toolName: session.lastToolName,
+          lastModified: session.lastModified,
+        });
+      }
+    }
+
+    // Apply labels: show for buildings with active tools, hide for all others
+    for (const building of this.questZones.values()) {
+      const best = buildingBestTool.get(building);
+      if (best) {
+        const prev = this.buildingToolName.get(building);
+        if (prev !== best.toolName) {
+          building.setToolLabel(best.toolName);
+          this.buildingToolName.set(building, best.toolName);
+        }
+      } else {
+        if (this.buildingToolName.has(building)) {
+          building.hideToolLabel();
+          this.buildingToolName.delete(building);
+        }
       }
     }
   }

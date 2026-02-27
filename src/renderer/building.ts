@@ -3,6 +3,15 @@ import type { BuildingType } from '../shared/constants';
 import { BUILDING_LABELS, MAX_LABEL_CHARS, BUILDING_WORK_SPOTS } from '../shared/constants';
 import type { WorkSpot } from '../shared/constants';
 
+/** Theme colors for tool name banner backgrounds per building type. */
+const BUILDING_BANNER_COLORS: Record<BuildingType, number> = {
+  wizard_tower: 0x4422aa,      // Dark purple
+  training_grounds: 0x884422,  // Dark brown
+  ancient_library: 0x226666,   // Dark teal
+  tavern: 0x886622,            // Dark amber
+  campfire: 0x333333,          // Dark gray
+};
+
 /**
  * Building -- A static world entity wrapping a Sprite from the building atlas
  * with a BitmapText label integrated as an interior sign/banner.
@@ -25,6 +34,10 @@ export class Building extends Container {
 
   // Station occupancy tracking: spotIndex -> sessionId
   private stationOccupancy: Map<number, string> = new Map();
+
+  // Tool name overlay: RPG-styled banner at the bottom of the building
+  private toolLabel: BitmapText;
+  private toolBanner: Graphics;
 
   constructor(buildingType: BuildingType, texture: Texture) {
     super();
@@ -66,8 +79,30 @@ export class Building extends Container {
       prop.circle(0, 0, 3);
       prop.fill({ color: spot.color, alpha: 0.8 });
       prop.position.set(spot.x, spot.y);
-      this.addChild(prop);  // child index 3+
+      this.addChild(prop);
     }
+
+    // Tool name overlay: themed banner at the bottom of the building interior
+    const bannerColor = BUILDING_BANNER_COLORS[buildingType];
+
+    this.toolBanner = new Graphics();
+    this.toolBanner.roundRect(-60, -12, 120, 24, 4);
+    this.toolBanner.fill({ color: bannerColor, alpha: 0.85 });
+    this.toolBanner.position.set(0, -20); // Just above the building base
+    this.toolBanner.visible = false;
+    this.addChild(this.toolBanner);
+
+    this.toolLabel = new BitmapText({
+      text: '',
+      style: {
+        fontFamily: 'PixelSignpost',
+        fontSize: 14,
+      },
+    });
+    this.toolLabel.anchor.set(0.5, 0.5);
+    this.toolLabel.position.set(0, -20); // Same vertical position as banner
+    this.toolLabel.visible = false;
+    this.addChild(this.toolLabel);
   }
 
   /** Update label to show a project name (truncated if needed). */
@@ -154,6 +189,31 @@ export class Building extends Container {
    */
   getAgentsLayer(): Container {
     return this.agentsLayer;
+  }
+
+  /**
+   * Display a tool name in the RPG-styled banner at the bottom of the building.
+   * Resizes the banner to fit the text with padding.
+   */
+  setToolLabel(toolName: string): void {
+    this.toolLabel.text = toolName;
+    // Measure text width and resize banner to fit (min 80px wide)
+    const bannerWidth = Math.max(80, this.toolLabel.width + 20);
+    const bannerColor = BUILDING_BANNER_COLORS[this.buildingType];
+    // Redraw the banner with new width
+    this.toolBanner.clear();
+    this.toolBanner.roundRect(-bannerWidth / 2, -12, bannerWidth, 24, 4);
+    this.toolBanner.fill({ color: bannerColor, alpha: 0.85 });
+    this.toolLabel.visible = true;
+    this.toolBanner.visible = true;
+  }
+
+  /**
+   * Hide the tool name overlay banner.
+   */
+  hideToolLabel(): void {
+    this.toolLabel.visible = false;
+    this.toolBanner.visible = false;
   }
 
   /**
