@@ -1,9 +1,9 @@
 ---
-status: diagnosed
+status: complete
 phase: 11-status-and-visibility-audit
 source: 11-01-SUMMARY.md, 11-02-SUMMARY.md
 started: 2026-02-27T00:30:00Z
-updated: 2026-02-27T00:45:00Z
+updated: 2026-02-27T01:00:00Z
 ---
 
 ## Current Test
@@ -16,11 +16,9 @@ updated: 2026-02-27T00:45:00Z
 expected: After Claude finishes a task and you wait 5-10 seconds without responding, the agent shows "waiting" status with breathing alpha effect -- not idle, not disappeared.
 result: pass
 
-### 2. Waiting session survives past 30 minutes
-expected: If a Claude session has been waiting for your input for over 30 minutes (file unmodified), the agent should still be visible in the world with "waiting" status. It should NOT disappear or be filtered as stale.
-result: issue
-reported: "i got a 'job's done' on the forma session, though it's still processing"
-severity: major
+### 2. No false "job's done" during active tool execution (re-test after 11-03 fix)
+expected: While Claude is actively processing and executing tools, the agent should NOT show "job's done" celebration. The celebration should ONLY fire when Claude's turn genuinely completes.
+result: pass
 
 ### 3. Fade cancellation restores clean visuals
 expected: Let an agent go idle long enough to start fading out (alpha decreasing toward 0). Before it fully disappears, send a new message to that session. The agent should snap back to full visibility with correct appearance -- no lingering stale tint, no residual breathing effect from before the fade, clean visual state.
@@ -41,15 +39,15 @@ result: pass
 ## Summary
 
 total: 6
-passed: 5
-issues: 1
+passed: 6
+issues: 0
 pending: 0
 skipped: 0
 
 ## Gaps
 
 - truth: "A session that is actively processing (tool execution in progress) should not trigger 'job's done' celebration"
-  status: failed
+  status: resolved
   reason: "User reported: i got a 'job's done' on the forma session, though it's still processing"
   severity: major
   test: 2
