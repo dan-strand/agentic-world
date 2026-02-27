@@ -98,9 +98,6 @@ export const ANIMATION_FRAME_MS = 200;  // ms per animation frame (5fps animatio
 export const SPEECH_BUBBLE_DURATION = 4000;  // ms visible before fade
 export const SPEECH_BUBBLE_FADE_MS = 1000;   // ms fade-out duration
 
-// JSONL tool detection buffer (larger than status detection)
-export const JSONL_TOOL_BUFFER_SIZE = 8192;
-
 // Status tint values (applied to agent container via Container.tint)
 export const STATUS_TINTS: Record<SessionStatus, number> = {
   active:  0xffffff,  // No tint -- vivid original colors
