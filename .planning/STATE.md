@@ -84,5 +84,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-27
-Stopped at: Completed 15-02-PLAN.md (ancient library + tavern interiors) -- Phase 15 complete
-Resume file: .planning/phases/16-agent-stations-info-overlay/ (Phase 16 planning needed)
+Stopped at: Phase 16 context gathered
+Resume file: .planning/phases/16-agent-stations-and-info-overlay/16-CONTEXT.md
