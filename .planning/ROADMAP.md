@@ -80,7 +80,9 @@ Plans:
   2. Two sessions that enter "waiting" within seconds of each other do not both play reminder sounds simultaneously -- at least ~30 seconds gap between any two reminder plays
   3. A session's reminder does not repeat after playing once until that session goes back to "active" and returns to "waiting" again
   4. Each session's waiting timer is independent -- one session going active does not reset another session's timer
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 13-01-PLAN.md -- Per-session waiting reminder timers with global throttle and active-cycle guard
 
 ## Progress
 
@@ -101,4 +103,4 @@ Phases execute in numeric order: 11 -> 13
 | 10. Agent Fade-Out Lifecycle | v1.2 | 1/1 | Complete | 2026-02-26 |
 | 11. Status & Visibility Audit | 3/3 | Complete   | 2026-02-27 | - |
 | 12. Jobs Done Global Signal | v1.3 | - | REMOVED | - |
-| 13. Ready to Work Reminders | v1.3 | 0/? | Not started | - |
+| 13. Ready to Work Reminders | v1.3 | 0/1 | Planned | - |
