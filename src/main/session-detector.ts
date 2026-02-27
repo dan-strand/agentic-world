@@ -29,8 +29,8 @@ export class FilesystemSessionDetector implements SessionDetector {
   // Cache: sessionId -> { cwd, projectPath, projectName }
   private cwdCache: Map<string, { projectPath: string; projectName: string }> = new Map();
 
-  // Cache: sessionId -> { mtimeMs, sessionInfo } for unchanged sessions
-  private mtimeCache: Map<string, { mtimeMs: number; sessionInfo: SessionInfo }> = new Map();
+  // Cache: sessionId -> { mtimeMs, sessionInfo, hasToolUse } for unchanged sessions
+  private mtimeCache: Map<string, { mtimeMs: number; sessionInfo: SessionInfo; hasToolUse: boolean }> = new Map();
 
   constructor(claudeProjectsDir?: string) {
     this.claudeProjectsDir = claudeProjectsDir ??
@@ -130,11 +130,12 @@ export class FilesystemSessionDetector implements SessionDetector {
         const updatedStatus = this.determineStatus(
           cached.sessionInfo.lastEntryType,
           stat.mtimeMs,
-          now
+          now,
+          cached.hasToolUse
         );
         if (updatedStatus !== cached.sessionInfo.status) {
           const updated: SessionInfo = { ...cached.sessionInfo, status: updatedStatus };
-          this.mtimeCache.set(sessionId, { mtimeMs: stat.mtimeMs, sessionInfo: updated });
+          this.mtimeCache.set(sessionId, { mtimeMs: stat.mtimeMs, sessionInfo: updated, hasToolUse: cached.hasToolUse });
           return updated;
         }
         return cached.sessionInfo;
@@ -143,7 +144,8 @@ export class FilesystemSessionDetector implements SessionDetector {
       // Mtime changed or new session -- read JSONL last line
       const lastEntry = readLastJsonlLine(filePath);
       const lastEntryType = lastEntry?.type ?? 'unknown';
-      const status = this.determineStatus(lastEntryType, stat.mtimeMs, now);
+      const hasToolUse = this.hasToolUseContent(lastEntry);
+      const status = this.determineStatus(lastEntryType, stat.mtimeMs, now, hasToolUse);
 
       // Extract activity type from last tool_use in JSONL progress entries.
       // Force idle when session has been idle long enough to be stale -- prevents
@@ -194,7 +196,7 @@ export class FilesystemSessionDetector implements SessionDetector {
       };
 
       // Update mtime cache
-      this.mtimeCache.set(sessionId, { mtimeMs: stat.mtimeMs, sessionInfo });
+      this.mtimeCache.set(sessionId, { mtimeMs: stat.mtimeMs, sessionInfo, hasToolUse });
 
       return sessionInfo;
     } catch (err) {
@@ -202,6 +204,20 @@ export class FilesystemSessionDetector implements SessionDetector {
       console.warn(`[session-detector] Error processing ${filePath}:`, (err as Error).message);
       return null;
     }
+  }
+
+  /**
+   * Check if a JSONL entry is an assistant message containing a tool_use request.
+   * When true, the tool is actively executing and the session should remain 'active'
+   * even though the file mtime has aged (no JSONL writes during tool execution).
+   */
+  private hasToolUseContent(entry: JsonlEntry | null): boolean {
+    if (!entry || entry.type !== 'assistant') return false;
+    const message = entry.message as { content?: unknown[] } | undefined;
+    if (!message?.content || !Array.isArray(message.content)) return false;
+    return message.content.some(
+      (block: unknown) => typeof block === 'object' && block !== null && (block as { type?: string }).type === 'tool_use'
+    );
   }
 
   /**
@@ -215,7 +231,7 @@ export class FilesystemSessionDetector implements SessionDetector {
    *   - 'system': active if <5s ago, waiting otherwise (task completed, awaiting user input)
    *   - default: active (optimistic per user decision)
    */
-  determineStatus(lastEntryType: string, mtimeMs: number, now: number): SessionStatus {
+  determineStatus(lastEntryType: string, mtimeMs: number, now: number, hasToolUse: boolean = false): SessionStatus {
     const timeSinceModified = now - mtimeMs;
 
     // Idle threshold: 30 seconds
@@ -227,8 +243,13 @@ export class FilesystemSessionDetector implements SessionDetector {
     switch (lastEntryType) {
       case 'assistant':
         // Claude just responded -- if very recent, still streaming (active)
-        // Otherwise likely waiting for user input
-        return timeSinceModified < 2000 ? 'active' : 'waiting';
+        if (timeSinceModified < 2000) return 'active';
+        // If the assistant entry contains a tool_use request, the tool is actively
+        // executing. No JSONL writes happen during tool execution (gaps of 3-109s+),
+        // so mtime ages but the session is NOT waiting for user input.
+        if (hasToolUse) return 'active';
+        // Otherwise, assistant finished responding with text -- waiting for user input
+        return 'waiting';
 
       case 'user':
       case 'progress':
