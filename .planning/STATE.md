@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: Audio & Status Reliability
 status: unknown
-last_updated: "2026-02-27T03:35:47Z"
+last_updated: "2026-02-27T04:12:29.074Z"
 progress:
   total_phases: 12
-  completed_phases: 11
-  total_plans: 25
-  completed_plans: 25
+  completed_phases: 12
+  total_plans: 26
+  completed_plans: 26
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-26)
 
 **Core value:** Instantly see the status of all Claude Code sessions so you know which one needs attention next.
-**Current focus:** Phase 11 -- Status & Visibility Audit
+**Current focus:** Phase 13 -- Ready-to-Work Reminders
 
 ## Current Position
 
-Phase: 11 of 13 (Status & Visibility Audit) -- first of 3 v1.3 phases
-Plan: 3 of 3 (Phase 11) -- all plans complete
-Status: Executing
-Last activity: 2026-02-27 -- Phase 11 Plan 03 completed (gap closure, all 3 plans done)
+Phase: 13 of 13 (Ready-to-Work Reminders)
+Plan: 1 of 1 (Phase 13) -- all plans complete
+Status: Complete
+Last activity: 2026-02-27 -- Phase 13 Plan 01 completed (waiting reminder timers with throttle)
 
-Progress: [##########] 100% (3/3 plans in Phase 11)
+Progress: [##########] 100% (1/1 plans in Phase 13)
 
 ## Performance Metrics
 
@@ -46,6 +46,7 @@ Progress: [##########] 100% (3/3 plans in Phase 11)
 | Phase 11 P03 | 2min | 2 tasks | 2 files |
 | Phase 11 P02 | 1min | 2 tasks | 2 files |
 | Phase 11 P01 | 2min | 2 tasks | 2 files |
+| Phase 13 P01 | 2min | 2 tasks | 2 files |
 
 ## Shipped Milestones
 
@@ -82,6 +83,9 @@ Recent decisions affecting current work:
 - [11-02]: Alpha threshold 0.4 for visibility safeguard to avoid false positives from breathing effect (min 0.5)
 - [11-01]: Stale filter uses mtimeCache to preserve waiting/active sessions past 30-min threshold
 - [11-01]: System JSONL entries map to waiting (not idle) in 5-30s window after task completion
+- [Phase 13]: Waiting reminder flag consumed even when throttled -- prevents retry, lets next session fire naturally
+- [Phase 13]: Idle reminders updated to share global throttle with waiting reminders
+- [Phase 13]: Only 'active' status clears waiting reminder played flag (not idle/error/other)
 
 ### Blockers/Concerns
 
@@ -90,5 +94,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-27
-Stopped at: Completed 11-03-PLAN.md (Phase 11 gap closure complete, all 3 plans done)
+Stopped at: Completed 13-01-PLAN.md (waiting reminder timers with throttle and active-cycle guard)
 Resume file: None

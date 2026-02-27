@@ -16,10 +16,10 @@ Requirements for Audio & Status Reliability milestone. Each maps to roadmap phas
 
 ### Audio -- Ready to Work
 
-- [ ] **AUDIO-04**: "Ready to work" reminder timer starts from "waiting" status (not "idle")
-- [ ] **AUDIO-05**: Each session gets its own independent 1-minute waiting timer
-- [ ] **AUDIO-06**: Reminder sounds are throttled with ~30s minimum gap between any two reminder plays
-- [ ] **AUDIO-07**: Reminder does not repeat for a session until that session returns to "active" and goes back to "waiting"
+- [x] **AUDIO-04**: "Ready to work" reminder timer starts from "waiting" status (not "idle")
+- [x] **AUDIO-05**: Each session gets its own independent 1-minute waiting timer
+- [x] **AUDIO-06**: Reminder sounds are throttled with ~30s minimum gap between any two reminder plays
+- [x] **AUDIO-07**: Reminder does not repeat for a session until that session returns to "active" and goes back to "waiting"
 
 ### Status Reliability
 
@@ -65,10 +65,10 @@ Requirements for Audio & Status Reliability milestone. Each maps to roadmap phas
 | ~~AUDIO-01~~ | ~~Phase 12~~ | Removed |
 | ~~AUDIO-02~~ | ~~Phase 12~~ | Removed |
 | ~~AUDIO-03~~ | ~~Phase 12~~ | Removed |
-| AUDIO-04 | Phase 13 | Pending |
-| AUDIO-05 | Phase 13 | Pending |
-| AUDIO-06 | Phase 13 | Pending |
-| AUDIO-07 | Phase 13 | Pending |
+| AUDIO-04 | Phase 13 | Complete |
+| AUDIO-05 | Phase 13 | Complete |
+| AUDIO-06 | Phase 13 | Complete |
+| AUDIO-07 | Phase 13 | Complete |
 | STATUS-01 | Phase 11 | Complete |
 | STATUS-02 | Phase 11 | Complete |
 | STATUS-03 | Phase 11 | Complete |

@@ -51,7 +51,7 @@ See: [`.planning/milestones/v1.1-ROADMAP.md`](milestones/v1.1-ROADMAP.md) for fu
 
 - [x] **Phase 11: Status & Visibility Audit** - Verify status transitions are accurate, agents always visible when they should be, edge cases handled (gap closure in progress) (completed 2026-02-27)
 - ~~Phase 12: Jobs Done Global Signal~~ - REMOVED (per-session sounds preferred; already working)
-- [ ] **Phase 13: Ready to Work Reminders** - Per-session reminder timers from waiting state, throttled so sounds never stack
+- [x] **Phase 13: Ready to Work Reminders** - Per-session reminder timers from waiting state, throttled so sounds never stack (completed 2026-02-27)
 
 ## Phase Details
 
@@ -103,4 +103,4 @@ Phases execute in numeric order: 11 -> 13
 | 10. Agent Fade-Out Lifecycle | v1.2 | 1/1 | Complete | 2026-02-26 |
 | 11. Status & Visibility Audit | 3/3 | Complete   | 2026-02-27 | - |
 | 12. Jobs Done Global Signal | v1.3 | - | REMOVED | - |
-| 13. Ready to Work Reminders | v1.3 | 0/1 | Planned | - |
+| 13. Ready to Work Reminders | 1/1 | Complete   | 2026-02-27 | - |
