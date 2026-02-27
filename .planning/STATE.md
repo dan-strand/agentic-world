@@ -77,5 +77,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-27
-Stopped at: Completed 14-02-PLAN.md (Phase 14 complete)
-Resume file: .planning/phases/14-world-layout-reorganization/14-02-SUMMARY.md
+Stopped at: Phase 15 context gathered
+Resume file: .planning/phases/15-workspace-interior-art/15-CONTEXT.md
