@@ -78,7 +78,10 @@ See: [`.planning/milestones/v1.3-ROADMAP.md`](milestones/v1.3-ROADMAP.md) for fu
   2. Guild Hall is a small waypoint element (not a full-sized building) used only for celebrations and transitions
   3. Dirt paths connect the Guild Hall waypoint to all four workspace buildings
   4. The entire world fits within 1024x768 with no clipping or overlap between buildings
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 14-01-PLAN.md -- Layout constants and sprite assets (building atlas at new size + campfire sprite)
+- [ ] 14-02-PLAN.md -- World integration (tilemap paths, building class, world.ts with campfire waypoint)
 
 ### Phase 15: Workspace Interior Art
 **Goal**: Each workspace building displays a rich, themed interior scene with identifiable work stations
@@ -119,6 +122,6 @@ See: [`.planning/milestones/v1.3-ROADMAP.md`](milestones/v1.3-ROADMAP.md) for fu
 | 11. Status & Visibility Audit | v1.3 | 3/3 | Complete | 2026-02-27 |
 | 12. Jobs Done Global Signal | v1.3 | - | REMOVED | - |
 | 13. Ready to Work Reminders | v1.3 | 1/1 | Complete | 2026-02-27 |
-| 14. World Layout Reorganization | v1.4 | 0/? | Not started | - |
+| 14. World Layout Reorganization | v1.4 | 0/2 | Planned | - |
 | 15. Workspace Interior Art | v1.4 | 0/? | Not started | - |
 | 16. Agent Stations and Info Overlay | v1.4 | 0/? | Not started | - |
