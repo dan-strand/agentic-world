@@ -5,7 +5,7 @@
 - ✅ **v1.0 MVP** - Phases 1-3 (shipped 2026-02-25)
 - ✅ **v1.1 Fantasy RPG Aesthetic** - Phases 4-7 (shipped 2026-02-26)
 - ✅ **v1.2 Activity Monitoring & Labeling** - Phases 8-10 (shipped 2026-02-26)
-- 🚧 **v1.3 Audio & Status Reliability** - Phases 11-13 (in progress)
+- 🚧 **v1.3 Audio & Status Reliability** - Phases 11, 13 (in progress)
 
 ## Phases
 
@@ -50,7 +50,7 @@ See: [`.planning/milestones/v1.1-ROADMAP.md`](milestones/v1.1-ROADMAP.md) for fu
 ### v1.3 Audio & Status Reliability (In Progress)
 
 - [x] **Phase 11: Status & Visibility Audit** - Verify status transitions are accurate, agents always visible when they should be, edge cases handled (gap closure in progress) (completed 2026-02-27)
-- [ ] **Phase 12: Jobs Done Global Signal** - "Jobs done" sound fires only when ALL sessions are waiting, not per-session
+- ~~Phase 12: Jobs Done Global Signal~~ - REMOVED (per-session sounds preferred; already working)
 - [ ] **Phase 13: Ready to Work Reminders** - Per-session reminder timers from waiting state, throttled so sounds never stack
 
 ## Phase Details
@@ -71,21 +71,9 @@ Plans:
 - [x] 11-02-PLAN.md -- Harden renderer status pipeline and agent visibility
 - [ ] 11-03-PLAN.md -- Fix false "job's done" during active tool execution (gap closure)
 
-### Phase 12: Jobs Done Global Signal
-**Goal**: The "jobs done" sound is a single all-clear signal meaning every session has finished its current task -- not per-session noise
-**Depends on**: Phase 11 (status transitions must be reliable before audio logic depends on them)
-**Requirements**: AUDIO-01, AUDIO-02, AUDIO-03
-**Success Criteria** (what must be TRUE):
-  1. When all non-idle sessions are simultaneously in "waiting" status, the "jobs done" sound plays exactly once
-  2. When a single session transitions from active to waiting while other sessions are still active, no sound plays
-  3. After "jobs done" plays, it does not play again until at least one session goes back to "active" and then all sessions return to "waiting"
-**Plans**: 1 plan
-Plans:
-- [ ] 12-01-PLAN.md -- Replace per-session sound with global all-waiting signal and re-trigger guard
-
 ### Phase 13: Ready to Work Reminders
 **Goal**: Each waiting session gets a gentle audio nudge after sitting unattended, without sounds piling up across multiple sessions
-**Depends on**: Phase 12 (jobs-done and reminder share SoundManager; jobs-done logic settled first avoids conflicting audio changes)
+**Depends on**: Phase 11 (status transitions must be reliable before audio logic depends on them)
 **Requirements**: AUDIO-04, AUDIO-05, AUDIO-06, AUDIO-07
 **Success Criteria** (what must be TRUE):
   1. A session that enters "waiting" status gets a reminder sound after ~1 minute of waiting, not from "idle" status
@@ -97,7 +85,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 11 -> 12 -> 13
+Phases execute in numeric order: 11 -> 13
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -112,5 +100,5 @@ Phases execute in numeric order: 11 -> 12 -> 13
 | 9. Speech Bubbles and Project Routing | v1.2 | 1/1 | Complete | 2026-02-26 |
 | 10. Agent Fade-Out Lifecycle | v1.2 | 1/1 | Complete | 2026-02-26 |
 | 11. Status & Visibility Audit | 3/3 | Complete   | 2026-02-27 | - |
-| 12. Jobs Done Global Signal | v1.3 | 0/1 | Not started | - |
+| 12. Jobs Done Global Signal | v1.3 | - | REMOVED | - |
 | 13. Ready to Work Reminders | v1.3 | 0/? | Not started | - |

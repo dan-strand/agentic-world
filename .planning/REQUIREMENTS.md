@@ -9,9 +9,10 @@ Requirements for Audio & Status Reliability milestone. Each maps to roadmap phas
 
 ### Audio -- Jobs Done
 
-- [ ] **AUDIO-01**: "Jobs done" sound plays only when ALL non-idle sessions are simultaneously in "waiting" status
-- [ ] **AUDIO-02**: "Jobs done" sound does not play per-session on individual active->waiting transitions
-- [ ] **AUDIO-03**: "Jobs done" sound does not re-trigger until at least one session has gone back to "active" and all return to "waiting" again
+~~REMOVED — per-session sounds preferred; already working after Phase 11~~
+- ~~AUDIO-01~~
+- ~~AUDIO-02~~
+- ~~AUDIO-03~~
 
 ### Audio -- Ready to Work
 
@@ -61,9 +62,9 @@ Requirements for Audio & Status Reliability milestone. Each maps to roadmap phas
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AUDIO-01 | Phase 12 | Pending |
-| AUDIO-02 | Phase 12 | Pending |
-| AUDIO-03 | Phase 12 | Pending |
+| ~~AUDIO-01~~ | ~~Phase 12~~ | Removed |
+| ~~AUDIO-02~~ | ~~Phase 12~~ | Removed |
+| ~~AUDIO-03~~ | ~~Phase 12~~ | Removed |
 | AUDIO-04 | Phase 13 | Pending |
 | AUDIO-05 | Phase 13 | Pending |
 | AUDIO-06 | Phase 13 | Pending |
@@ -76,8 +77,8 @@ Requirements for Audio & Status Reliability milestone. Each maps to roadmap phas
 | VIS-03 | Phase 11 | Complete |
 
 **Coverage:**
-- v1.3 requirements: 13 total
-- Mapped to phases: 13
+- v1.3 requirements: 10 total (3 removed with Phase 12)
+- Mapped to phases: 10
 - Unmapped: 0
 
 ---
