@@ -6,6 +6,9 @@ export const tileTextures: Record<string, Texture> = {};
 /** Building textures loaded from the spritesheet, keyed by frame name */
 export const buildingTextures: Record<string, Texture> = {};
 
+/** Campfire texture loaded from the spritesheet, keyed by frame name */
+export const campfireTexture: Record<string, Texture> = {};
+
 /** Character animation texture arrays loaded from spritesheet, keyed by animation name */
 export const characterAnimations: Record<string, Texture[]> = {};
 
@@ -16,9 +19,10 @@ export const characterAnimations: Record<string, Texture[]> = {};
  * Atlas files are served from assets/ via CopyWebpackPlugin.
  */
 export async function loadAllAssets(): Promise<void> {
-  const [tileSheet, buildingSheet, characterSheet] = await Promise.all([
+  const [tileSheet, buildingSheet, campfireSheet, characterSheet] = await Promise.all([
     Assets.load('../assets/sprites/tiles.json') as Promise<Spritesheet>,
     Assets.load('../assets/sprites/buildings.json') as Promise<Spritesheet>,
+    Assets.load('../assets/sprites/campfire.json') as Promise<Spritesheet>,
     Assets.load('../assets/sprites/characters.json') as Promise<Spritesheet>,
   ]);
 
@@ -31,6 +35,10 @@ export async function loadAllAssets(): Promise<void> {
 
   for (const [name, texture] of Object.entries(buildingSheet.textures)) {
     buildingTextures[name] = texture;
+  }
+
+  for (const [name, texture] of Object.entries(campfireSheet.textures)) {
+    campfireTexture[name] = texture;
   }
 
   // Store character animation texture arrays for AnimatedSprite creation

@@ -1,17 +1,19 @@
 /**
- * Generate the 480x96 building atlas PNG with 5 buildings:
- *   guild_hall, wizard_tower, training_grounds, ancient_library, tavern.
- * Each building is 96x96 with transparent background.
+ * Generate the building atlas PNG with 4 workspace buildings:
+ *   wizard_tower, training_grounds, ancient_library, tavern.
+ * Each building is 464x336 landscape orientation -- placeholder exteriors
+ * that will be replaced with detailed interiors in Phase 15.
  * Uses deterministic pixel positions for reproducibility.
- * Follows the same pattern as generate-tiles.js.
  */
 const { PNG } = require('pngjs');
 const fs = require('fs');
 const path = require('path');
 
-const WIDTH = 480;
-const HEIGHT = 96;
-const BLDG = 96;
+const BLDG_W = 464;
+const BLDG_H = 336;
+const BUILDING_COUNT = 4;
+const WIDTH = BLDG_W * BUILDING_COUNT; // 1856
+const HEIGHT = BLDG_H;                 // 336
 
 const png = new PNG({ width: WIDTH, height: HEIGHT });
 
@@ -56,550 +58,590 @@ function drawLine(x0, y0, x1, y1, r, g, b) {
   }
 }
 
-// =====================================================================
-// Building 0 (offset 0): Guild Hall
-// Central stone building with peaked roof, double doors, windows, banner
-// =====================================================================
-function drawGuildHall(ox) {
-  // Stone walls - wide building body
-  fillRect(ox + 12, 30, 72, 54, 140, 130, 110);
-
-  // Wall texture - subtle stone block lines
-  for (let row = 0; row < 6; row++) {
-    const y = 35 + row * 9;
-    for (let x = ox + 12; x < ox + 84; x++) {
-      setPixel(x, y, 130, 120, 100);
-    }
-    // Vertical mortar lines (offset every other row)
-    const offset = (row % 2) * 12;
-    for (let col = 0; col < 7; col++) {
-      const mx = ox + 18 + col * 12 + offset;
-      if (mx < ox + 84) {
-        for (let dy = 0; dy < 9; dy++) {
-          if (y + dy < 84) setPixel(mx, y + dy, 130, 120, 100);
-        }
+function drawCircle(cx, cy, radius, r, g, b, a = 255) {
+  for (let dy = -radius; dy <= radius; dy++) {
+    for (let dx = -radius; dx <= radius; dx++) {
+      if (dx * dx + dy * dy <= radius * radius) {
+        setPixel(cx + dx, cy + dy, r, g, b, a);
       }
     }
-  }
-
-  // Foundation strip
-  fillRect(ox + 10, 82, 76, 4, 120, 110, 95);
-
-  // Dark brown wooden roof - peaked triangle
-  for (let row = 0; row < 24; row++) {
-    const halfW = 38 - Math.floor(row * 38 / 24);
-    const cx = ox + 48;
-    fillRect(cx - halfW, 8 + row, halfW * 2, 1, 100, 70, 40);
-  }
-  // Roof edge highlight
-  for (let row = 0; row < 24; row++) {
-    const halfW = 38 - Math.floor(row * 38 / 24);
-    const cx = ox + 48;
-    setPixel(cx - halfW, 8 + row, 120, 85, 50);
-    setPixel(cx + halfW - 1, 8 + row, 80, 55, 30);
-  }
-
-  // Double doors at center bottom
-  fillRect(ox + 40, 62, 8, 22, 80, 55, 30);
-  fillRect(ox + 49, 62, 8, 22, 80, 55, 30);
-  // Door frame
-  fillRect(ox + 38, 60, 22, 2, 90, 60, 30);
-  // Door handles
-  setPixel(ox + 47, 72, 200, 180, 80);
-  setPixel(ox + 50, 72, 200, 180, 80);
-  // Door arch
-  for (let i = -4; i <= 4; i++) {
-    setPixel(ox + 48 + i, 59 - Math.abs(i) / 2, 90, 60, 30);
-  }
-
-  // Left window with blue glass
-  fillRect(ox + 20, 44, 10, 12, 60, 50, 40); // frame
-  fillRect(ox + 22, 46, 6, 8, 140, 180, 220); // blue glass
-  // Window cross
-  fillRect(ox + 24, 46, 2, 8, 80, 60, 40);
-  fillRect(ox + 22, 49, 6, 2, 80, 60, 40);
-
-  // Right window with blue glass
-  fillRect(ox + 66, 44, 10, 12, 60, 50, 40);
-  fillRect(ox + 68, 46, 6, 8, 140, 180, 220);
-  fillRect(ox + 70, 46, 2, 8, 80, 60, 40);
-  fillRect(ox + 68, 49, 6, 2, 80, 60, 40);
-
-  // Banner/flag pole on roof peak
-  fillRect(ox + 47, 2, 2, 10, 90, 65, 35);
-  // Red banner
-  fillRect(ox + 50, 3, 8, 6, 180, 40, 40);
-  fillRect(ox + 51, 9, 6, 2, 160, 30, 30);
-  fillRect(ox + 52, 11, 4, 1, 140, 25, 25);
-
-  // Side torch details
-  setPixel(ox + 16, 52, 200, 150, 50);
-  setPixel(ox + 16, 51, 255, 200, 80);
-  setPixel(ox + 80, 52, 200, 150, 50);
-  setPixel(ox + 80, 51, 255, 200, 80);
-
-  // Ground shadow
-  for (let x = ox + 14; x < ox + 82; x++) {
-    setPixel(x, 86, 100, 90, 70, 80);
-    setPixel(x, 87, 100, 90, 70, 40);
   }
 }
 
 // =====================================================================
-// Building 1 (offset 96): Wizard Tower
-// Tall narrow cylindrical tower, conical purple roof, glowing window, sparkles
+// Building 0 (offset 0): Wizard Tower
+// Purple/blue tower with glowing windows, starry accents, landscape
 // =====================================================================
 function drawWizardTower(ox) {
-  // Cylindrical stone tower body (center ~40px wide)
-  fillRect(ox + 28, 28, 40, 58, 100, 100, 120);
+  const W = BLDG_W;
+  const H = BLDG_H;
 
-  // Stone texture -- horizontal lines
-  for (let row = 0; row < 7; row++) {
-    const y = 32 + row * 8;
-    for (let x = ox + 28; x < ox + 68; x++) {
-      setPixel(x, y, 88, 88, 108);
+  // Dark purple-blue background fill for the building area
+  fillRect(ox, 0, W, H, 30, 25, 55, 255);
+
+  // Stone floor
+  fillRect(ox, H - 40, W, 40, 50, 45, 70);
+  // Floor tile grid
+  for (let row = 0; row < 3; row++) {
+    for (let col = 0; col < 16; col++) {
+      const tx = ox + col * 30 + (row % 2) * 15;
+      const ty = H - 38 + row * 14;
+      fillRect(tx, ty, 28, 12, 55, 50, 78);
+      // Slight highlight on top edge
+      for (let dx = 0; dx < 28; dx++) setPixel(tx + dx, ty, 62, 57, 85);
     }
   }
 
-  // Tower curvature shading (darker at edges)
-  for (let y = 28; y < 86; y++) {
-    for (let i = 0; i < 4; i++) {
-      setPixel(ox + 28 + i, y, 80 - i * 5, 80 - i * 5, 100 - i * 5);
-      setPixel(ox + 67 - i, y, 80 - i * 5, 80 - i * 5, 100 - i * 5);
+  // Back wall -- stone with purple tint
+  fillRect(ox + 10, 10, W - 20, H - 55, 60, 50, 85);
+
+  // Wall stone texture
+  for (let row = 0; row < 20; row++) {
+    const y = 20 + row * 15;
+    if (y >= H - 50) break;
+    for (let x = ox + 10; x < ox + W - 10; x++) {
+      setPixel(x, y, 52, 42, 75);
+    }
+    const offset = (row % 2) * 20;
+    for (let col = 0; col < 25; col++) {
+      const mx = ox + 20 + col * 20 + offset;
+      if (mx < ox + W - 10) {
+        for (let dy = 0; dy < 15 && y + dy < H - 50; dy++) {
+          setPixel(mx, y + dy, 52, 42, 75);
+        }
+      }
     }
   }
 
-  // Foundation
-  fillRect(ox + 24, 84, 48, 4, 80, 80, 95);
-  // Wider base
-  fillRect(ox + 26, 80, 44, 4, 90, 90, 105);
+  // Central tower element (tall, narrow) rising from the floor
+  const towerCx = ox + W / 2;
+  const towerW = 80;
+  fillRect(towerCx - towerW / 2, 30, towerW, H - 70, 80, 70, 110);
 
-  // Conical purple/blue roof
-  for (let row = 0; row < 26; row++) {
-    const halfW = 24 - Math.floor(row * 24 / 26);
-    const cx = ox + 48;
-    const r = 90 - Math.floor(row * 20 / 26);
-    const g = 50 - Math.floor(row * 10 / 26);
-    const b = 130 + Math.floor(row * 25 / 26);
-    fillRect(cx - halfW, 4 + row, halfW * 2, 1, r, g, b);
+  // Tower conical roof
+  for (let row = 0; row < 30; row++) {
+    const halfW = 50 - Math.floor(row * 50 / 30);
+    const r = 90 - Math.floor(row * 20 / 30);
+    const g = 50 - Math.floor(row * 10 / 30);
+    const b = 130 + Math.floor(row * 25 / 30);
+    fillRect(towerCx - halfW, row, halfW * 2, 1, r, g, b);
   }
-  // Roof highlight edge
-  for (let row = 0; row < 26; row++) {
-    const halfW = 24 - Math.floor(row * 24 / 26);
-    const cx = ox + 48;
-    setPixel(cx - halfW, 4 + row, 120, 70, 160);
-  }
-  // Roof tip orb
-  setPixel(ox + 47, 2, 200, 180, 255);
-  setPixel(ox + 48, 2, 200, 180, 255);
-  setPixel(ox + 47, 3, 180, 160, 240);
-  setPixel(ox + 48, 3, 180, 160, 240);
+  // Roof orb
+  drawCircle(towerCx, 4, 3, 200, 180, 255);
 
-  // Glowing window near top
-  fillRect(ox + 42, 34, 12, 10, 60, 50, 70); // frame
-  fillRect(ox + 44, 36, 8, 6, 255, 220, 80); // gold glow
-  // Glow halo around window
-  for (let dy = -1; dy <= 7; dy++) {
-    for (let dx = -1; dx <= 9; dx++) {
-      const x = ox + 43 + dx;
-      const y = 35 + dy;
-      if (x >= ox + 44 && x < ox + 52 && y >= 36 && y < 42) continue;
-      setPixel(x, y, 200, 170, 50, 60);
+  // Tower glowing window (large)
+  fillRect(towerCx - 12, 60, 24, 20, 50, 40, 60);
+  fillRect(towerCx - 10, 62, 20, 16, 255, 220, 80);
+  // Window glow halo
+  for (let dy = -3; dy <= 19; dy++) {
+    for (let dx = -3; dx <= 23; dx++) {
+      const x = towerCx - 12 + dx;
+      const y = 60 + dy;
+      if (x >= towerCx - 10 && x < towerCx + 10 && y >= 62 && y < 78) continue;
+      setPixel(x, y, 200, 170, 50, 40);
     }
   }
 
-  // Lower window (small slit)
-  fillRect(ox + 44, 56, 8, 4, 60, 50, 70);
-  fillRect(ox + 45, 57, 6, 2, 180, 160, 60);
+  // Enchanting table -- left side
+  fillRect(ox + 50, H - 80, 90, 10, 70, 50, 100);  // table top
+  fillRect(ox + 55, H - 70, 6, 30, 60, 45, 80);    // left leg
+  fillRect(ox + 129, H - 70, 6, 30, 60, 45, 80);   // right leg
+  // Glowing items on table
+  drawCircle(ox + 75, H - 86, 4, 140, 100, 255, 200);
+  drawCircle(ox + 100, H - 86, 3, 100, 200, 255, 200);
+  fillRect(ox + 115, H - 90, 8, 6, 180, 140, 60);  // scroll
 
-  // Spiral stair suggestion (small dots spiraling up the exterior)
-  const spiralPixels = [
-    [ox + 30, 75], [ox + 29, 68], [ox + 30, 61], [ox + 32, 54],
-    [ox + 34, 47], [ox + 36, 40], [ox + 38, 35],
-  ];
-  spiralPixels.forEach(([x, y]) => {
-    setPixel(x, y, 75, 75, 90);
-    setPixel(x + 1, y, 75, 75, 90);
-  });
+  // Scroll desk -- right side
+  fillRect(ox + W - 170, H - 80, 100, 10, 90, 75, 50); // desk surface
+  fillRect(ox + W - 165, H - 70, 6, 30, 70, 55, 35);   // left leg
+  fillRect(ox + W - 81, H - 70, 6, 30, 70, 55, 35);    // right leg
+  // Scrolls and books
+  fillRect(ox + W - 155, H - 90, 6, 8, 200, 180, 120);
+  fillRect(ox + W - 145, H - 92, 5, 10, 180, 160, 100);
+  fillRect(ox + W - 130, H - 88, 20, 6, 170, 130, 80);
+  // Quill
+  drawLine(ox + W - 100, H - 95, ox + W - 90, H - 82, 220, 200, 150);
 
-  // Door at base
-  fillRect(ox + 42, 70, 12, 14, 70, 55, 45);
-  // Arch over door
-  for (let i = -3; i <= 3; i++) {
-    setPixel(ox + 48 + i, 68 - Math.abs(i) / 2, 80, 65, 50);
+  // Rune bench -- center right
+  fillRect(ox + W / 2 + 50, H - 75, 80, 8, 60, 55, 90);
+  fillRect(ox + W / 2 + 55, H - 67, 5, 27, 55, 50, 80);
+  fillRect(ox + W / 2 + 120, H - 67, 5, 27, 55, 50, 80);
+  // Glowing runes
+  for (let i = 0; i < 5; i++) {
+    setPixel(ox + W / 2 + 65 + i * 12, H - 80, 80, 160, 255);
+    setPixel(ox + W / 2 + 66 + i * 12, H - 80, 80, 160, 255);
   }
 
-  // Magical sparkle dots (cyan)
+  // Magical sparkle dots scattered
   const sparkles = [
-    [ox + 20, 15], [ox + 72, 10], [ox + 18, 42], [ox + 76, 38],
-    [ox + 22, 70], [ox + 74, 62], [ox + 35, 8], [ox + 60, 12],
-    [ox + 15, 28], [ox + 78, 50],
+    [ox + 30, 20], [ox + W - 40, 25], [ox + 100, 50], [ox + W - 100, 60],
+    [ox + 60, 100], [ox + W - 70, 110], [ox + 200, 30], [ox + W - 200, 40],
+    [ox + 150, 140], [ox + W - 150, 150], [ox + 80, 180], [ox + W - 80, 190],
+    [ox + 300, 70], [ox + 350, 120], [ox + 120, 230],
   ];
   sparkles.forEach(([x, y]) => {
-    setPixel(x, y, 100, 200, 255);
-    setPixel(x + 1, y, 100, 200, 255, 180);
-    setPixel(x, y + 1, 100, 200, 255, 180);
+    setPixel(x, y, 120, 200, 255);
+    setPixel(x + 1, y, 120, 200, 255, 180);
+    setPixel(x, y + 1, 120, 200, 255, 180);
   });
 
-  // Ground shadow
-  for (let x = ox + 26; x < ox + 70; x++) {
-    setPixel(x, 88, 70, 70, 85, 80);
-    setPixel(x, 89, 70, 70, 85, 40);
+  // Purple curtains on left and right walls
+  for (let y = 15; y < 200; y++) {
+    const wave = Math.floor(Math.sin(y * 0.1) * 3);
+    fillRect(ox + 14 + wave, y, 12, 1, 100, 40, 120, 200);
+    fillRect(ox + W - 26 + wave, y, 12, 1, 100, 40, 120, 200);
+  }
+
+  // Bookshelf on left wall
+  fillRect(ox + 30, 100, 60, 120, 80, 55, 40);
+  for (let shelf = 0; shelf < 4; shelf++) {
+    const sy = 108 + shelf * 30;
+    fillRect(ox + 30, sy, 60, 3, 65, 42, 30);
+    // Books
+    for (let b = 0; b < 8; b++) {
+      const bx = ox + 33 + b * 7;
+      const bh = 10 + (b * 3) % 8;
+      const colors = [[70, 100, 170], [170, 60, 50], [60, 130, 60], [130, 80, 160]];
+      const c = colors[b % 4];
+      fillRect(bx, sy - bh, 5, bh, c[0], c[1], c[2]);
+    }
   }
 }
 
 // =====================================================================
-// Building 2 (offset 192): Training Grounds
-// Wide low barracks with practice area, weapon racks, wooden fence
+// Building 1 (offset 464): Training Grounds
+// Wide wooden barracks with practice yard feel, landscape
 // =====================================================================
 function drawTrainingGrounds(ox) {
-  // Dirt ground patch across full width
-  fillRect(ox + 4, 70, 88, 22, 140, 105, 60);
-  // Dirt texture
-  const dirtSpots = [
-    [ox + 10, 75], [ox + 30, 80], [ox + 50, 76], [ox + 70, 82],
-    [ox + 20, 85], [ox + 60, 78], [ox + 40, 88], [ox + 80, 84],
-  ];
-  dirtSpots.forEach(([x, y]) => {
-    setPixel(x, y, 125, 90, 50);
-    setPixel(x + 1, y, 155, 115, 70);
-  });
+  const W = BLDG_W;
+  const H = BLDG_H;
 
-  // Wide low barracks building (wide, shorter)
-  fillRect(ox + 8, 32, 80, 38, 130, 75, 40);
+  // Dirt ground fill
+  fillRect(ox, 0, W, H, 100, 75, 45);
+  // Dirt texture variation
+  for (let i = 0; i < 200; i++) {
+    const dx = ox + (i * 37 + 13) % W;
+    const dy = (i * 53 + 7) % H;
+    setPixel(dx, dy, 90, 65, 38);
+    setPixel(dx + 1, dy, 115, 85, 55);
+  }
 
-  // Wood plank texture -- horizontal lines
-  for (let row = 0; row < 8; row++) {
-    const y = 34 + row * 5;
-    for (let x = ox + 8; x < ox + 88; x++) {
-      setPixel(x, y, 115, 65, 32);
+  // Wide barracks building in the back third
+  fillRect(ox + 20, 15, W - 40, 130, 110, 65, 35);
+
+  // Wood plank texture
+  for (let row = 0; row < 14; row++) {
+    const y = 20 + row * 10;
+    for (let x = ox + 20; x < ox + W - 20; x++) {
+      setPixel(x, y, 95, 55, 28);
     }
   }
 
-  // Darker wood trim at edges
-  fillRect(ox + 8, 32, 2, 38, 90, 50, 25);
-  fillRect(ox + 86, 32, 2, 38, 90, 50, 25);
-  fillRect(ox + 8, 32, 80, 2, 90, 50, 25);
+  // Darker wood trim
+  fillRect(ox + 20, 15, 4, 130, 75, 42, 20);
+  fillRect(ox + W - 24, 15, 4, 130, 75, 42, 20);
+  fillRect(ox + 20, 15, W - 40, 4, 75, 42, 20);
 
-  // Foundation
-  fillRect(ox + 6, 68, 84, 3, 100, 60, 30);
-
-  // Flat roof with slight overhang
-  fillRect(ox + 5, 26, 86, 8, 90, 50, 25);
-  // Roof highlight
-  for (let x = ox + 5; x < ox + 91; x++) {
-    setPixel(x, 26, 105, 60, 30);
+  // Flat roof with overhang
+  fillRect(ox + 14, 6, W - 28, 14, 75, 42, 20);
+  for (let x = ox + 14; x < ox + W - 14; x++) {
+    setPixel(x, 6, 90, 52, 28);
   }
 
-  // Open doorway (dark interior)
-  fillRect(ox + 38, 48, 20, 22, 50, 30, 15);
-  // Door frame
-  fillRect(ox + 36, 46, 2, 24, 90, 50, 25);
-  fillRect(ox + 58, 46, 2, 24, 90, 50, 25);
-  fillRect(ox + 36, 46, 24, 2, 90, 50, 25);
+  // Windows across barracks
+  for (let i = 0; i < 6; i++) {
+    const wx = ox + 60 + i * 60;
+    fillRect(wx, 50, 20, 16, 50, 30, 15);
+    fillRect(wx + 2, 52, 16, 12, 120, 100, 65);
+    fillRect(wx + 9, 52, 2, 12, 50, 30, 15);
+  }
 
-  // Side windows (small)
-  fillRect(ox + 16, 42, 10, 8, 60, 35, 20);
-  fillRect(ox + 18, 44, 6, 4, 120, 100, 70);
-  fillRect(ox + 70, 42, 10, 8, 60, 35, 20);
-  fillRect(ox + 72, 44, 6, 4, 120, 100, 70);
+  // Large open doorway
+  fillRect(ox + W / 2 - 25, 80, 50, 65, 40, 25, 12);
+  fillRect(ox + W / 2 - 27, 78, 54, 3, 75, 42, 20);
 
-  // Weapon rack (crossed swords/poles) -- left side of practice yard
-  fillRect(ox + 12, 72, 2, 14, 90, 50, 25); // rack post
-  fillRect(ox + 20, 72, 2, 14, 90, 50, 25); // rack post
-  fillRect(ox + 12, 72, 10, 2, 90, 50, 25); // top bar
-  // Weapons (metal)
-  drawLine(ox + 13, 74, ox + 13, 84, 180, 180, 190);
-  drawLine(ox + 15, 74, ox + 15, 84, 180, 180, 190);
-  drawLine(ox + 17, 74, ox + 17, 84, 180, 180, 190);
-  drawLine(ox + 19, 74, ox + 19, 84, 180, 180, 190);
+  // Practice yard -- center area
+  // Sandy patch
+  fillRect(ox + 40, 170, W - 80, 120, 130, 105, 65);
+
+  // Weapon rack -- left side
+  fillRect(ox + 50, 180, 4, 60, 80, 50, 25);
+  fillRect(ox + 80, 180, 4, 60, 80, 50, 25);
+  fillRect(ox + 50, 180, 34, 4, 80, 50, 25);
+  // Weapons
+  for (let w = 0; w < 6; w++) {
+    const wx = ox + 55 + w * 5;
+    drawLine(wx, 184, wx, 235, 180, 180, 190);
+  }
   // Cross swords
-  drawLine(ox + 13, 74, ox + 19, 84, 190, 190, 200);
-  drawLine(ox + 19, 74, ox + 13, 84, 190, 190, 200);
+  drawLine(ox + 55, 184, ox + 78, 235, 190, 190, 200);
+  drawLine(ox + 78, 184, ox + 55, 235, 190, 190, 200);
 
-  // Wooden fence segments in front
-  for (let i = 0; i < 5; i++) {
-    const fx = ox + 56 + i * 8;
-    fillRect(fx, 74, 2, 12, 110, 70, 35);
-    if (i < 4) {
-      fillRect(fx, 77, 10, 2, 110, 70, 35);
-      fillRect(fx, 82, 10, 2, 110, 70, 35);
+  // Training dummy -- center-left
+  fillRect(ox + 160, 195, 4, 50, 130, 100, 50);
+  fillRect(ox + 146, 200, 32, 4, 130, 100, 50);
+  drawCircle(ox + 162, 192, 6, 160, 140, 80);
+
+  // Training dummy -- center-right
+  fillRect(ox + 300, 195, 4, 50, 130, 100, 50);
+  fillRect(ox + 286, 200, 32, 4, 130, 100, 50);
+  drawCircle(ox + 302, 192, 6, 160, 140, 80);
+
+  // Wooden fence along the practice area
+  for (let i = 0; i < 12; i++) {
+    const fx = ox + 100 + i * 25;
+    if (fx > ox + W - 60) break;
+    fillRect(fx, H - 55, 3, 20, 100, 65, 32);
+    if (i < 11 && fx + 25 < ox + W - 60) {
+      fillRect(fx, H - 50, 28, 3, 100, 65, 32);
+      fillRect(fx, H - 42, 28, 3, 100, 65, 32);
     }
   }
 
-  // Training dummy (right area)
-  fillRect(ox + 76, 73, 2, 10, 130, 100, 50); // post
-  fillRect(ox + 72, 74, 10, 2, 130, 100, 50); // cross arm
-  setPixel(ox + 77, 72, 160, 140, 80); // head
+  // Potion station -- right side
+  fillRect(ox + W - 130, 185, 70, 8, 80, 55, 35);
+  fillRect(ox + W - 125, 193, 5, 25, 70, 45, 25);
+  fillRect(ox + W - 70, 193, 5, 25, 70, 45, 25);
+  // Potion bottles
+  drawCircle(ox + W - 110, 180, 5, 40, 200, 40, 200);
+  drawCircle(ox + W - 95, 180, 4, 200, 40, 40, 200);
+  drawCircle(ox + W - 80, 180, 5, 40, 100, 200, 200);
 
-  // Ground shadow
-  for (let x = ox + 6; x < ox + 90; x++) {
-    setPixel(x, 92, 110, 85, 50, 80);
-    setPixel(x, 93, 110, 85, 50, 40);
+  // Archery targets -- far right
+  for (let t = 0; t < 2; t++) {
+    const tcx = ox + W - 50;
+    const tcy = 200 + t * 50;
+    drawCircle(tcx, tcy, 12, 200, 40, 40);
+    drawCircle(tcx, tcy, 8, 255, 255, 255);
+    drawCircle(tcx, tcy, 4, 200, 40, 40);
+  }
+
+  // Ground shadow for barracks
+  for (let x = ox + 18; x < ox + W - 18; x++) {
+    setPixel(x, 148, 80, 60, 35, 100);
+    setPixel(x, 149, 80, 60, 35, 60);
   }
 }
 
 // =====================================================================
-// Building 3 (offset 288): Ancient Library
-// Classical building with columns, triangular pediment, arched doorway, books
+// Building 2 (offset 928): Ancient Library
+// Classical stone with columns, pediment, arched doorways, books
 // =====================================================================
 function drawAncientLibrary(ox) {
-  // Main building body - light stone
-  fillRect(ox + 14, 32, 68, 52, 170, 165, 150);
+  const W = BLDG_W;
+  const H = BLDG_H;
 
-  // Stone block texture
-  for (let row = 0; row < 6; row++) {
-    const y = 36 + row * 8;
-    for (let x = ox + 14; x < ox + 82; x++) {
-      setPixel(x, y, 155, 150, 135);
+  // Light stone background
+  fillRect(ox, 0, W, H, 155, 150, 135);
+
+  // Stone floor with tile pattern
+  fillRect(ox, H - 50, W, 50, 140, 135, 115);
+  for (let row = 0; row < 3; row++) {
+    for (let col = 0; col < 16; col++) {
+      const tx = ox + col * 30 + (row % 2) * 15;
+      const ty = H - 48 + row * 16;
+      fillRect(tx, ty, 28, 14, 148, 143, 123);
+      for (let dx = 0; dx < 28; dx++) setPixel(tx + dx, ty, 155, 150, 130);
     }
-    const offset = (row % 2) * 10;
-    for (let col = 0; col < 8; col++) {
-      const mx = ox + 20 + col * 10 + offset;
-      if (mx < ox + 82) {
-        for (let dy = 0; dy < 8; dy++) {
-          if (y + dy < 84) setPixel(mx, y + dy, 155, 150, 135);
+  }
+
+  // Main stone walls
+  fillRect(ox + 20, 30, W - 40, H - 85, 165, 160, 145);
+
+  // Wall stone block texture
+  for (let row = 0; row < 18; row++) {
+    const y = 40 + row * 16;
+    if (y >= H - 60) break;
+    for (let x = ox + 20; x < ox + W - 20; x++) {
+      setPixel(x, y, 150, 145, 128);
+    }
+    const offset = (row % 2) * 14;
+    for (let col = 0; col < 32; col++) {
+      const mx = ox + 30 + col * 14 + offset;
+      if (mx < ox + W - 20) {
+        for (let dy = 0; dy < 16 && y + dy < H - 60; dy++) {
+          setPixel(mx, y + dy, 150, 145, 128);
         }
       }
     }
   }
 
-  // Foundation/steps
-  fillRect(ox + 10, 82, 76, 3, 150, 145, 130);
-  fillRect(ox + 8, 85, 80, 3, 140, 135, 120);
-  fillRect(ox + 6, 88, 84, 3, 130, 125, 110);
-
   // Triangular pediment/roof
-  for (let row = 0; row < 20; row++) {
-    const halfW = 40 - Math.floor(row * 40 / 20);
-    const cx = ox + 48;
-    fillRect(cx - halfW, 14 + row, halfW * 2, 1, 180, 175, 160);
+  for (let row = 0; row < 30; row++) {
+    const halfW = Math.floor(W / 2) - 10 - Math.floor(row * (W / 2 - 10) / 30);
+    const cx = ox + W / 2;
+    fillRect(cx - halfW, row, halfW * 2, 1, 175, 170, 155);
   }
-  // Pediment edge lines
-  for (let row = 0; row < 20; row++) {
-    const halfW = 40 - Math.floor(row * 40 / 20);
-    const cx = ox + 48;
-    setPixel(cx - halfW, 14 + row, 190, 185, 170);
-    setPixel(cx + halfW - 1, 14 + row, 155, 150, 135);
+  // Pediment edge
+  for (let row = 0; row < 30; row++) {
+    const halfW = Math.floor(W / 2) - 10 - Math.floor(row * (W / 2 - 10) / 30);
+    const cx = ox + W / 2;
+    setPixel(cx - halfW, row, 185, 180, 165);
+    setPixel(cx + halfW - 1, row, 145, 140, 125);
   }
-  // Pediment top decoration
-  fillRect(ox + 46, 12, 4, 4, 200, 180, 80); // gold ornament
+  // Gold ornament at top
+  drawCircle(ox + W / 2, 4, 4, 200, 180, 80);
 
-  // Two stone columns
-  // Left column
-  fillRect(ox + 18, 34, 8, 48, 190, 185, 170);
-  fillRect(ox + 17, 34, 10, 3, 200, 195, 180); // capital
-  fillRect(ox + 17, 79, 10, 3, 200, 195, 180); // base
-  // Column fluting
-  for (let y = 37; y < 79; y++) {
-    setPixel(ox + 19, y, 175, 170, 155);
-    setPixel(ox + 22, y, 200, 195, 180);
-    setPixel(ox + 24, y, 175, 170, 155);
-  }
-
-  // Right column
-  fillRect(ox + 70, 34, 8, 48, 190, 185, 170);
-  fillRect(ox + 69, 34, 10, 3, 200, 195, 180);
-  fillRect(ox + 69, 79, 10, 3, 200, 195, 180);
-  for (let y = 37; y < 79; y++) {
-    setPixel(ox + 71, y, 175, 170, 155);
-    setPixel(ox + 74, y, 200, 195, 180);
-    setPixel(ox + 76, y, 175, 170, 155);
-  }
-
-  // Arched doorway
-  fillRect(ox + 38, 52, 20, 30, 60, 50, 40);
-  // Arch curve
-  for (let i = -10; i <= 10; i++) {
-    const archY = 52 - Math.floor(Math.sqrt(100 - i * i) * 0.6);
-    for (let y = archY; y <= 52; y++) {
-      setPixel(ox + 48 + i, y, 60, 50, 40);
+  // Stone columns (4 evenly spaced)
+  const colSpacing = Math.floor((W - 60) / 5);
+  for (let c = 1; c <= 4; c++) {
+    const cx = ox + 30 + c * colSpacing;
+    fillRect(cx - 6, 34, 12, H - 85, 185, 180, 165);
+    // Capital
+    fillRect(cx - 8, 34, 16, 5, 195, 190, 175);
+    // Base
+    fillRect(cx - 8, H - 54, 16, 5, 195, 190, 175);
+    // Fluting
+    for (let y = 39; y < H - 54; y++) {
+      setPixel(cx - 4, y, 170, 165, 150);
+      setPixel(cx, y, 195, 190, 175);
+      setPixel(cx + 3, y, 170, 165, 150);
     }
   }
-  // Arch border
-  for (let i = -10; i <= 10; i++) {
-    const archY = 52 - Math.floor(Math.sqrt(100 - i * i) * 0.6);
-    setPixel(ox + 48 + i, archY, 200, 180, 80);
+
+  // Central arched doorway
+  const doorCx = ox + W / 2;
+  fillRect(doorCx - 20, 120, 40, H - 170, 50, 42, 35);
+  // Arch
+  for (let i = -20; i <= 20; i++) {
+    const archY = 120 - Math.floor(Math.sqrt(400 - i * i) * 0.5);
+    for (let y = archY; y <= 120; y++) {
+      setPixel(doorCx + i, y, 50, 42, 35);
+    }
   }
-  // Door interior detail
-  fillRect(ox + 42, 58, 12, 24, 45, 38, 30);
-
-  // Book-filled window -- left
-  fillRect(ox + 30, 44, 6, 10, 60, 50, 40); // frame
-  fillRect(ox + 31, 45, 4, 8, 200, 195, 175); // glass bg
-  // Books (colored rectangles)
-  fillRect(ox + 31, 45, 1, 6, 70, 100, 170);  // blue book
-  fillRect(ox + 32, 45, 1, 6, 170, 60, 50);   // red book
-  fillRect(ox + 33, 45, 1, 6, 60, 130, 60);   // green book
-  fillRect(ox + 34, 45, 1, 5, 70, 100, 170);  // blue book
-
-  // Book-filled window -- right
-  fillRect(ox + 60, 44, 6, 10, 60, 50, 40);
-  fillRect(ox + 61, 45, 4, 8, 200, 195, 175);
-  fillRect(ox + 61, 45, 1, 6, 170, 60, 50);
-  fillRect(ox + 62, 45, 1, 6, 60, 130, 60);
-  fillRect(ox + 63, 45, 1, 6, 70, 100, 170);
-  fillRect(ox + 64, 45, 1, 5, 170, 60, 50);
-
-  // Scroll detail on facade above door
-  fillRect(ox + 43, 42, 10, 3, 200, 180, 80);
-  setPixel(ox + 42, 42, 210, 190, 90);
-  setPixel(ox + 53, 42, 210, 190, 90);
-
-  // Gold trim lines
-  for (let x = ox + 14; x < ox + 82; x++) {
-    setPixel(x, 32, 200, 180, 80);
+  // Gold arch border
+  for (let i = -20; i <= 20; i++) {
+    const archY = 120 - Math.floor(Math.sqrt(400 - i * i) * 0.5);
+    setPixel(doorCx + i, archY, 200, 180, 80);
+    setPixel(doorCx + i, archY + 1, 200, 180, 80);
   }
 
-  // Ground shadow
-  for (let x = ox + 8; x < ox + 88; x++) {
-    setPixel(x, 91, 120, 115, 100, 80);
-    setPixel(x, 92, 120, 115, 100, 40);
+  // Bookshelves along walls -- left
+  fillRect(ox + 40, 60, 80, 180, 80, 55, 35);
+  for (let shelf = 0; shelf < 6; shelf++) {
+    const sy = 70 + shelf * 30;
+    fillRect(ox + 40, sy, 80, 4, 65, 42, 28);
+    for (let b = 0; b < 10; b++) {
+      const bx = ox + 44 + b * 8;
+      const bh = 12 + (b * 5) % 10;
+      const colors = [[70, 100, 170], [170, 60, 50], [60, 130, 60], [130, 80, 160], [100, 100, 50]];
+      const col = colors[b % 5];
+      fillRect(bx, sy - bh, 6, bh, col[0], col[1], col[2]);
+    }
+  }
+
+  // Bookshelves along walls -- right
+  fillRect(ox + W - 120, 60, 80, 180, 80, 55, 35);
+  for (let shelf = 0; shelf < 6; shelf++) {
+    const sy = 70 + shelf * 30;
+    fillRect(ox + W - 120, sy, 80, 4, 65, 42, 28);
+    for (let b = 0; b < 10; b++) {
+      const bx = ox + W - 116 + b * 8;
+      const bh = 12 + (b * 7) % 10;
+      const colors = [[170, 60, 50], [70, 100, 170], [130, 80, 160], [60, 130, 60], [140, 120, 50]];
+      const col = colors[b % 5];
+      fillRect(bx, sy - bh, 6, bh, col[0], col[1], col[2]);
+    }
+  }
+
+  // Crystal ball on pedestal -- center-left
+  fillRect(ox + 155, H - 80, 12, 30, 140, 135, 120);  // pedestal
+  drawCircle(ox + 161, H - 88, 8, 160, 200, 240, 200);
+  drawCircle(ox + 159, H - 90, 3, 220, 240, 255, 150);
+
+  // Map table -- center-right
+  fillRect(ox + W - 200, H - 75, 70, 8, 110, 80, 50);
+  fillRect(ox + W - 195, H - 67, 5, 27, 90, 65, 40);
+  fillRect(ox + W - 140, H - 67, 5, 27, 90, 65, 40);
+  // Map on table
+  fillRect(ox + W - 190, H - 82, 50, 5, 200, 185, 140);
+
+  // Gold trim line across top of walls
+  for (let x = ox + 20; x < ox + W - 20; x++) {
+    setPixel(x, 30, 200, 180, 80);
+    setPixel(x, 31, 200, 180, 80);
+  }
+
+  // Scroll decorations on wall
+  for (let s = 0; s < 3; s++) {
+    const sx = ox + 145 + s * 60;
+    fillRect(sx, 50, 16, 5, 200, 185, 120);
+    setPixel(sx - 1, 50, 210, 195, 130);
+    setPixel(sx + 16, 50, 210, 195, 130);
   }
 }
 
 // =====================================================================
-// Building 4 (offset 384): Tavern
-// Timber-frame building with chimney, warm windows, hanging sign, open door
+// Building 3 (offset 1392): Tavern
+// Timber-frame with warm glowing windows, chimney, cozy feel
 // =====================================================================
 function drawTavern(ox) {
-  // Main building body - cream fill
-  fillRect(ox + 14, 30, 62, 56, 210, 195, 160);
+  const W = BLDG_W;
+  const H = BLDG_H;
 
-  // Timber frame beams (brown)
-  // Horizontal beams
-  fillRect(ox + 12, 28, 66, 3, 100, 70, 35);  // top
-  fillRect(ox + 12, 54, 66, 2, 100, 70, 35);  // middle
-  fillRect(ox + 12, 84, 66, 2, 100, 70, 35);  // bottom
-  // Vertical beams
-  fillRect(ox + 12, 28, 3, 58, 100, 70, 35);  // left
-  fillRect(ox + 75, 28, 3, 58, 100, 70, 35);  // right
-  fillRect(ox + 44, 28, 3, 58, 100, 70, 35);  // center
-  // Diagonal braces (X pattern in left section)
-  for (let i = 0; i < 26; i++) {
-    setPixel(ox + 15 + i, 31 + i, 100, 70, 35);
-    setPixel(ox + 43 - i, 31 + i, 100, 70, 35);
-  }
+  // Warm interior background
+  fillRect(ox, 0, W, H, 180, 140, 80);
 
-  // Roof (brown with slight peak)
-  for (let row = 0; row < 18; row++) {
-    const halfW = 42 - Math.floor(row * 10 / 18);
-    const cx = ox + 45;
-    fillRect(cx - halfW, 12 + row, halfW * 2, 1, 100, 70, 35);
-  }
-  // Roof shingle texture
-  for (let row = 0; row < 6; row++) {
-    const y = 14 + row * 3;
-    const halfW = 42 - Math.floor((row * 3) * 10 / 18);
-    const cx = ox + 45;
-    for (let x = cx - halfW; x < cx + halfW; x++) {
-      if ((x + row) % 6 === 0) setPixel(x, y, 85, 58, 28);
+  // Wooden floor planks
+  fillRect(ox, H - 50, W, 50, 120, 85, 45);
+  for (let row = 0; row < 5; row++) {
+    const y = H - 48 + row * 10;
+    for (let x = ox; x < ox + W; x++) {
+      setPixel(x, y, 105, 72, 35);
     }
   }
 
-  // Brick chimney (right side)
-  fillRect(ox + 72, 4, 10, 28, 150, 80, 60);
+  // Back wall -- cream with timber frame
+  fillRect(ox + 15, 20, W - 30, H - 75, 200, 185, 150);
+
+  // Timber frame beams (dark brown)
+  // Horizontal
+  fillRect(ox + 12, 16, W - 24, 5, 90, 60, 30);
+  fillRect(ox + 12, H / 2, W - 24, 4, 90, 60, 30);
+  fillRect(ox + 12, H - 58, W - 24, 4, 90, 60, 30);
+  // Vertical
+  fillRect(ox + 12, 16, 5, H - 72, 90, 60, 30);
+  fillRect(ox + W - 17, 16, 5, H - 72, 90, 60, 30);
+  fillRect(ox + W / 2, 16, 5, H - 72, 90, 60, 30);
+  // Diagonal braces in left section
+  for (let i = 0; i < 80; i++) {
+    const factor = i / 80;
+    const x1 = ox + 17 + Math.floor(factor * (W / 2 - 20));
+    const y1 = 21 + Math.floor(factor * (H / 2 - 25));
+    setPixel(x1, y1, 90, 60, 30);
+    setPixel(x1 + 1, y1, 90, 60, 30);
+    // Opposite diagonal
+    const x2 = ox + W / 2 - 3 - Math.floor(factor * (W / 2 - 20));
+    setPixel(x2, y1, 90, 60, 30);
+    setPixel(x2 + 1, y1, 90, 60, 30);
+  }
+
+  // Roof area
+  for (let row = 0; row < 18; row++) {
+    const halfW = Math.floor(W / 2) - 5 - Math.floor(row * 15 / 18);
+    const cx = ox + W / 2;
+    fillRect(cx - halfW, row, halfW * 2, 1, 90, 60, 30);
+  }
+  // Shingle texture
+  for (let row = 0; row < 6; row++) {
+    const y = 2 + row * 3;
+    const halfW = Math.floor(W / 2) - 5 - Math.floor(y * 15 / 18);
+    const cx = ox + W / 2;
+    for (let x = cx - halfW; x < cx + halfW; x++) {
+      if ((x + row) % 8 === 0) setPixel(x, y, 75, 48, 22);
+    }
+  }
+
+  // Chimney (right side)
+  fillRect(ox + W - 70, 0, 18, 30, 140, 75, 55);
   // Chimney brick texture
   for (let row = 0; row < 7; row++) {
-    const y = 6 + row * 4;
-    for (let x = ox + 72; x < ox + 82; x++) {
-      setPixel(x, y, 130, 65, 48);
+    const y = 2 + row * 4;
+    for (let x = ox + W - 70; x < ox + W - 52; x++) {
+      setPixel(x, y, 120, 60, 42);
     }
-    const brickOff = (row % 2) * 3;
-    for (let col = 0; col < 4; col++) {
-      const mx = ox + 74 + col * 3 + brickOff;
-      if (mx < ox + 82) {
-        for (let dy = 0; dy < 4; dy++) {
-          setPixel(mx, y + dy, 130, 65, 48);
-        }
+  }
+  fillRect(ox + W - 72, 0, 22, 3, 120, 60, 42);
+  // Smoke
+  setPixel(ox + W - 63, 0, 180, 180, 190, 80);
+  setPixel(ox + W - 61, 0, 180, 180, 190, 60);
+
+  // Warm glowing windows -- upper row
+  for (let w = 0; w < 4; w++) {
+    const wx = ox + 50 + w * 95;
+    if (wx + 30 > ox + W - 20) break;
+    fillRect(wx, 50, 30, 22, 70, 48, 25);
+    fillRect(wx + 2, 52, 26, 18, 220, 160, 60);
+    fillRect(wx + 13, 52, 4, 18, 70, 48, 25);  // mullion
+    fillRect(wx + 2, 60, 26, 3, 70, 48, 25);   // cross bar
+    // Glow halo
+    for (let dy = -2; dy <= 21; dy++) {
+      for (let dx = -2; dx <= 31; dx++) {
+        const x = wx + dx;
+        const y = 50 + dy;
+        if (x >= wx + 2 && x < wx + 28 && y >= 52 && y < 70) continue;
+        if (x >= ox && x < ox + W) setPixel(x, y, 200, 140, 40, 30);
       }
-    }
-  }
-  // Chimney cap
-  fillRect(ox + 70, 2, 14, 3, 130, 65, 48);
-  // Smoke suggestion (light gray pixels above chimney)
-  const smokePixels = [
-    [ox + 75, 0], [ox + 77, 0], [ox + 74, 1], [ox + 78, 1],
-    [ox + 76, 0],
-  ];
-  smokePixels.forEach(([x, y]) => setPixel(x, y, 180, 180, 190, 120));
-
-  // Warm orange-lit windows
-  // Left window
-  fillRect(ox + 20, 36, 12, 10, 80, 55, 30); // frame
-  fillRect(ox + 22, 38, 8, 6, 220, 160, 60); // warm glow
-  fillRect(ox + 25, 38, 2, 6, 80, 55, 30);   // mullion
-  fillRect(ox + 22, 40, 8, 2, 80, 55, 30);   // cross bar
-  // Window glow halo
-  for (let dy = -1; dy <= 7; dy++) {
-    for (let dx = -1; dx <= 9; dx++) {
-      const x = ox + 21 + dx;
-      const y = 37 + dy;
-      if (x >= ox + 22 && x < ox + 30 && y >= 38 && y < 44) continue;
-      setPixel(x, y, 200, 140, 40, 40);
-    }
-  }
-
-  // Right window
-  fillRect(ox + 52, 36, 12, 10, 80, 55, 30);
-  fillRect(ox + 54, 38, 8, 6, 220, 160, 60);
-  fillRect(ox + 57, 38, 2, 6, 80, 55, 30);
-  fillRect(ox + 54, 40, 8, 2, 80, 55, 30);
-  for (let dy = -1; dy <= 7; dy++) {
-    for (let dx = -1; dx <= 9; dx++) {
-      const x = ox + 53 + dx;
-      const y = 37 + dy;
-      if (x >= ox + 54 && x < ox + 62 && y >= 38 && y < 44) continue;
-      setPixel(x, y, 200, 140, 40, 40);
     }
   }
 
   // Lower windows
-  fillRect(ox + 20, 60, 12, 10, 80, 55, 30);
-  fillRect(ox + 22, 62, 8, 6, 220, 160, 60);
-  fillRect(ox + 25, 62, 2, 6, 80, 55, 30);
-  fillRect(ox + 52, 60, 12, 10, 80, 55, 30);
-  fillRect(ox + 54, 62, 8, 6, 220, 160, 60);
-  fillRect(ox + 57, 62, 2, 6, 80, 55, 30);
+  for (let w = 0; w < 4; w++) {
+    const wx = ox + 50 + w * 95;
+    if (wx + 30 > ox + W - 20) break;
+    fillRect(wx, H / 2 + 20, 30, 22, 70, 48, 25);
+    fillRect(wx + 2, H / 2 + 22, 26, 18, 220, 160, 60);
+    fillRect(wx + 13, H / 2 + 22, 4, 18, 70, 48, 25);
+  }
 
-  // Welcoming open door with warm glow inside
-  fillRect(ox + 36, 58, 16, 28, 80, 55, 30); // door frame
-  fillRect(ox + 38, 60, 12, 26, 200, 140, 50); // warm interior glow
-  // Interior depth
-  fillRect(ox + 40, 62, 8, 22, 180, 120, 40);
-  // Door handle
-  setPixel(ox + 37, 72, 200, 180, 80);
+  // Bar counter -- long horizontal bar across the back
+  fillRect(ox + 40, H - 90, W - 80, 14, 90, 60, 30);
+  // Bar supports
+  for (let s = 0; s < 6; s++) {
+    const sx = ox + 60 + s * 60;
+    if (sx > ox + W - 60) break;
+    fillRect(sx, H - 76, 5, 26, 80, 52, 25);
+  }
+  // Mugs and bottles on bar
+  for (let m = 0; m < 8; m++) {
+    const mx = ox + 55 + m * 45;
+    if (mx > ox + W - 60) break;
+    if (m % 2 === 0) {
+      // Mug
+      fillRect(mx, H - 98, 8, 8, 160, 120, 50);
+      fillRect(mx + 8, H - 96, 3, 4, 160, 120, 50);
+    } else {
+      // Bottle
+      fillRect(mx + 1, H - 104, 6, 14, 60, 100, 60, 180);
+      fillRect(mx + 2, H - 108, 4, 4, 60, 100, 60, 180);
+    }
+  }
 
-  // Hanging sign
-  fillRect(ox + 10, 36, 2, 12, 80, 55, 30);  // bracket
-  fillRect(ox + 6, 42, 8, 6, 100, 70, 35);   // sign board
-  // Sign detail (mug icon suggestion)
-  setPixel(ox + 8, 44, 220, 180, 80);
-  setPixel(ox + 9, 44, 220, 180, 80);
-  setPixel(ox + 10, 43, 220, 180, 80);
-  setPixel(ox + 10, 44, 220, 180, 80);
+  // Hanging sign (left wall)
+  fillRect(ox + 20, 70, 3, 20, 70, 48, 25);
+  fillRect(ox + 16, 85, 12, 8, 90, 60, 30);
+  // Sign icon (mug)
+  setPixel(ox + 20, 87, 220, 180, 80);
+  setPixel(ox + 21, 87, 220, 180, 80);
+  setPixel(ox + 22, 86, 220, 180, 80);
 
-  // Foundation
-  fillRect(ox + 12, 86, 66, 3, 130, 100, 55);
+  // Notice board -- right wall
+  fillRect(ox + W - 80, 60, 50, 40, 150, 120, 70);
+  fillRect(ox + W - 78, 62, 46, 36, 180, 150, 100);
+  // Pinned notes
+  fillRect(ox + W - 74, 65, 14, 10, 230, 220, 190);
+  fillRect(ox + W - 56, 68, 12, 8, 230, 220, 190);
+  fillRect(ox + W - 72, 80, 10, 12, 230, 220, 190);
+  fillRect(ox + W - 58, 82, 16, 8, 230, 220, 190);
+  // Pin dots
+  setPixel(ox + W - 68, 66, 200, 50, 50);
+  setPixel(ox + W - 50, 69, 50, 50, 200);
 
-  // Ground shadow
-  for (let x = ox + 10; x < ox + 84; x++) {
-    setPixel(x, 89, 140, 120, 80, 80);
-    setPixel(x, 90, 140, 120, 80, 40);
+  // Welcoming open door -- center
+  fillRect(ox + W / 2 - 22, H / 2 + 10, 44, H / 2 - 64, 70, 48, 25);
+  fillRect(ox + W / 2 - 18, H / 2 + 14, 36, H / 2 - 70, 200, 140, 50);
+  fillRect(ox + W / 2 - 14, H / 2 + 18, 28, H / 2 - 76, 180, 120, 40);
+
+  // Barrel in corner
+  drawCircle(ox + 35, H - 65, 12, 100, 70, 35);
+  drawCircle(ox + 35, H - 65, 10, 120, 85, 45);
+  // Barrel bands
+  for (let x = ox + 25; x < ox + 45; x++) {
+    setPixel(x, H - 70, 80, 55, 25);
+    setPixel(x, H - 60, 80, 55, 25);
   }
 }
 
 // =====================================================================
 // Draw all buildings
 // =====================================================================
-drawGuildHall(0);
-drawWizardTower(96);
-drawTrainingGrounds(192);
-drawAncientLibrary(288);
-drawTavern(384);
+drawWizardTower(0);
+drawTrainingGrounds(BLDG_W);
+drawAncientLibrary(BLDG_W * 2);
+drawTavern(BLDG_W * 3);
 
 // Write PNG
 const outPath = path.resolve(__dirname, '..', 'assets', 'sprites', 'buildings.png');
 const buffer = PNG.sync.write(png);
 fs.writeFileSync(outPath, buffer);
-console.log(`Generated ${outPath} (${buffer.length} bytes)`);
+console.log(`Generated ${outPath} (${buffer.length} bytes, ${WIDTH}x${HEIGHT})`);
