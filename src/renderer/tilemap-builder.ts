@@ -1,5 +1,8 @@
 import { Sprite, Texture } from 'pixi.js';
-import { TILE_SIZE, WORLD_COLS, WORLD_ROWS, WORLD_WIDTH, WORLD_HEIGHT } from '../shared/constants';
+import {
+  TILE_SIZE, WORLD_COLS, WORLD_ROWS, WORLD_WIDTH, WORLD_HEIGHT,
+  BUILDING_WIDTH, BUILDING_HEIGHT,
+} from '../shared/constants';
 import { tileTextures } from './asset-loader';
 
 /**
@@ -10,8 +13,15 @@ import { tileTextures } from './asset-loader';
  * compatibility issues while being equally efficient for a static ground
  * layer that never changes at runtime.
  *
- * @param guildHallPos - Center position of the guild hall (pixels)
- * @param zonePositions - Center positions of each quest zone (pixels)
+ * Path layout: Star pattern -- 1-tile-wide footpaths radiate from the central
+ * campfire to the bottom-center of each building. Small 3x3 clearing at
+ * campfire, 2x1 doorstep clearings at each building entrance.
+ *
+ * Ground decorations: Scattered rocks, flowers, and grass tufts in grass areas
+ * between buildings and paths (deterministic via seeded random).
+ *
+ * @param guildHallPos - Center position of the campfire waypoint (pixels)
+ * @param zonePositions - Center positions of each quest zone building (pixels)
  * @param seed - Random seed for reproducible tile variation (default 42)
  */
 export function buildWorldTilemap(
@@ -32,48 +42,52 @@ export function buildWorldTilemap(
     }
   }
 
-  // Draw 3-tile-wide dirt paths from guild hall to each zone
+  // Compute building bounding boxes (in tile coordinates) for decoration avoidance
+  const buildingBounds = zonePositions.map(pos => ({
+    minCol: Math.floor((pos.x - BUILDING_WIDTH / 2) / TILE_SIZE),
+    maxCol: Math.floor((pos.x + BUILDING_WIDTH / 2) / TILE_SIZE),
+    minRow: Math.floor((pos.y - BUILDING_HEIGHT / 2) / TILE_SIZE),
+    maxRow: Math.floor((pos.y + BUILDING_HEIGHT / 2) / TILE_SIZE),
+  }));
+
+  // Draw 1-tile-wide dirt paths from campfire to each building's bottom-center (star pattern)
   for (const zonePos of zonePositions) {
+    // Path endpoint: bottom-center of building
+    const targetX = zonePos.x;
+    const targetY = zonePos.y + BUILDING_HEIGHT / 2;
     const pathCells = bresenhamLine(
       Math.floor(guildHallPos.x / TILE_SIZE),
       Math.floor(guildHallPos.y / TILE_SIZE),
-      Math.floor(zonePos.x / TILE_SIZE),
-      Math.floor(zonePos.y / TILE_SIZE),
+      Math.floor(targetX / TILE_SIZE),
+      Math.floor(targetY / TILE_SIZE),
     );
     for (const cell of pathCells) {
-      for (let dx = -1; dx <= 1; dx++) {
-        const c = cell.col + dx;
-        if (c >= 0 && c < WORLD_COLS && cell.row >= 0 && cell.row < WORLD_ROWS) {
-          grid[cell.row][c] = 'dirt_path';
-        }
+      // Single tile wide -- no dx expansion
+      if (cell.col >= 0 && cell.col < WORLD_COLS && cell.row >= 0 && cell.row < WORLD_ROWS) {
+        grid[cell.row][cell.col] = 'dirt_path';
+      }
+    }
+
+    // Small 2x1 "doorstep" clearing at building entrance (where path meets building)
+    const doorCol = Math.floor(targetX / TILE_SIZE);
+    const doorRow = Math.floor(targetY / TILE_SIZE);
+    for (let dc = -1; dc <= 0; dc++) {
+      const c = doorCol + dc;
+      if (c >= 0 && c < WORLD_COLS && doorRow >= 0 && doorRow < WORLD_ROWS) {
+        grid[doorRow][c] = 'dirt_path';
       }
     }
   }
 
-  // 5x5 dirt clearing at guild hall center
+  // Small 3x3 dirt clearing at campfire center (was 5x5 for the old guild hall)
   const ghCol = Math.floor(guildHallPos.x / TILE_SIZE);
   const ghRow = Math.floor(guildHallPos.y / TILE_SIZE);
-  for (let dr = -2; dr <= 2; dr++) {
-    for (let dc = -2; dc <= 2; dc++) {
+  for (let dr = -1; dr <= 1; dr++) {
+    for (let dc = -1; dc <= 1; dc++) {
       const c = ghCol + dc;
       const r = ghRow + dr;
       if (c >= 0 && c < WORLD_COLS && r >= 0 && r < WORLD_ROWS) {
         grid[r][c] = 'dirt_path';
-      }
-    }
-  }
-
-  // 3x3 dirt clearings at each zone center
-  for (const zonePos of zonePositions) {
-    const zCol = Math.floor(zonePos.x / TILE_SIZE);
-    const zRow = Math.floor(zonePos.y / TILE_SIZE);
-    for (let dr = -1; dr <= 1; dr++) {
-      for (let dc = -1; dc <= 1; dc++) {
-        const c = zCol + dc;
-        const r = zRow + dr;
-        if (c >= 0 && c < WORLD_COLS && r >= 0 && r < WORLD_ROWS) {
-          grid[r][c] = 'dirt_path';
-        }
       }
     }
   }
@@ -96,6 +110,64 @@ export function buildWorldTilemap(
           frame.x, frame.y, frame.width, frame.height,
           col * TILE_SIZE, row * TILE_SIZE, TILE_SIZE, TILE_SIZE,
         );
+      }
+    }
+  }
+
+  // Scatter ground decorations in grass areas between buildings and paths
+  // Uses seeded random for deterministic placement (~50 decorations)
+  const decorationSeed = seed + 1000; // offset to avoid correlation with grass variants
+  let decorationCount = 0;
+  const maxDecorations = 50;
+
+  for (let row = 0; row < WORLD_ROWS && decorationCount < maxDecorations; row++) {
+    for (let col = 0; col < WORLD_COLS && decorationCount < maxDecorations; col++) {
+      // Only decorate grass tiles
+      if (!grid[row][col].startsWith('grass')) continue;
+
+      // Skip tiles under building bounding boxes
+      let underBuilding = false;
+      for (const bb of buildingBounds) {
+        if (col >= bb.minCol && col <= bb.maxCol && row >= bb.minRow && row <= bb.maxRow) {
+          underBuilding = true;
+          break;
+        }
+      }
+      if (underBuilding) continue;
+
+      // Deterministic check: ~6.5% chance of decoration on eligible tiles
+      const dHash = seededRandom(decorationSeed, col, row);
+      if (dHash >= 0.065) continue;
+
+      decorationCount++;
+
+      // Pixel position for the decoration (center of tile with slight jitter)
+      const px = col * TILE_SIZE + TILE_SIZE / 2 + (dHash * 20 - 10);
+      const py = row * TILE_SIZE + TILE_SIZE / 2 + (seededRandom(decorationSeed + 1, col, row) * 20 - 10);
+
+      // Choose decoration type based on hash value ranges
+      if (dHash < 0.025) {
+        // Small rocks: 2-3px gray clusters
+        ctx.fillStyle = '#888888';
+        ctx.fillRect(px - 1, py - 1, 3, 2);
+        ctx.fillStyle = '#666666';
+        ctx.fillRect(px, py, 2, 2);
+      } else if (dHash < 0.045) {
+        // Flowers: 1-2px bright color dots
+        const flowerColors = ['#ffdd44', '#ff88aa', '#ffffff', '#ff66cc'];
+        const colorIdx = Math.floor(seededRandom(decorationSeed + 2, col, row) * flowerColors.length);
+        ctx.fillStyle = flowerColors[colorIdx];
+        ctx.fillRect(px, py, 2, 2);
+        // Small green stem below
+        ctx.fillStyle = '#44aa44';
+        ctx.fillRect(px, py + 2, 1, 2);
+      } else {
+        // Grass tufts: 2-3px darker green clusters
+        ctx.fillStyle = '#2d8a2d';
+        ctx.fillRect(px - 1, py, 1, 3);
+        ctx.fillRect(px + 1, py, 1, 3);
+        ctx.fillStyle = '#1d6a1d';
+        ctx.fillRect(px, py - 1, 1, 3);
       }
     }
   }
