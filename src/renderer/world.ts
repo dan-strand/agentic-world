@@ -227,9 +227,13 @@ export class World {
         const next = prev + deltaMs;
         this.idleTimers.set(agent.sessionId, next);
 
-        // Play reminder sound once after 1 minute of continuous idle
+        // Play reminder sound once after 1 minute of continuous idle (with global throttle)
         if (next >= IDLE_REMINDER_MS && !this.hasPlayedReminder.get(agent.sessionId)) {
-          SoundManager.getInstance().playReminder();
+          const now = performance.now();
+          if (now - this.lastReminderPlayTime >= REMINDER_THROTTLE_MS) {
+            SoundManager.getInstance().playReminder();
+            this.lastReminderPlayTime = now;
+          }
           this.hasPlayedReminder.set(agent.sessionId, true);
         }
 
@@ -242,6 +246,36 @@ export class World {
         // Not idle or already fading -- reset timer and reminder flag
         this.idleTimers.delete(agent.sessionId);
         this.hasPlayedReminder.delete(agent.sessionId);
+      }
+
+      // Waiting reminder: per-session timer for "ready to work" audio nudge (AUDIO-04/05/06/07)
+      // Unlike idle timer (which triggers fadeout), waiting timer only plays a sound.
+      // Fires from 'waiting' status, NOT 'idle'. Throttled globally so sounds never stack.
+      if (committed === 'waiting' && agent.getState() !== 'fading_out') {
+        const wPrev = this.waitingTimers.get(agent.sessionId) ?? 0;
+        const wNext = wPrev + deltaMs;
+        this.waitingTimers.set(agent.sessionId, wNext);
+
+        // Play reminder once after WAITING_REMINDER_MS, with global throttle
+        if (wNext >= WAITING_REMINDER_MS && !this.hasPlayedWaitingReminder.get(agent.sessionId)) {
+          const now = performance.now();
+          if (now - this.lastReminderPlayTime >= REMINDER_THROTTLE_MS) {
+            SoundManager.getInstance().playReminder();
+            this.lastReminderPlayTime = now;
+          }
+          // Mark as played regardless of throttle -- this session's reminder is "consumed"
+          // It won't retry; the next session's timer will fire its own reminder after the throttle gap
+          this.hasPlayedWaitingReminder.set(agent.sessionId, true);
+        }
+      } else if (committed === 'active') {
+        // Active-cycle reset: clear waiting timer and reminder flag when session goes active
+        // This allows the reminder to fire again if the session returns to waiting (AUDIO-07)
+        this.waitingTimers.delete(agent.sessionId);
+        this.hasPlayedWaitingReminder.delete(agent.sessionId);
+      } else {
+        // Any other status (idle, error, fading) -- just reset the waiting timer
+        // Do NOT clear hasPlayedWaitingReminder here -- only 'active' clears the flag (AUDIO-07)
+        this.waitingTimers.delete(agent.sessionId);
       }
 
       // Visibility safeguard: warn if any non-fading agent has alpha < 0.4
