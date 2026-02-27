@@ -109,8 +109,17 @@ export class FilesystemSessionDetector implements SessionDetector {
       const stat = fs.statSync(filePath);
       const now = Date.now();
 
-      // Skip stale sessions (not modified in over 1 hour)
+      // Skip stale sessions (not modified in over 30 minutes)
       if (now - stat.mtimeMs > STALE_SESSION_MS) {
+        // Preserve sessions that were actively waiting -- user may not have responded yet.
+        // Only filter truly stale sessions (last known status was idle or unknown).
+        const cached = this.mtimeCache.get(sessionId);
+        if (cached && (cached.sessionInfo.status === 'waiting' || cached.sessionInfo.status === 'active')) {
+          // Session was waiting/active when last checked -- keep it visible.
+          // Update status to waiting (file hasn't changed, so it's definitely waiting now).
+          const preserved: SessionInfo = { ...cached.sessionInfo, status: 'waiting' };
+          return preserved;
+        }
         return null;
       }
 
@@ -203,7 +212,7 @@ export class FilesystemSessionDetector implements SessionDetector {
    * - Otherwise, based on last entry type:
    *   - 'assistant': active if <2s ago (streaming), waiting otherwise
    *   - 'user' | 'progress' | 'queue-operation': active
-   *   - 'system': active if <5s ago, idle otherwise
+   *   - 'system': active if <5s ago, waiting otherwise (task completed, awaiting user input)
    *   - default: active (optimistic per user decision)
    */
   determineStatus(lastEntryType: string, mtimeMs: number, now: number): SessionStatus {
@@ -228,8 +237,10 @@ export class FilesystemSessionDetector implements SessionDetector {
         return 'active';
 
       case 'system':
-        // System entries (e.g., turn_duration) indicate task boundaries
-        return timeSinceModified < 5000 ? 'active' : 'idle';
+        // System entries (e.g., turn_duration) mark task completion boundaries.
+        // After completion, the session is waiting for user input, not idle.
+        // Only report idle after the full IDLE_THRESHOLD_MS has passed (handled above).
+        return timeSinceModified < 5000 ? 'active' : 'waiting';
 
       default:
         // Optimistic default per user decision
