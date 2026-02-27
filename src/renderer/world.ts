@@ -72,6 +72,9 @@ export class World {
   // Track last raw status received per agent (for tick-based debounce advancement)
   private lastRawStatus: Map<string, SessionStatus> = new Map();
 
+  // Track last entry type per agent (for completion detection validation)
+  private lastEntryType: Map<string, string> = new Map();
+
   // Project-to-building assignment (max 4 active projects)
   private projectToBuilding: Map<string, Building> = new Map();
   private buildingSlots: Building[] = []; // ordered quest zone buildings for slot assignment
@@ -332,6 +335,7 @@ export class World {
     this.statusDebounce.delete(sessionId);
     this.lastCommittedStatus.delete(sessionId);
     this.lastRawStatus.delete(sessionId);
+    this.lastEntryType.delete(sessionId);
     this.agentBuilding.delete(sessionId);
     this.idleTimers.delete(sessionId);
     this.agentSpotIndex.delete(sessionId);
@@ -403,6 +407,9 @@ export class World {
 
       // Store raw status for tick-based debounce advancement
       this.lastRawStatus.set(session.sessionId, session.status);
+
+      // Store entry type for completion detection validation
+      this.lastEntryType.set(session.sessionId, session.lastEntryType);
 
       // Route agent to building based on project name
       const activityType = session.activityType;
@@ -499,6 +506,7 @@ export class World {
         this.statusDebounce.delete(sessionId);
         this.lastCommittedStatus.delete(sessionId);
         this.lastRawStatus.delete(sessionId);
+        this.lastEntryType.delete(sessionId);
         this.agentBuilding.delete(sessionId);
         this.idleTimers.delete(sessionId);
         this.agentSpotIndex.delete(sessionId);
@@ -573,18 +581,31 @@ export class World {
   }
 
   /**
-   * Detect task completion: session was active, now committed to waiting.
-   * In Claude Code, "waiting" means the agent finished and awaits user input.
-   * Returns true only on the active→waiting transition.
+   * Detect task completion: session was active, now committed to waiting,
+   * AND the last JSONL entry is a 'system' type (turn_duration), confirming
+   * the turn actually completed.
+   *
+   * The system entry check prevents false celebrations from:
+   * - Brief active->waiting transitions during tool execution gaps
+   * - Edge cases where status determination temporarily reports waiting
+   *
+   * In normal completion flow: Claude finishes -> writes system(turn_duration)
+   * -> session-detector reads it -> status goes active (0-5s) then waiting (5-30s)
+   * -> debounce commits waiting -> this method sees active->waiting + system entry
+   * -> celebration fires correctly.
    *
    * @param prevCommitted - The committed status BEFORE advanceStatusDebounce updated it
    */
   private checkForCompletion(
-    _sessionId: string,
+    sessionId: string,
     newCommittedStatus: SessionStatus,
     prevCommitted: SessionStatus | undefined,
   ): boolean {
-    return prevCommitted === 'active' && newCommittedStatus === 'waiting';
+    if (prevCommitted !== 'active' || newCommittedStatus !== 'waiting') return false;
+    // Require system entry type as definitive turn completion signal.
+    // System entries (turn_duration) are ONLY written at true turn boundaries.
+    const entryType = this.lastEntryType.get(sessionId);
+    return entryType === 'system';
   }
 
   // --- Private: Project-to-Building Assignment ---
