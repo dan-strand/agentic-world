@@ -49,7 +49,7 @@ See: [`.planning/milestones/v1.1-ROADMAP.md`](milestones/v1.1-ROADMAP.md) for fu
 
 ### v1.3 Audio & Status Reliability (In Progress)
 
-- [ ] **Phase 11: Status & Visibility Audit** - Verify status transitions are accurate, agents always visible when they should be, edge cases handled (gap closure in progress)
+- [x] **Phase 11: Status & Visibility Audit** - Verify status transitions are accurate, agents always visible when they should be, edge cases handled (gap closure in progress) (completed 2026-02-27)
 - [ ] **Phase 12: Jobs Done Global Signal** - "Jobs done" sound fires only when ALL sessions are waiting, not per-session
 - [ ] **Phase 13: Ready to Work Reminders** - Per-session reminder timers from waiting state, throttled so sounds never stack
 
@@ -109,6 +109,6 @@ Phases execute in numeric order: 11 -> 12 -> 13
 | 8. Dynamic Building Labels | v1.2 | 2/2 | Complete | 2026-02-26 |
 | 9. Speech Bubbles and Project Routing | v1.2 | 1/1 | Complete | 2026-02-26 |
 | 10. Agent Fade-Out Lifecycle | v1.2 | 1/1 | Complete | 2026-02-26 |
-| 11. Status & Visibility Audit | 2/2 | Complete    | 2026-02-27 | - |
+| 11. Status & Visibility Audit | 3/3 | Complete   | 2026-02-27 | - |
 | 12. Jobs Done Global Signal | v1.3 | 0/? | Not started | - |
 | 13. Ready to Work Reminders | v1.3 | 0/? | Not started | - |
