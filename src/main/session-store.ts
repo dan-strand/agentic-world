@@ -86,7 +86,8 @@ export class SessionStore {
         } else if (
           existing.status !== session.status ||
           existing.lastModified !== session.lastModified ||
-          existing.lastEntryType !== session.lastEntryType
+          existing.lastEntryType !== session.lastEntryType ||
+          existing.lastToolName !== session.lastToolName
         ) {
           // Session data changed
           this.sessions.set(session.sessionId, session);

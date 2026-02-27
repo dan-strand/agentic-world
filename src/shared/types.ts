@@ -18,6 +18,7 @@ export interface SessionInfo {
   lastModified: number;      // mtime epoch ms
   lastEntryType: string;     // 'user' | 'assistant' | 'progress' | 'system' | etc
   activityType: ActivityType;
+  lastToolName: string;      // Most recent tool name from JSONL (e.g., "Edit", "Bash", "Read")
 }
 
 // IPC channel names -- single source of truth

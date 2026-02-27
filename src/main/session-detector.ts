@@ -193,6 +193,7 @@ export class FilesystemSessionDetector implements SessionDetector {
         lastModified: stat.mtimeMs,
         lastEntryType,
         activityType,
+        lastToolName: lastToolName ?? '',
       };
 
       // Update mtime cache
