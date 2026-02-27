@@ -9,8 +9,8 @@ Requirements for Enhanced Session Workspaces milestone. Each maps to roadmap pha
 
 ### Layout
 
-- [ ] **LAYOUT-01**: World layout reorganized to give workspace buildings maximum screen space within 1024x768
-- [ ] **LAYOUT-02**: Guild Hall reduced to a small waypoint area for celebrations and transitions only
+- [x] **LAYOUT-01**: World layout reorganized to give workspace buildings maximum screen space within 1024x768
+- [x] **LAYOUT-02**: Guild Hall reduced to a small waypoint area for celebrations and transitions only
 - [ ] **LAYOUT-03**: Tilemap paths and ground updated to match new building positions
 
 ### Workspace
@@ -54,8 +54,8 @@ Requirements for Enhanced Session Workspaces milestone. Each maps to roadmap pha
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| LAYOUT-01 | Phase 14 | Pending |
-| LAYOUT-02 | Phase 14 | Pending |
+| LAYOUT-01 | Phase 14 | Complete |
+| LAYOUT-02 | Phase 14 | Complete |
 | LAYOUT-03 | Phase 14 | Pending |
 | WORK-01 | Phase 15 | Pending |
 | WORK-02 | Phase 15 | Pending |

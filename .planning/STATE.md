@@ -10,16 +10,16 @@ See: .planning/PROJECT.md (updated 2026-02-27)
 ## Current Position
 
 Phase: 14 of 16 (World Layout Reorganization)
-Plan: 0 of ? in current phase
-Status: Ready to plan
-Last activity: 2026-02-27 -- Roadmap created for v1.4
+Plan: 1 of 2 in current phase
+Status: Executing
+Last activity: 2026-02-27 -- Completed 14-01 (grid constants & sprite assets)
 
 Progress: [########################..] 81% (13/16 phases)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 26 (v1.0: 9, v1.1: 9, v1.2: 4, v1.3: 4)
+- Total plans completed: 27 (v1.0: 9, v1.1: 9, v1.2: 4, v1.3: 4, v1.4: 1)
 - Total execution time: ~3 days
 
 **By Phase:**
@@ -31,6 +31,7 @@ Progress: [########################..] 81% (13/16 phases)
 | v1.2 Phases 8-10 | 4 | ~2 hrs | -- |
 | v1.3 Phase 11 | 3 | ~5 min | ~2 min |
 | v1.3 Phase 13 | 1 | ~2 min | ~2 min |
+| v1.4 Phase 14 | 1 | ~7 min | ~7 min |
 
 ## Shipped Milestones
 
@@ -46,10 +47,12 @@ Progress: [########################..] 81% (13/16 phases)
 Decisions are logged in PROJECT.md Key Decisions table.
 
 Key context for v1.4:
-- Buildings go from 96x96 to 160x160+ detailed interiors
-- Existing pngjs generators create building sprites and need updating for new interior detail
-- Main files affected: building.ts, tilemap-builder.ts, world.ts, constants.ts (BUILDING_WORK_SPOTS)
-- Guild Hall shrinks to small waypoint
+- Buildings now 464x336 landscape (was 96x96), filling 2x2 grid within 1024x768
+- BuildingType 'guild_hall' replaced with 'campfire' throughout constants and world.ts
+- Campfire is separate sprite atlas (campfire.json/png) loaded alongside buildings
+- GUILD_HALL_POS kept as legacy alias to CAMPFIRE_POS until Plan 02 cleans up references
+- Work spots scaled to x=+/-140, y=-100/-40 for larger building interiors
+- Plan 02 next: wire up actual world layout with new positions and tilemap paths
 
 ### Blockers/Concerns
 
@@ -58,5 +61,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-27
-Stopped at: Phase 14 context gathered
-Resume file: .planning/phases/14-world-layout-reorganization/14-CONTEXT.md
+Stopped at: Completed 14-01-PLAN.md
+Resume file: .planning/phases/14-world-layout-reorganization/14-01-SUMMARY.md
