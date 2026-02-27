@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A locally-run animated 2D visualizer that shows your active Claude Code sessions as Fantasy RPG adventurers in a pixel-art world. Each agent represents a running Claude session — mages, warriors, rangers, and rogues walk between a central Guild Hall and themed quest zone buildings. When sessions complete, agents celebrate with a golden light column and return to the guild. It's a persistent, always-on dashboard that gives you an at-a-glance view of which sessions are active, idle, or waiting for input.
+A locally-run animated 2D visualizer that shows your active Claude Code sessions as Fantasy RPG adventurers in a pixel-art world. Each agent represents a running Claude session — mages, warriors, rangers, and rogues walk between a central Guild Hall and themed quest zone buildings. When sessions complete, agents celebrate with a golden light column and return to the guild. Waiting sessions get gentle audio nudges after sitting unattended. It's a persistent, always-on dashboard that gives you an at-a-glance view of which sessions are active, idle, or waiting for input.
 
 ## Core Value
 
@@ -34,18 +34,19 @@ Instantly see the status of all Claude Code sessions so you know which one needs
 - ✓ Volume slider and mute button — v1.2 Quick Task 3
 - ✓ RPG-themed work spots per building — v1.2 Quick Task 4
 - ✓ Idle timeout agent fadeout (5 min) — v1.2 Quick Task 2
+- ✓ Accurate status transitions (active/waiting/idle) from JSONL files — v1.3 Phase 11
+- ✓ Status debounce commits transitions without dropping state changes — v1.3 Phase 11
+- ✓ Reactivated sessions after fade-out properly reappear as agents — v1.3 Phase 11
+- ✓ All active/waiting sessions always have a visible agent on screen — v1.3 Phase 11
+- ✓ Tool_use detection prevents false "job's done" during active execution — v1.3 Phase 11
+- ✓ Stale session filter preserves actively-working sessions — v1.3 Phase 11
+- ✓ Per-session waiting reminder from "waiting" status (not idle) — v1.3 Phase 13
+- ✓ Reminder sounds throttled with ~30s minimum gap — v1.3 Phase 13
+- ✓ Reminder requires active-cycle before repeating — v1.3 Phase 13
 
 ### Active
 
-## Current Milestone: v1.3 Audio & Status Reliability
-
-**Goal:** Ensure all audio and visual cues fire reliably in every scenario — "jobs done" plays only when all sessions are waiting, "ready to work" nudges per-session from waiting state, and the full status lifecycle is bulletproof.
-
-**Target features:**
-- "Jobs done" sound fires only when ALL active sessions are simultaneously waiting for input
-- "Ready to work" reminder fires per-session, starting from "waiting" status (not idle), throttled so sounds don't stack
-- Systematic audit of all status transitions and edge cases
-- Visual cues verified reliable (celebrations, fade-outs, building routing work consistently)
+(No active requirements — planning next milestone)
 
 ### Out of Scope
 
@@ -54,21 +55,23 @@ Instantly see the status of all Claude Code sessions so you know which one needs
 - 3D graphics — strictly 2D pixel art
 - Mobile support — desktop-only tool
 - Custom/hand-drawn pixel art — using pngjs-generated sprites
-- New visual features — this milestone is reliability-focused, not feature-adding
+- Per-session sound selection — over-engineering for current use case
+- Global "all-waiting" sound — user prefers per-session sounds
 
 ## Context
 
 - User runs multiple Claude Code sessions simultaneously in different bash terminals on Windows (MINGW64/Git Bash)
-- Shipped v1.0 MVP (session detection, spy-themed world) and v1.1 (Fantasy RPG overhaul) in 2 days
-- Codebase: 2,587 LOC TypeScript, 22 source files, 3 pngjs generator scripts
+- Shipped v1.0 through v1.3 in 3 days (2026-02-25 → 2026-02-27)
+- Codebase: 3,269 LOC TypeScript, 22 source files, 3 pngjs generator scripts
 - Tech stack: Electron 40.6.1, PixiJS 8.16.0, TypeScript 5.7, pixi-filters 6.1.5, Webpack (Electron Forge)
 - Atlas-first asset pipeline: pngjs generates PNG atlases, JSON descriptors, loadAllAssets() with Promise.all
 - 6-state agent machine: idle_at_hq, walking_to_building, walking_to_workspot, working, celebrating, fading_out
 - Canvas-rendered static tilemap ground, static Building instances, AnimatedSprite agents
 - SoundManager singleton with HTML5 Audio API for jobs-done and ready-to-work sounds
-- Status debounce (2.5s) prevents visual flickering; completion detected on active→waiting transition
+- Status debounce (2.5s) prevents visual flickering; dual-gate completion detection (status transition + system entry)
 - Session status lifecycle: active → waiting → idle (waiting = task done, idle = dormant)
-- Known issues fixed in v1.2: audio paths 404 (now absolute), tool detection buffer (8KB→64KB), dismissedSessions reactivation
+- tool_use content inspection keeps sessions active during multi-tool execution
+- Per-session waiting reminders (60s timer, 30s global throttle, active-cycle guard)
 
 ## Constraints
 
@@ -92,10 +95,13 @@ Instantly see the status of all Claude Code sessions so you know which one needs
 | Canvas-rendered tilemap (v1.1) | @pixi/tilemap incompatible with Electron webpack; canvas equally efficient for static ground | ✓ Good |
 | Walk-only movement (v1.1) | Simpler state machine, fits RPG theme, vehicles felt out of place | ✓ Good |
 | pixi-filters GlowFilter (v1.1) | Only viable glow option for PixiJS 8; quality 0.3 matches pixel art | ✓ Good |
-
-| "Jobs done" = all-waiting signal (v1.3) | User wants single "all clear" signal, not per-session noise | — Pending |
-| "Ready to work" from waiting, not idle (v1.3) | "Waiting" is the actionable state; "idle" is dormant | — Pending |
-| Throttle reminder sounds ~30s gap (v1.3) | Prevent audio spam when multiple sessions finish close together | — Pending |
+| Per-session sounds, not global (v1.3) | User explicitly prefers individual session sounds over all-waiting signal | ✓ Good |
+| Status audit before audio (v1.3) | Audio logic depends on reliable status detection; fix pipeline first | ✓ Good |
+| tool_use content inspection (v1.3) | Prevents false waiting during tool execution; uses existing JSONL structure | ✓ Good |
+| Dual-gate completion detection (v1.3) | Requires both status transition AND system entry; defense-in-depth | ✓ Good |
+| Reminder from waiting, not idle (v1.3) | "Waiting" is the actionable state; "idle" is dormant | ✓ Good |
+| 30s reminder throttle (v1.3) | Prevents audio spam when multiple sessions finish close together | ✓ Good |
+| Active-cycle guard for reminders (v1.3) | Session must go active before reminder can fire again; prevents nagging | ✓ Good |
 
 ---
-*Last updated: 2026-02-26 after v1.3 milestone started*
+*Last updated: 2026-02-27 after v1.3 milestone*
