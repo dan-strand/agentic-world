@@ -4,7 +4,8 @@
 
 - ✅ **v1.0 MVP** - Phases 1-3 (shipped 2026-02-25)
 - ✅ **v1.1 Fantasy RPG Aesthetic** - Phases 4-7 (shipped 2026-02-26)
-- 🚧 **v1.2 Activity Monitoring & Labeling** - Phases 8-10 (in progress)
+- ✅ **v1.2 Activity Monitoring & Labeling** - Phases 8-10 (shipped 2026-02-26)
+- 🚧 **v1.3 Audio & Status Reliability** - Phases 11-13 (in progress)
 
 ## Phases
 
@@ -37,60 +38,60 @@ See: [`.planning/milestones/v1.1-ROADMAP.md`](milestones/v1.1-ROADMAP.md) for fu
 
 </details>
 
-### v1.2 Activity Monitoring & Labeling (In Progress)
+<details>
+<summary>v1.2 Activity Monitoring & Labeling (Phases 8-10) - SHIPPED 2026-02-26</summary>
 
 - [x] **Phase 8: Dynamic Building Labels** - Buildings show active project folder names; revert to RPG names when vacant
-- [ ] **Phase 9: Speech Bubbles and Project Routing** - Speech bubbles trigger on all meaningful activity changes; project-based building assignment
+- [x] **Phase 9: Speech Bubbles and Project Routing** - Speech bubbles trigger on all meaningful activity changes; project-based building assignment
 - [x] **Phase 10: Agent Fade-Out Lifecycle** - Completed agents fade out at Guild Hall; stale sessions cleaned up properly (completed 2026-02-26)
+
+</details>
+
+### v1.3 Audio & Status Reliability (In Progress)
+
+- [ ] **Phase 11: Status & Visibility Audit** - Verify status transitions are accurate, agents always visible when they should be, edge cases handled
+- [ ] **Phase 12: Jobs Done Global Signal** - "Jobs done" sound fires only when ALL sessions are waiting, not per-session
+- [ ] **Phase 13: Ready to Work Reminders** - Per-session reminder timers from waiting state, throttled so sounds never stack
 
 ## Phase Details
 
-### Phase 8: Dynamic Building Labels
-**Goal**: Buildings reflect which projects are active -- users see project folder names on occupied buildings and RPG names on vacant ones
-**Depends on**: Phase 7 (existing building and label infrastructure)
-**Requirements**: LABEL-01, LABEL-02, LIFE-03
+### Phase 11: Status & Visibility Audit
+**Goal**: The status pipeline and agent visibility are bulletproof -- every session is accurately tracked and always has a visible agent when it should
+**Depends on**: Phase 10 (existing status and lifecycle infrastructure)
+**Requirements**: STATUS-01, STATUS-02, STATUS-03, VIS-01, VIS-02, VIS-03
 **Success Criteria** (what must be TRUE):
-  1. When a Claude session is working at a building, that building's label shows the session's project folder name instead of the RPG name
-  2. When all sessions for a project end or leave a building, the label reverts to the original RPG name (e.g., "Wizard Tower")
-  3. Only the first 4 active projects get assigned to buildings; any additional project sessions remain at Guild Hall without a dedicated building
-  4. Project folder names longer than ~15 characters are truncated with ellipsis so labels stay readable
-**Plans**: 2 plans
+  1. When a Claude session transitions between active, waiting, and idle states, the agent's visual status updates correctly every time -- no stuck or wrong states
+  2. Rapid status changes (e.g., active-waiting-active within seconds) are debounced without dropping the final committed state
+  3. A session that reactivates after being dismissed (faded out) reappears as a fully functional agent at the correct building
+  4. Every active or waiting session always has a visible agent on screen -- no invisible or missing agents under any circumstance
+  5. Sessions where tool detection fails still route to a building (not left stranded at Guild Hall as if idle)
+**Plans**: TBD
 
-Plans:
-- [x] 08-01-PLAN.md -- Building label infrastructure: MAX_LABEL_CHARS constant, BitmapFont ASCII expansion, Building setLabel/resetLabel methods
-- [x] 08-02-PLAN.md -- Project-to-building routing: replace activity-based routing with project-based assignment, dynamic label updates, slot release
-
-### Phase 9: Speech Bubbles and Project Routing
-**Goal**: Agents communicate their current activity through speech bubbles that appear on meaningful changes and fade naturally, with agents routed to buildings by project rather than activity type
-**Depends on**: Phase 8 (building label infrastructure, project-to-building mapping)
-**Requirements**: BUBBLE-01, BUBBLE-02, BUBBLE-03
+### Phase 12: Jobs Done Global Signal
+**Goal**: The "jobs done" sound is a single all-clear signal meaning every session has finished its current task -- not per-session noise
+**Depends on**: Phase 11 (status transitions must be reliable before audio logic depends on them)
+**Requirements**: AUDIO-01, AUDIO-02, AUDIO-03
 **Success Criteria** (what must be TRUE):
-  1. When an agent first leaves Guild Hall for a building, a speech bubble appears showing its current activity
-  2. When an agent's activity changes while already at a building (e.g., switches from reading to editing), a new speech bubble appears
-  3. Speech bubbles fade out automatically after a few seconds without user intervention
-  4. Agents from the same project go to the same building, so building labels accurately reflect which project is working there
-**Plans**: 1 plan
+  1. When all non-idle sessions are simultaneously in "waiting" status, the "jobs done" sound plays exactly once
+  2. When a single session transitions from active to waiting while other sessions are still active, no sound plays
+  3. After "jobs done" plays, it does not play again until at least one session goes back to "active" and then all sessions return to "waiting"
+**Plans**: TBD
 
-Plans:
-- [ ] 09-01-PLAN.md -- Speech bubble text labels with auto-sizing, trigger on Guild Hall departure and same-building activity changes
-
-### Phase 10: Agent Fade-Out Lifecycle
-**Goal**: Completed agents gracefully leave the world instead of accumulating at Guild Hall forever
-**Depends on**: Phase 9 (project routing and activity tracking must be stable before adding lifecycle cleanup)
-**Requirements**: LIFE-01, LIFE-02
+### Phase 13: Ready to Work Reminders
+**Goal**: Each waiting session gets a gentle audio nudge after sitting unattended, without sounds piling up across multiple sessions
+**Depends on**: Phase 12 (jobs-done and reminder share SoundManager; jobs-done logic settled first avoids conflicting audio changes)
+**Requirements**: AUDIO-04, AUDIO-05, AUDIO-06, AUDIO-07
 **Success Criteria** (what must be TRUE):
-  1. After an agent celebrates and walks back to Guild Hall, it lingers briefly then fades out and disappears
-  2. Faded-out agents do not reappear due to stale session polling -- only genuinely reactivated sessions create new agents
-  3. After running for 30+ minutes with sessions completing, no invisible agents accumulate in memory (Guild Hall area stays clean)
-**Plans**: 1 plan
-
-Plans:
-- [ ] 10-01-PLAN.md -- Agent FSM fading_out state, World removeAgent() cleanup pipeline, dismissedSessions resurrection guard, GameLoop animation-aware FPS
+  1. A session that enters "waiting" status gets a reminder sound after ~1 minute of waiting, not from "idle" status
+  2. Two sessions that enter "waiting" within seconds of each other do not both play reminder sounds simultaneously -- at least ~30 seconds gap between any two reminder plays
+  3. A session's reminder does not repeat after playing once until that session goes back to "active" and returns to "waiting" again
+  4. Each session's waiting timer is independent -- one session going active does not reset another session's timer
+**Plans**: TBD
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 8 -> 9 -> 10
+Phases execute in numeric order: 11 -> 12 -> 13
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -102,5 +103,8 @@ Phases execute in numeric order: 8 -> 9 -> 10
 | 6. Agent Sprite Overhaul | v1.1 | 2/2 | Complete | 2026-02-26 |
 | 7. Effects and Atmosphere | v1.1 | 2/2 | Complete | 2026-02-26 |
 | 8. Dynamic Building Labels | v1.2 | 2/2 | Complete | 2026-02-26 |
-| 9. Speech Bubbles and Project Routing | v1.2 | 0/1 | Not started | - |
-| 10. Agent Fade-Out Lifecycle | 1/1 | Complete    | 2026-02-26 | - |
+| 9. Speech Bubbles and Project Routing | v1.2 | 1/1 | Complete | 2026-02-26 |
+| 10. Agent Fade-Out Lifecycle | v1.2 | 1/1 | Complete | 2026-02-26 |
+| 11. Status & Visibility Audit | v1.3 | 0/? | Not started | - |
+| 12. Jobs Done Global Signal | v1.3 | 0/? | Not started | - |
+| 13. Ready to Work Reminders | v1.3 | 0/? | Not started | - |
