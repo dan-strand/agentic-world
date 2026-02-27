@@ -49,7 +49,7 @@ See: [`.planning/milestones/v1.1-ROADMAP.md`](milestones/v1.1-ROADMAP.md) for fu
 
 ### v1.3 Audio & Status Reliability (In Progress)
 
-- [x] **Phase 11: Status & Visibility Audit** - Verify status transitions are accurate, agents always visible when they should be, edge cases handled (completed 2026-02-27)
+- [ ] **Phase 11: Status & Visibility Audit** - Verify status transitions are accurate, agents always visible when they should be, edge cases handled (gap closure in progress)
 - [ ] **Phase 12: Jobs Done Global Signal** - "Jobs done" sound fires only when ALL sessions are waiting, not per-session
 - [ ] **Phase 13: Ready to Work Reminders** - Per-session reminder timers from waiting state, throttled so sounds never stack
 
@@ -65,7 +65,11 @@ See: [`.planning/milestones/v1.1-ROADMAP.md`](milestones/v1.1-ROADMAP.md) for fu
   3. A session that reactivates after being dismissed (faded out) reappears as a fully functional agent at the correct building
   4. Every active or waiting session always has a visible agent on screen -- no invisible or missing agents under any circumstance
   5. Sessions where tool detection fails still route to a building (not left stranded at Guild Hall as if idle)
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [x] 11-01-PLAN.md -- Fix system entry status and stale session filter
+- [x] 11-02-PLAN.md -- Harden renderer status pipeline and agent visibility
+- [ ] 11-03-PLAN.md -- Fix false "job's done" during active tool execution (gap closure)
 
 ### Phase 12: Jobs Done Global Signal
 **Goal**: The "jobs done" sound is a single all-clear signal meaning every session has finished its current task -- not per-session noise
