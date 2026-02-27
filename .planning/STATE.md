@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: Enhanced Session Workspaces
-status: unknown
-last_updated: "2026-02-27T20:17:13.764Z"
+status: in-progress
+last_updated: "2026-02-27T21:23:26Z"
 progress:
-  total_phases: 12
-  completed_phases: 12
-  total_plans: 26
-  completed_plans: 26
+  total_phases: 16
+  completed_phases: 15
+  total_plans: 32
+  completed_plans: 31
 ---
 
 # Project State
@@ -18,21 +18,21 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-27)
 
 **Core value:** Instantly see the status of all Claude Code sessions so you know which one needs attention next.
-**Current focus:** Phase 15 - Workspace Interior Art (v1.4 Enhanced Session Workspaces)
+**Current focus:** Phase 16 - Agent Stations and Info Overlay (v1.4 Enhanced Session Workspaces)
 
 ## Current Position
 
-Phase: 15 of 16 (Workspace Interior Art) -- COMPLETE
-Plan: 2 of 2 in current phase (all plans complete)
-Status: Phase 15 Complete, ready for Phase 16
-Last activity: 2026-02-27 -- Completed 15-02 (ancient library + tavern interiors)
+Phase: 16 of 16 (Agent Stations and Info Overlay)
+Plan: 1 of 2 in current phase (16-01 complete, 16-02 remaining)
+Status: Executing Phase 16
+Last activity: 2026-02-27 -- Completed 16-01 (tool name data pipeline + station coordinates)
 
-Progress: [##########################.] 94% (15/16 phases)
+Progress: [#############################.] 97% (31/32 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 30 (v1.0: 9, v1.1: 9, v1.2: 4, v1.3: 4, v1.4: 4)
+- Total plans completed: 31 (v1.0: 9, v1.1: 9, v1.2: 4, v1.3: 4, v1.4: 5)
 - Total execution time: ~3 days
 
 **By Phase:**
@@ -46,6 +46,7 @@ Progress: [##########################.] 94% (15/16 phases)
 | v1.3 Phase 13 | 1 | ~2 min | ~2 min |
 | v1.4 Phase 14 | 2 | ~12 min | ~6 min |
 | v1.4 Phase 15 | 2 | ~15 min | ~7 min |
+| v1.4 Phase 16 | 1 | ~1 min | ~1 min |
 
 ## Shipped Milestones
 
@@ -76,6 +77,9 @@ Key context for v1.4:
 - Ancient Library: teal/gold study hall with crystal ball, bookshelves, map table
 - Tavern: amber/orange gathering space with bar counter, notice board, pigeon roost
 - All 4 workspace interiors complete with stations spread in distinct quadrants for Phase 16 agent placement
+- Phase 16 Plan 01 complete: lastToolName field added to SessionInfo IPC pipeline
+- BUILDING_WORK_SPOTS coordinates updated to match Phase 15 interior art station positions
+- Agent interior constants defined: AGENT_INTERIOR_SCALE (1.5), AGENT_WANDER_RADIUS (40px), AGENT_WANDER_INTERVAL_MS (2000ms), AGENT_INTERIOR_WALK_SPEED (60px/s)
 
 ### Blockers/Concerns
 
@@ -84,5 +88,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-27
-Stopped at: Phase 16 context gathered
-Resume file: .planning/phases/16-agent-stations-and-info-overlay/16-CONTEXT.md
+Stopped at: Completed 16-01-PLAN.md
+Resume file: .planning/phases/16-agent-stations-and-info-overlay/16-02-PLAN.md
