@@ -54,23 +54,23 @@ Requirements for Enhanced Session Workspaces milestone. Each maps to roadmap pha
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| LAYOUT-01 | - | Pending |
-| LAYOUT-02 | - | Pending |
-| LAYOUT-03 | - | Pending |
-| WORK-01 | - | Pending |
-| WORK-02 | - | Pending |
-| WORK-03 | - | Pending |
-| WORK-04 | - | Pending |
-| WORK-05 | - | Pending |
-| WORK-06 | - | Pending |
-| AGENT-01 | - | Pending |
-| AGENT-02 | - | Pending |
+| LAYOUT-01 | Phase 14 | Pending |
+| LAYOUT-02 | Phase 14 | Pending |
+| LAYOUT-03 | Phase 14 | Pending |
+| WORK-01 | Phase 15 | Pending |
+| WORK-02 | Phase 15 | Pending |
+| WORK-03 | Phase 15 | Pending |
+| WORK-04 | Phase 15 | Pending |
+| WORK-05 | Phase 15 | Pending |
+| WORK-06 | Phase 16 | Pending |
+| AGENT-01 | Phase 16 | Pending |
+| AGENT-02 | Phase 16 | Pending |
 
 **Coverage:**
 - v1.4 requirements: 11 total
-- Mapped to phases: 0
-- Unmapped: 11
+- Mapped to phases: 11
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-27*
-*Last updated: 2026-02-27 after initial definition*
+*Last updated: 2026-02-27 after roadmap creation*

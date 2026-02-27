@@ -6,6 +6,7 @@
 - ✅ **v1.1 Fantasy RPG Aesthetic** - Phases 4-7 (shipped 2026-02-26)
 - ✅ **v1.2 Activity Monitoring & Labeling** - Phases 8-10 (shipped 2026-02-26)
 - ✅ **v1.3 Audio & Status Reliability** - Phases 11, 13 (shipped 2026-02-27)
+- **v1.4 Enhanced Session Workspaces** - Phases 14-16 (in progress)
 
 ## Phases
 
@@ -58,6 +59,49 @@ See: [`.planning/milestones/v1.3-ROADMAP.md`](milestones/v1.3-ROADMAP.md) for fu
 
 </details>
 
+### v1.4 Enhanced Session Workspaces (Phases 14-16)
+
+**Milestone Goal:** Replace small building exteriors with large, detailed interior workspaces that show agents working inside with current tool info -- making each workspace a rich visual status dashboard.
+
+- [ ] **Phase 14: World Layout Reorganization** - Restructure 1024x768 world for large workspace buildings; Guild Hall becomes small waypoint; tilemap paths updated
+- [ ] **Phase 15: Workspace Interior Art** - Replace 96x96 building sprites with larger detailed interior scenes for all four workspace types
+- [ ] **Phase 16: Agent Stations and Info Overlay** - Agents work at themed stations inside interiors; current tool name displayed per workspace
+
+## Phase Details
+
+### Phase 14: World Layout Reorganization
+**Goal**: World layout restructured to maximize workspace building screen space within fixed 1024x768 window
+**Depends on**: Phase 13 (existing world layout)
+**Requirements**: LAYOUT-01, LAYOUT-02, LAYOUT-03
+**Success Criteria** (what must be TRUE):
+  1. Four workspace buildings are visibly larger than the old 96x96 sprites and dominate the screen area
+  2. Guild Hall is a small waypoint element (not a full-sized building) used only for celebrations and transitions
+  3. Dirt paths connect the Guild Hall waypoint to all four workspace buildings
+  4. The entire world fits within 1024x768 with no clipping or overlap between buildings
+**Plans**: TBD
+
+### Phase 15: Workspace Interior Art
+**Goal**: Each workspace building displays a rich, themed interior scene with identifiable work stations
+**Depends on**: Phase 14 (new building sizes and positions established)
+**Requirements**: WORK-01, WORK-02, WORK-03, WORK-04, WORK-05
+**Success Criteria** (what must be TRUE):
+  1. Wizard Tower shows an arcane study interior with visible enchanting table, scroll desk, and rune bench
+  2. Training Grounds shows an arena/workshop interior with visible target dummy, obstacle course, and potion station
+  3. Ancient Library shows a study hall interior with visible crystal ball, bookshelves, and map table
+  4. Tavern shows a gathering space interior with visible bar counter, notice board, and pigeon roost
+  5. All four interiors are clearly distinguishable at a glance and read well at the new larger building size
+**Plans**: TBD
+
+### Phase 16: Agent Stations and Info Overlay
+**Goal**: Agents visibly work at themed stations inside workspace interiors and workspaces display current tool info
+**Depends on**: Phase 15 (interior art with identifiable stations)
+**Requirements**: AGENT-01, AGENT-02, WORK-06
+**Success Criteria** (what must be TRUE):
+  1. Agents are drawn inside workspace interiors (not outside/on top of buildings) when in the working state
+  2. Each agent's work position corresponds to a specific themed station within that building's interior
+  3. Current tool name is displayed as a text overlay on each workspace that has an active session
+**Plans**: TBD
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -75,3 +119,6 @@ See: [`.planning/milestones/v1.3-ROADMAP.md`](milestones/v1.3-ROADMAP.md) for fu
 | 11. Status & Visibility Audit | v1.3 | 3/3 | Complete | 2026-02-27 |
 | 12. Jobs Done Global Signal | v1.3 | - | REMOVED | - |
 | 13. Ready to Work Reminders | v1.3 | 1/1 | Complete | 2026-02-27 |
+| 14. World Layout Reorganization | v1.4 | 0/? | Not started | - |
+| 15. Workspace Interior Art | v1.4 | 0/? | Not started | - |
+| 16. Agent Stations and Info Overlay | v1.4 | 0/? | Not started | - |
