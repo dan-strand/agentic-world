@@ -105,6 +105,6 @@ Phases execute in numeric order: 11 -> 12 -> 13
 | 8. Dynamic Building Labels | v1.2 | 2/2 | Complete | 2026-02-26 |
 | 9. Speech Bubbles and Project Routing | v1.2 | 1/1 | Complete | 2026-02-26 |
 | 10. Agent Fade-Out Lifecycle | v1.2 | 1/1 | Complete | 2026-02-26 |
-| 11. Status & Visibility Audit | 2/2 | Complete   | 2026-02-27 | - |
+| 11. Status & Visibility Audit | 2/2 | Complete    | 2026-02-27 | - |
 | 12. Jobs Done Global Signal | v1.3 | 0/? | Not started | - |
 | 13. Ready to Work Reminders | v1.3 | 0/? | Not started | - |
