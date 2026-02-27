@@ -231,6 +231,13 @@ export class World {
         this.idleTimers.delete(agent.sessionId);
         this.hasPlayedReminder.delete(agent.sessionId);
       }
+
+      // Visibility safeguard: warn if any non-fading agent has alpha < 0.4
+      // This catches bugs where alpha leaks from breathing or other effects
+      if (agent.getState() !== 'fading_out' && agent.alpha < 0.4) {
+        console.warn(`[world] Visibility warning: agent ${agent.sessionId} has alpha ${agent.alpha.toFixed(2)} in state ${agent.getState()}`);
+        agent.alpha = 1; // Force-fix to prevent invisible agents
+      }
     }
 
     // Deferred removal of fully faded agents (collect-then-remove to avoid mutation during iteration)
@@ -404,6 +411,16 @@ export class World {
       if (agent.getState() === 'fading_out') {
         if (session.activityType !== 'idle' || session.status !== 'idle') {
           agent.cancelFadeOut();
+          // Reinitialize debounce state for clean reactivation
+          this.statusDebounce.set(session.sessionId, {
+            pendingStatus: session.status,
+            timer: 0,
+            committedStatus: session.status,
+          });
+          this.lastCommittedStatus.set(session.sessionId, session.status);
+          this.lastRawStatus.set(session.sessionId, session.status);
+          // Apply visual status immediately (bypass debounce for reactivation)
+          agent.applyStatusVisuals(session.status);
           // Fall through to routing with fresh state
         } else {
           continue; // Still idle, let fade-out proceed
