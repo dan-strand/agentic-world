@@ -79,7 +79,9 @@ Plans:
   1. When all non-idle sessions are simultaneously in "waiting" status, the "jobs done" sound plays exactly once
   2. When a single session transitions from active to waiting while other sessions are still active, no sound plays
   3. After "jobs done" plays, it does not play again until at least one session goes back to "active" and then all sessions return to "waiting"
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 12-01-PLAN.md -- Replace per-session sound with global all-waiting signal and re-trigger guard
 
 ### Phase 13: Ready to Work Reminders
 **Goal**: Each waiting session gets a gentle audio nudge after sitting unattended, without sounds piling up across multiple sessions
@@ -110,5 +112,5 @@ Phases execute in numeric order: 11 -> 12 -> 13
 | 9. Speech Bubbles and Project Routing | v1.2 | 1/1 | Complete | 2026-02-26 |
 | 10. Agent Fade-Out Lifecycle | v1.2 | 1/1 | Complete | 2026-02-26 |
 | 11. Status & Visibility Audit | 3/3 | Complete   | 2026-02-27 | - |
-| 12. Jobs Done Global Signal | v1.3 | 0/? | Not started | - |
+| 12. Jobs Done Global Signal | v1.3 | 0/1 | Not started | - |
 | 13. Ready to Work Reminders | v1.3 | 0/? | Not started | - |
