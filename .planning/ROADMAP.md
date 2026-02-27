@@ -63,7 +63,7 @@ See: [`.planning/milestones/v1.3-ROADMAP.md`](milestones/v1.3-ROADMAP.md) for fu
 
 **Milestone Goal:** Replace small building exteriors with large, detailed interior workspaces that show agents working inside with current tool info -- making each workspace a rich visual status dashboard.
 
-- [ ] **Phase 14: World Layout Reorganization** - Restructure 1024x768 world for large workspace buildings; Guild Hall becomes small waypoint; tilemap paths updated
+- [x] **Phase 14: World Layout Reorganization** - Restructure 1024x768 world for large workspace buildings; Guild Hall becomes small waypoint; tilemap paths updated (completed 2026-02-27)
 - [ ] **Phase 15: Workspace Interior Art** - Replace 96x96 building sprites with larger detailed interior scenes for all four workspace types
 - [ ] **Phase 16: Agent Stations and Info Overlay** - Agents work at themed stations inside interiors; current tool name displayed per workspace
 
@@ -80,8 +80,8 @@ See: [`.planning/milestones/v1.3-ROADMAP.md`](milestones/v1.3-ROADMAP.md) for fu
   4. The entire world fits within 1024x768 with no clipping or overlap between buildings
 **Plans**: 2 plans
 Plans:
-- [ ] 14-01-PLAN.md -- Layout constants and sprite assets (building atlas at new size + campfire sprite)
-- [ ] 14-02-PLAN.md -- World integration (tilemap paths, building class, world.ts with campfire waypoint)
+- [x] 14-01-PLAN.md -- Layout constants and sprite assets (building atlas at new size + campfire sprite)
+- [x] 14-02-PLAN.md -- World integration (tilemap paths, building class, world.ts with campfire waypoint)
 
 ### Phase 15: Workspace Interior Art
 **Goal**: Each workspace building displays a rich, themed interior scene with identifiable work stations
@@ -122,6 +122,6 @@ Plans:
 | 11. Status & Visibility Audit | v1.3 | 3/3 | Complete | 2026-02-27 |
 | 12. Jobs Done Global Signal | v1.3 | - | REMOVED | - |
 | 13. Ready to Work Reminders | v1.3 | 1/1 | Complete | 2026-02-27 |
-| 14. World Layout Reorganization | 1/2 | In Progress|  | - |
+| 14. World Layout Reorganization | v1.4 | 2/2 | Complete | 2026-02-27 |
 | 15. Workspace Interior Art | v1.4 | 0/? | Not started | - |
 | 16. Agent Stations and Info Overlay | v1.4 | 0/? | Not started | - |
