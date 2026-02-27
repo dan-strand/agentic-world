@@ -104,6 +104,9 @@ export class World {
   // Track current work spot index per agent (for spot rotation on activity change)
   private agentSpotIndex: Map<string, number> = new Map();
 
+  // Track which agents have been reparented into building interior containers
+  private agentsInBuildings: Set<string> = new Set();
+
   // Layout
   private centerX = 0;
   private centerY = 0;
@@ -208,6 +211,9 @@ export class World {
     for (const agent of this.agents.values()) {
       agent.tick(deltaMs);
 
+      // Reparent agents between global agentsContainer and building agentsLayer
+      this.handleAgentReparenting(agent);
+
       // Capture previous committed status before debounce may update it
       const prevCommitted = this.lastCommittedStatus.get(agent.sessionId);
 
@@ -221,6 +227,11 @@ export class World {
         if (isCompletion) {
           const agentState = agent.getState();
           if (agentState !== 'celebrating' && agentState !== 'fading_out') {
+            // Release station before celebration (agent will walk back to campfire)
+            const celebBuilding = this.agentBuilding.get(agent.sessionId);
+            if (celebBuilding) {
+              celebBuilding.releaseStation(agent.sessionId);
+            }
             agent.startCelebration();
             SoundManager.getInstance().play();
           }
@@ -351,7 +362,9 @@ export class World {
     for (const agent of this.agents.values()) {
       const state = agent.getState();
       if (state === 'celebrating' || state === 'walking_to_building' ||
-          state === 'walking_to_workspot' || state === 'fading_out') {
+          state === 'walking_to_workspot' || state === 'fading_out' ||
+          state === 'working') {
+        // 'working' included because interior wander behavior is an active animation
         return true;
       }
     }
@@ -372,8 +385,18 @@ export class World {
     const agent = this.agents.get(sessionId);
     if (!agent) return;
 
-    // Remove from scene graph
-    this.agentsContainer.removeChild(agent);
+    // Release building station if assigned
+    const building = this.agentBuilding.get(sessionId);
+    if (building) {
+      building.releaseStation(sessionId);
+    }
+
+    // Remove from whichever container the agent is in (building agentsLayer or global agentsContainer)
+    if (this.agentsInBuildings.has(sessionId) && building) {
+      building.getAgentsLayer().removeChild(agent);
+    } else {
+      this.agentsContainer.removeChild(agent);
+    }
 
     // Destroy PixiJS container + all children (AnimatedSprite, SpeechBubble)
     agent.destroy({ children: true });
@@ -392,6 +415,7 @@ export class World {
     this.hasPlayedReminder.delete(sessionId);
     this.waitingTimers.delete(sessionId);
     this.hasPlayedWaitingReminder.delete(sessionId);
+    this.agentsInBuildings.delete(sessionId);
 
     // Release factory slot
     this.agentFactory.releaseSlot(sessionId);
@@ -492,9 +516,13 @@ export class World {
         const building = this.getProjectBuilding(session.projectName);
         if (building) {
           if (agentState === 'idle_at_hq') {
-            // Assign deterministic initial spot based on session hash
-            this.agentSpotIndex.set(session.sessionId, hashSessionId(session.sessionId) % 3);
+            // Assign station via building's station manager
+            const stationIndex = building.assignStation(session.sessionId);
+            this.agentSpotIndex.set(session.sessionId, stationIndex);
+            // Enable interior mode (1.5x scale)
+            agent.setInteriorMode(true);
             // Agent at campfire, needs to go work -- send to project building
+            // Walk from campfire to building entrance in GLOBAL coordinates (agent is still in agentsContainer)
             const entrance = this.getBuildingEntrance(building);
             const workPos = this.getBuildingWorkPosition(building, session.sessionId);
             agent.assignToCompound(entrance, workPos);
@@ -503,16 +531,16 @@ export class World {
             const bubble = this.speechBubbles.get(session.sessionId);
             if (bubble) bubble.show(activityType);
           } else if (agentState === 'working') {
+            // Check for tool change (lastToolName change triggers station switch)
             const prevActivity = this.lastActivity.get(session.sessionId);
             if (prevActivity && prevActivity !== activityType) {
               // BUBBLE-03: Show speech bubble on activity change at same building
               const bubble = this.speechBubbles.get(session.sessionId);
               if (bubble) bubble.show(activityType);
 
-              // Rotate to next work spot within the building
-              const currentSpot = this.agentSpotIndex.get(session.sessionId) ?? 0;
-              const nextSpot = (currentSpot + 1) % 3;
-              this.agentSpotIndex.set(session.sessionId, nextSpot);
+              // Reassign to a new station (different from current if possible)
+              const newStationIndex = building.reassignStation(session.sessionId);
+              this.agentSpotIndex.set(session.sessionId, newStationIndex);
               const newWorkPos = this.getBuildingWorkPosition(building, session.sessionId);
               agent.updateActivity(newWorkPos);
             }
@@ -520,6 +548,10 @@ export class World {
         } else {
           // 5th+ project overflow: stay at campfire
           if (agentState !== 'idle_at_hq' && agentState !== 'walking_to_building') {
+            // Reparent agent out of building if inside one
+            this.reparentAgentOut(session.sessionId);
+            const prevBuilding = this.agentBuilding.get(session.sessionId);
+            if (prevBuilding) prevBuilding.releaseStation(session.sessionId);
             const idlePos = this.getCampfireIdlePosition(session.sessionId);
             agent.assignToHQ(idlePos);
             this.agentBuilding.delete(session.sessionId);
@@ -532,6 +564,10 @@ export class World {
           agentState !== 'walking_to_building' &&
           agentState !== 'celebrating'
         ) {
+          // Reparent agent out of building if inside one
+          this.reparentAgentOut(session.sessionId);
+          const prevBuilding = this.agentBuilding.get(session.sessionId);
+          if (prevBuilding) prevBuilding.releaseStation(session.sessionId);
           const idlePos = this.getCampfireIdlePosition(session.sessionId);
           agent.assignToHQ(idlePos);
           this.agentBuilding.delete(session.sessionId);
@@ -565,6 +601,7 @@ export class World {
         this.hasPlayedReminder.delete(sessionId);
         this.waitingTimers.delete(sessionId);
         this.hasPlayedWaitingReminder.delete(sessionId);
+        this.agentsInBuildings.delete(sessionId);
       }
     }
 
@@ -707,6 +744,70 @@ export class World {
         this.projectToBuilding.delete(projectName);
       }
     }
+  }
+
+  // --- Private: Agent Reparenting ---
+
+  /**
+   * Handle reparenting agents between the global agentsContainer and building interior.
+   * When agent transitions to walking_to_workspot (arrived at entrance), reparent INTO building.
+   * When agent leaves building (going to HQ, celebrating, fading), reparent OUT of building.
+   */
+  private handleAgentReparenting(agent: Agent): void {
+    const sessionId = agent.sessionId;
+    const state = agent.getState();
+    const isInBuilding = this.agentsInBuildings.has(sessionId);
+    const building = this.agentBuilding.get(sessionId);
+
+    if ((state === 'walking_to_workspot' || state === 'working') && !isInBuilding && building) {
+      // Reparent INTO building: convert global position to building-local
+      this.agentsContainer.removeChild(agent);
+      building.getAgentsLayer().addChild(agent);
+
+      // Convert global coords to building-local coords
+      agent.x = agent.x - building.x;
+      agent.y = agent.y - building.y;
+
+      // Update workspot target to local coordinates
+      const spotIndex = this.agentSpotIndex.get(sessionId) ?? 0;
+      const localSpot = building.getWorkSpot(spotIndex);
+      agent.updateActivity(localSpot);
+
+      this.agentsInBuildings.add(sessionId);
+    } else if (
+      (state === 'walking_to_building' || state === 'idle_at_hq' || state === 'celebrating' || state === 'fading_out') &&
+      isInBuilding && building
+    ) {
+      // Reparent OUT of building: convert building-local position to global
+      building.getAgentsLayer().removeChild(agent);
+      this.agentsContainer.addChild(agent);
+
+      // Convert building-local coords to global coords
+      agent.x = agent.x + building.x;
+      agent.y = agent.y + building.y;
+
+      this.agentsInBuildings.delete(sessionId);
+    }
+  }
+
+  /**
+   * Reparent an agent out of a building back to agentsContainer if it's currently inside one.
+   * Called explicitly when agent is leaving a building (e.g., returning to campfire).
+   */
+  private reparentAgentOut(sessionId: string): void {
+    if (!this.agentsInBuildings.has(sessionId)) return;
+    const agent = this.agents.get(sessionId);
+    const building = this.agentBuilding.get(sessionId);
+    if (!agent || !building) return;
+
+    building.getAgentsLayer().removeChild(agent);
+    this.agentsContainer.addChild(agent);
+
+    // Convert building-local coords to global
+    agent.x = agent.x + building.x;
+    agent.y = agent.y + building.y;
+
+    this.agentsInBuildings.delete(sessionId);
   }
 
   // --- Private: Position Helpers ---

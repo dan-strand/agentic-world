@@ -2,6 +2,10 @@ import { Container, AnimatedSprite } from 'pixi.js';
 import type { AgentSlot, SessionStatus, CharacterClass } from '../shared/types';
 import {
   AGENT_WALK_SPEED,
+  AGENT_INTERIOR_SCALE,
+  AGENT_WANDER_RADIUS,
+  AGENT_WANDER_INTERVAL_MS,
+  AGENT_INTERIOR_WALK_SPEED,
   ANIMATION_FRAME_MS,
   STATUS_TINTS,
   STATUS_ANIM_SPEED,
@@ -84,6 +88,14 @@ export class Agent extends Container {
   private levelUpEffect: LevelUpEffect | null = null;
   private celebrationTimer = 0;
 
+  // Interior mode (when working inside a building)
+  private interiorMode = false;
+  private wanderCenterX = 0;
+  private wanderCenterY = 0;
+  private wanderTimer = 0;
+  private wanderTargetX = 0;
+  private wanderTargetY = 0;
+
   // Fade-out lifecycle (terminal state, triggered by World when session disappears)
   private fadeOutTimer = 0;
 
@@ -153,16 +165,42 @@ export class Agent extends Container {
       case 'walking_to_workspot': {
         if (!this.workSpotTarget) break;
         this.setAnimation('walk');
-        this.moveToward(this.workSpotTarget.x, this.workSpotTarget.y, AGENT_WALK_SPEED, deltaMs);
+        const walkSpeed = this.interiorMode ? AGENT_INTERIOR_WALK_SPEED : AGENT_WALK_SPEED;
+        this.moveToward(this.workSpotTarget.x, this.workSpotTarget.y, walkSpeed, deltaMs);
         if (this.hasArrived(this.workSpotTarget.x, this.workSpotTarget.y)) {
           this.state = 'working';
+          // Initialize wander center at the work spot position
+          this.wanderCenterX = this.workSpotTarget.x;
+          this.wanderCenterY = this.workSpotTarget.y;
+          this.wanderTargetX = this.wanderCenterX;
+          this.wanderTargetY = this.wanderCenterY;
+          this.wanderTimer = 0;
           this.setAnimation('work');
         }
         break;
       }
 
       case 'working':
-        this.setAnimation('work');
+        if (this.interiorMode) {
+          // Wander behavior: periodically pick a new random target within radius
+          this.wanderTimer += deltaMs;
+          if (this.wanderTimer >= AGENT_WANDER_INTERVAL_MS) {
+            this.wanderTimer = 0;
+            const angle = Math.random() * Math.PI * 2;
+            const dist = Math.random() * AGENT_WANDER_RADIUS;
+            this.wanderTargetX = this.wanderCenterX + Math.cos(angle) * dist;
+            this.wanderTargetY = this.wanderCenterY + Math.sin(angle) * dist;
+          }
+          // Move toward wander target at interior speed
+          if (!this.hasArrived(this.wanderTargetX, this.wanderTargetY)) {
+            this.setAnimation('walk');
+            this.moveToward(this.wanderTargetX, this.wanderTargetY, AGENT_INTERIOR_WALK_SPEED, deltaMs);
+          } else {
+            this.setAnimation('work');
+          }
+        } else {
+          this.setAnimation('work');
+        }
         break;
 
       case 'celebrating': {
@@ -356,6 +394,8 @@ export class Agent extends Container {
     this.state = 'idle_at_hq';
     this.fadeOutTimer = 0;
     this.alpha = 1;
+    // Reset interior mode (restores normal scale)
+    this.setInteriorMode(false);
     // Reset breathing in case it was active before fade started
     this.isBreathing = false;
     this.breathTimer = 0;
@@ -380,6 +420,20 @@ export class Agent extends Container {
   }
 
   // --- Public API (called by World) ---
+
+  /**
+   * Enable or disable interior mode (when agent is working inside a building).
+   * When enabled: scales agent to 1.5x for readability.
+   * When disabled: restores normal 1x scale.
+   */
+  setInteriorMode(enabled: boolean): void {
+    this.interiorMode = enabled;
+    if (enabled) {
+      this.scale.set(AGENT_INTERIOR_SCALE);
+    } else {
+      this.scale.set(1);
+    }
+  }
 
   /**
    * Trigger transition from Guild Hall to a quest zone building.
@@ -407,6 +461,8 @@ export class Agent extends Container {
       return;
     }
 
+    // Leaving building -- disable interior mode (restores normal scale)
+    this.setInteriorMode(false);
     this.hqPosition = position;
 
     if (this.state === 'idle_at_hq') {

@@ -20,6 +20,12 @@ export class Building extends Container {
   private labelText: BitmapText;
   private readonly defaultLabel: string;
 
+  // Z-ordered agent layer: agents render on top of building floor but behind label
+  private agentsLayer: Container;
+
+  // Station occupancy tracking: spotIndex -> sessionId
+  private stationOccupancy: Map<number, string> = new Map();
+
   constructor(buildingType: BuildingType, texture: Texture) {
     super();
     this.buildingType = buildingType;
@@ -28,7 +34,11 @@ export class Building extends Container {
     // Sprite from atlas with bottom-center anchor for ground placement
     const sprite = new Sprite(texture);
     sprite.anchor.set(0.5, 1.0);
-    this.addChild(sprite);
+    this.addChild(sprite);  // child index 0
+
+    // Agents layer for z-ordering: agents render on top of building floor
+    this.agentsLayer = new Container();
+    this.addChild(this.agentsLayer);  // child index 1
 
     // Label as interior banner/sign -- positioned inside the building scene near the top,
     // not floating above. This makes labels feel integrated into the building interior.
@@ -43,7 +53,7 @@ export class Building extends Container {
     // Position inside the building: ~85% up from the base (within sprite bounds)
     // Sprite extends upward from anchor (0.5, 1.0), so -height*0.85 is near the top interior
     this.labelText.position.set(0, -texture.height * 0.85);
-    this.addChild(this.labelText);
+    this.addChild(this.labelText);  // child index 2
 
     // Draw small RPG prop indicators at each work spot position
     const spots = BUILDING_WORK_SPOTS[buildingType];
@@ -56,7 +66,7 @@ export class Building extends Container {
       prop.circle(0, 0, 3);
       prop.fill({ color: spot.color, alpha: 0.8 });
       prop.position.set(spot.x, spot.y);
-      this.addChild(prop);
+      this.addChild(prop);  // child index 3+
     }
   }
 
@@ -135,5 +145,94 @@ export class Building extends Container {
    */
   getEntrancePosition(): { x: number; y: number } {
     return { x: 0, y: 10 };
+  }
+
+  /**
+   * Get the agents layer container for z-ordered agent parenting.
+   * Agents added to this layer render on top of the building floor
+   * but behind the label text.
+   */
+  getAgentsLayer(): Container {
+    return this.agentsLayer;
+  }
+
+  /**
+   * Assign a station to a session. Returns the spot index.
+   * If all stations are occupied, picks a random one (agents share).
+   */
+  assignStation(sessionId: string): number {
+    const spots = BUILDING_WORK_SPOTS[this.buildingType];
+    if (!spots || spots.length === 0) return 0;
+
+    // Find first unoccupied station
+    const occupied = new Set(this.stationOccupancy.keys());
+    for (let i = 0; i < spots.length; i++) {
+      if (!occupied.has(i)) {
+        this.stationOccupancy.set(i, sessionId);
+        return i;
+      }
+    }
+
+    // All occupied -- pick a random one (4th+ agents share)
+    const randomIndex = Math.floor(Math.random() * spots.length);
+    this.stationOccupancy.set(randomIndex, sessionId);
+    return randomIndex;
+  }
+
+  /**
+   * Release a station occupied by the given session.
+   */
+  releaseStation(sessionId: string): void {
+    for (const [spotIndex, sid] of this.stationOccupancy) {
+      if (sid === sessionId) {
+        this.stationOccupancy.delete(spotIndex);
+        return;
+      }
+    }
+  }
+
+  /**
+   * Reassign a session to a new random station (different from current if possible).
+   * Used when tool changes trigger station switch.
+   */
+  reassignStation(sessionId: string): number {
+    const spots = BUILDING_WORK_SPOTS[this.buildingType];
+    if (!spots || spots.length === 0) return 0;
+
+    // Find current station
+    let currentSpot = -1;
+    for (const [spotIndex, sid] of this.stationOccupancy) {
+      if (sid === sessionId) {
+        currentSpot = spotIndex;
+        this.stationOccupancy.delete(spotIndex);
+        break;
+      }
+    }
+
+    // Try to assign a different station
+    const candidates = [];
+    const occupied = new Set(this.stationOccupancy.keys());
+    for (let i = 0; i < spots.length; i++) {
+      if (!occupied.has(i) && i !== currentSpot) {
+        candidates.push(i);
+      }
+    }
+
+    let newSpot: number;
+    if (candidates.length > 0) {
+      newSpot = candidates[Math.floor(Math.random() * candidates.length)];
+    } else {
+      // All occupied or only the current spot is free -- pick any different one
+      const allOther = [];
+      for (let i = 0; i < spots.length; i++) {
+        if (i !== currentSpot) allOther.push(i);
+      }
+      newSpot = allOther.length > 0
+        ? allOther[Math.floor(Math.random() * allOther.length)]
+        : currentSpot >= 0 ? currentSpot : 0;
+    }
+
+    this.stationOccupancy.set(newSpot, sessionId);
+    return newSpot;
   }
 }
