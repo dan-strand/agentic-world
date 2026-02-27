@@ -108,6 +108,12 @@ export function getAgentSlot(sessionId: string): AgentSlot {
 // Animation speeds
 export const AGENT_WALK_SPEED = 100;    // pixels per second
 export const ANIMATION_FRAME_MS = 200;  // ms per animation frame (5fps animation)
+
+// Agent interior behavior constants (Phase 16)
+export const AGENT_INTERIOR_SCALE = 1.5;       // Scale agents to ~48x48 inside buildings (1.5x of 32x32)
+export const AGENT_WANDER_RADIUS = 40;          // Pixels agents wander around their station center
+export const AGENT_WANDER_INTERVAL_MS = 2000;   // Time between wander direction changes
+export const AGENT_INTERIOR_WALK_SPEED = 60;    // Slower walk speed inside buildings (pixels/sec)
 export const SPEECH_BUBBLE_DURATION = 4000;  // ms visible before fade
 export const SPEECH_BUBBLE_FADE_MS = 1000;   // ms fade-out duration
 
@@ -224,24 +230,24 @@ export interface WorkSpot {
 
 export const BUILDING_WORK_SPOTS: Record<BuildingType, WorkSpot[]> = {
   wizard_tower: [
-    { name: 'Enchanting Table', x: -140, y: -100, color: 0x8844ff },  // purple - left
-    { name: 'Scroll Desk',     x: 0,    y: -40,  color: 0xddcc88 },  // parchment - center
-    { name: 'Rune Bench',      x: 140,  y: -100, color: 0x44aaff },  // blue rune - right
+    { name: 'Enchanting Table', x: -150, y: -260, color: 0x8844ff },  // top-left area
+    { name: 'Scroll Desk',     x: 100,  y: -170, color: 0xddcc88 },  // center-right
+    { name: 'Rune Bench',      x: -20,  y: -80,  color: 0x44aaff },  // bottom-center
   ],
   training_grounds: [
-    { name: 'Target Dummy',    x: -140, y: -100, color: 0xaa6633 },  // wood brown - left
-    { name: 'Obstacle Course', x: 0,    y: -40,  color: 0x888888 },  // stone gray - center
-    { name: 'Potion Station',  x: 140,  y: -100, color: 0x44dd44 },  // green potion - right
+    { name: 'Target Dummy',    x: 130,  y: -260, color: 0xaa6633 },  // top-right area
+    { name: 'Obstacle Course', x: -20,  y: -170, color: 0x888888 },  // center
+    { name: 'Potion Station',  x: -140, y: -80,  color: 0x44dd44 },  // bottom-left
   ],
   ancient_library: [
-    { name: 'Crystal Ball',    x: -140, y: -100, color: 0xaaccff },  // crystal blue - left
-    { name: 'Ancient Bookshelf', x: 0,  y: -40,  color: 0x885522 },  // leather brown - center
-    { name: 'Map Table',       x: 140,  y: -100, color: 0xddddaa },  // parchment - right
+    { name: 'Crystal Ball',    x: -140, y: -260, color: 0xaaccff },  // top-left area
+    { name: 'Ancient Bookshelf', x: 120, y: -170, color: 0x885522 }, // center-right
+    { name: 'Map Table',       x: -10,  y: -80,  color: 0xddddaa },  // bottom-center
   ],
   tavern: [
-    { name: 'Bar Counter',     x: -140, y: -100, color: 0x664422 },  // dark wood - left
-    { name: 'Notice Board',    x: 0,    y: -40,  color: 0xccaa66 },  // cork - center
-    { name: 'Pigeon Roost',    x: 140,  y: -100, color: 0xcccccc },  // feather gray - right
+    { name: 'Bar Counter',     x: -60,  y: -270, color: 0x664422 },  // top area (L-shaped bar)
+    { name: 'Notice Board',    x: -10,  y: -160, color: 0xccaa66 },  // center
+    { name: 'Pigeon Roost',    x: 140,  y: -80,  color: 0xcccccc },  // bottom-right
   ],
   campfire: [], // Campfire has no work spots (agents idle here)
 };
