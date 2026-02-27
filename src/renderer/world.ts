@@ -141,7 +141,7 @@ export class World {
     this.centerY = WORLD_HEIGHT / 2;
 
     // Create Guild Hall at world center
-    this.guildHall = new Building('guild_hall', buildingTextures['guild_hall']);
+    this.guildHall = new Building('campfire', buildingTextures['campfire']);
     this.guildHall.position.set(GUILD_HALL_POS.x, GUILD_HALL_POS.y);
     this.buildingsContainer.addChild(this.guildHall);
 

@@ -22,14 +22,27 @@ export const WORLD_ROWS = 24;  // 768 / 32
 export const WORLD_WIDTH = 1024;
 export const WORLD_HEIGHT = 768;
 
-// World layout positions (pixel coordinates, center of each zone)
-// Guild Hall at center, quest zones in four quadrants
-export const GUILD_HALL_POS = { x: 512, y: 384 };  // center of 1024x768
+// 2x2 grid layout constants
+// Buildings fill most of the 1024x768 window with a center gap for the campfire crossroads
+export const GRID_MARGIN = 16;       // Edge margin on all sides
+export const GRID_GAP = 64;          // Center gap between buildings (campfire area)
+export const CAMPFIRE_SIZE = 64;     // Campfire waypoint sprite size
+
+// Building sizes (pixels) -- landscape rectangles filling 2x2 grid quadrants
+export const BUILDING_WIDTH = 464;   // floor((1024 - 64 - 32) / 2)
+export const BUILDING_HEIGHT = 336;  // floor((768 - 64 - 32) / 2)
+
+// Campfire position at world center (replaces Guild Hall)
+export const CAMPFIRE_POS = { x: 512, y: 384 };  // center of 1024x768
+// Legacy alias -- Plan 02 will remove references to this
+export const GUILD_HALL_POS = CAMPFIRE_POS;
+
+// Quest zone positions -- center of each building in the 2x2 grid
 export const QUEST_ZONE_POSITIONS = {
-  coding:  { x: 192, y: 160 },   // top-left quadrant -- Wizard Tower
-  testing: { x: 832, y: 160 },   // top-right quadrant -- Training Grounds
-  reading: { x: 192, y: 608 },   // bottom-left quadrant -- Ancient Library
-  comms:   { x: 832, y: 608 },   // bottom-right quadrant -- Tavern
+  coding:  { x: 248, y: 184 },   // top-left quadrant -- Wizard Tower
+  testing: { x: 776, y: 184 },   // top-right quadrant -- Training Grounds
+  reading: { x: 248, y: 584 },   // bottom-left quadrant -- Ancient Library
+  comms:   { x: 776, y: 584 },   // bottom-right quadrant -- Tavern
 } as const;
 
 // Adaptive frame rate
@@ -168,21 +181,19 @@ export function lerpColor(from: number, to: number, t: number): number {
   return (r << 16) | (g << 8) | b;
 }
 
-// Building sizes (pixels)
-export const BUILDING_WIDTH = 96;   // 3 tiles
-export const BUILDING_HEIGHT = 96;  // 3 tiles
 export const MAX_LABEL_CHARS = 15;  // Truncation threshold for building labels
 
 // Building type identifiers matching atlas frame names
-export type BuildingType = 'guild_hall' | 'wizard_tower' | 'training_grounds' | 'ancient_library' | 'tavern';
+// 'campfire' replaces 'guild_hall' -- the central waypoint is now a small campfire, not a building
+export type BuildingType = 'campfire' | 'wizard_tower' | 'training_grounds' | 'ancient_library' | 'tavern';
 
-// Activity type -> building type mapping (idle -> guild_hall, work activities -> quest zones)
+// Activity type -> building type mapping (idle -> campfire, work activities -> quest zones)
 export const ACTIVITY_BUILDING: Record<ActivityType, BuildingType> = {
   coding:  'wizard_tower',
   testing: 'training_grounds',
   reading: 'ancient_library',
   comms:   'tavern',
-  idle:    'guild_hall',
+  idle:    'campfire',
 };
 
 // Activity display names for speech bubble text labels
@@ -196,7 +207,7 @@ export const ACTIVITY_DISPLAY_NAMES: Record<ActivityType, string> = {
 
 // Building display labels for BitmapText signposts
 export const BUILDING_LABELS: Record<BuildingType, string> = {
-  guild_hall:       'Guild Hall',
+  campfire:         'Campfire',
   wizard_tower:     'Wizard Tower',
   training_grounds: 'Training Grounds',
   ancient_library:  'Ancient Library',
@@ -213,24 +224,24 @@ export interface WorkSpot {
 
 export const BUILDING_WORK_SPOTS: Record<BuildingType, WorkSpot[]> = {
   wizard_tower: [
-    { name: 'Enchanting Table', x: -28, y: -24, color: 0x8844ff },  // purple - left
-    { name: 'Scroll Desk',     x: 0,   y: -8,  color: 0xddcc88 },  // parchment - center
-    { name: 'Rune Bench',      x: 28,  y: -24, color: 0x44aaff },  // blue rune - right
+    { name: 'Enchanting Table', x: -140, y: -100, color: 0x8844ff },  // purple - left
+    { name: 'Scroll Desk',     x: 0,    y: -40,  color: 0xddcc88 },  // parchment - center
+    { name: 'Rune Bench',      x: 140,  y: -100, color: 0x44aaff },  // blue rune - right
   ],
   training_grounds: [
-    { name: 'Target Dummy',    x: -28, y: -24, color: 0xaa6633 },  // wood brown - left
-    { name: 'Obstacle Course', x: 0,   y: -8,  color: 0x888888 },  // stone gray - center
-    { name: 'Potion Station',  x: 28,  y: -24, color: 0x44dd44 },  // green potion - right
+    { name: 'Target Dummy',    x: -140, y: -100, color: 0xaa6633 },  // wood brown - left
+    { name: 'Obstacle Course', x: 0,    y: -40,  color: 0x888888 },  // stone gray - center
+    { name: 'Potion Station',  x: 140,  y: -100, color: 0x44dd44 },  // green potion - right
   ],
   ancient_library: [
-    { name: 'Crystal Ball',    x: -28, y: -24, color: 0xaaccff },  // crystal blue - left
-    { name: 'Ancient Bookshelf', x: 0, y: -8,  color: 0x885522 },  // leather brown - center
-    { name: 'Map Table',       x: 28,  y: -24, color: 0xddddaa },  // parchment - right
+    { name: 'Crystal Ball',    x: -140, y: -100, color: 0xaaccff },  // crystal blue - left
+    { name: 'Ancient Bookshelf', x: 0,  y: -40,  color: 0x885522 },  // leather brown - center
+    { name: 'Map Table',       x: 140,  y: -100, color: 0xddddaa },  // parchment - right
   ],
   tavern: [
-    { name: 'Bar Counter',     x: -28, y: -24, color: 0x664422 },  // dark wood - left
-    { name: 'Notice Board',    x: 0,   y: -8,  color: 0xccaa66 },  // cork - center
-    { name: 'Pigeon Roost',    x: 28,  y: -24, color: 0xcccccc },  // feather gray - right
+    { name: 'Bar Counter',     x: -140, y: -100, color: 0x664422 },  // dark wood - left
+    { name: 'Notice Board',    x: 0,    y: -40,  color: 0xccaa66 },  // cork - center
+    { name: 'Pigeon Roost',    x: 140,  y: -100, color: 0xcccccc },  // feather gray - right
   ],
-  guild_hall: [], // Guild hall has no work spots (agents idle here)
+  campfire: [], // Campfire has no work spots (agents idle here)
 };
