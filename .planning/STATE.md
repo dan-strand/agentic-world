@@ -44,6 +44,7 @@ Progress: [##########] 100% (2/2 plans in Phase 11)
 | v1.1 Phases 4-7 | 9 | ~1 day | -- |
 | v1.2 Phases 8-10 | 4 | ~2 hrs | -- |
 | Phase 11 P02 | 1min | 2 tasks | 2 files |
+| Phase 11 P01 | 2min | 2 tasks | 2 files |
 
 ## Shipped Milestones
 
@@ -75,6 +76,8 @@ Recent decisions affecting current work:
 - [11-02]: Reset all visual properties in cancelFadeOut rather than relying on subsequent applyStatusVisuals calls
 - [11-02]: Reinitialize debounce state immediately on reactivation rather than waiting for natural debounce cycle
 - [11-02]: Alpha threshold 0.4 for visibility safeguard to avoid false positives from breathing effect (min 0.5)
+- [11-01]: Stale filter uses mtimeCache to preserve waiting/active sessions past 30-min threshold
+- [11-01]: System JSONL entries map to waiting (not idle) in 5-30s window after task completion
 
 ### Blockers/Concerns
 
@@ -83,5 +86,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-27
-Stopped at: Completed 11-02-PLAN.md
+Stopped at: Completed 11-01-PLAN.md (Phase 11 fully complete)
 Resume file: None

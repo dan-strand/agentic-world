@@ -22,15 +22,15 @@ Requirements for Audio & Status Reliability milestone. Each maps to roadmap phas
 
 ### Status Reliability
 
-- [ ] **STATUS-01**: Session status transitions (active->waiting->idle) are accurately detected from JSONL files
+- [x] **STATUS-01**: Session status transitions (active->waiting->idle) are accurately detected from JSONL files
 - [x] **STATUS-02**: Status debounce correctly commits transitions without dropping or duplicating state changes
 - [x] **STATUS-03**: Sessions that reactivate after being dismissed (faded out) properly reappear as agents
 
 ### Session Visibility
 
 - [x] **VIS-01**: All active/waiting sessions always have a visible agent on screen (no invisible or missing agents)
-- [ ] **VIS-02**: Active sessions with failed tool detection default to a building (not guild hall)
-- [ ] **VIS-03**: Stale session filter (30 min) does not incorrectly remove actively-working sessions
+- [x] **VIS-02**: Active sessions with failed tool detection default to a building (not guild hall)
+- [x] **VIS-03**: Stale session filter (30 min) does not incorrectly remove actively-working sessions
 
 ## Future Requirements
 
@@ -68,12 +68,12 @@ Requirements for Audio & Status Reliability milestone. Each maps to roadmap phas
 | AUDIO-05 | Phase 13 | Pending |
 | AUDIO-06 | Phase 13 | Pending |
 | AUDIO-07 | Phase 13 | Pending |
-| STATUS-01 | Phase 11 | Pending |
+| STATUS-01 | Phase 11 | Complete |
 | STATUS-02 | Phase 11 | Complete |
 | STATUS-03 | Phase 11 | Complete |
 | VIS-01 | Phase 11 | Complete |
-| VIS-02 | Phase 11 | Pending |
-| VIS-03 | Phase 11 | Pending |
+| VIS-02 | Phase 11 | Complete |
+| VIS-03 | Phase 11 | Complete |
 
 **Coverage:**
 - v1.3 requirements: 13 total
