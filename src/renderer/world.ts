@@ -10,6 +10,8 @@ import {
   ACTIVITY_BUILDING,
   IDLE_TIMEOUT_MS,
   IDLE_REMINDER_MS,
+  WAITING_REMINDER_MS,
+  REMINDER_THROTTLE_MS,
   hashSessionId,
 } from '../shared/constants';
 import type { BuildingType } from '../shared/constants';
@@ -89,6 +91,13 @@ export class World {
 
   // Track whether the idle reminder sound has already played for each agent's current idle period
   private hasPlayedReminder: Map<string, boolean> = new Map();
+
+  // Waiting reminder tracking: per-session timer for "ready to work" nudge from waiting status
+  private waitingTimers: Map<string, number> = new Map();
+  // Track whether the waiting reminder has played for the current waiting period (requires active cycle to reset)
+  private hasPlayedWaitingReminder: Map<string, boolean> = new Map();
+  // Global throttle: timestamp of last reminder sound play (any session), prevents sound stacking
+  private lastReminderPlayTime = 0;
 
   // Track current work spot index per agent (for spot rotation on activity change)
   private agentSpotIndex: Map<string, number> = new Map();
@@ -340,6 +349,8 @@ export class World {
     this.idleTimers.delete(sessionId);
     this.agentSpotIndex.delete(sessionId);
     this.hasPlayedReminder.delete(sessionId);
+    this.waitingTimers.delete(sessionId);
+    this.hasPlayedWaitingReminder.delete(sessionId);
 
     // Release factory slot
     this.agentFactory.releaseSlot(sessionId);
@@ -511,6 +522,8 @@ export class World {
         this.idleTimers.delete(sessionId);
         this.agentSpotIndex.delete(sessionId);
         this.hasPlayedReminder.delete(sessionId);
+        this.waitingTimers.delete(sessionId);
+        this.hasPlayedWaitingReminder.delete(sessionId);
       }
     }
 
