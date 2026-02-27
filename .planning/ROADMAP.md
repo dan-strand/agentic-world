@@ -64,7 +64,7 @@ See: [`.planning/milestones/v1.3-ROADMAP.md`](milestones/v1.3-ROADMAP.md) for fu
 **Milestone Goal:** Replace small building exteriors with large, detailed interior workspaces that show agents working inside with current tool info -- making each workspace a rich visual status dashboard.
 
 - [x] **Phase 14: World Layout Reorganization** - Restructure 1024x768 world for large workspace buildings; Guild Hall becomes small waypoint; tilemap paths updated (completed 2026-02-27)
-- [ ] **Phase 15: Workspace Interior Art** - Replace 96x96 building sprites with larger detailed interior scenes for all four workspace types
+- [x] **Phase 15: Workspace Interior Art** - Replace 96x96 building sprites with larger detailed interior scenes for all four workspace types (completed 2026-02-27)
 - [ ] **Phase 16: Agent Stations and Info Overlay** - Agents work at themed stations inside interiors; current tool name displayed per workspace
 
 ## Phase Details
@@ -93,7 +93,10 @@ Plans:
   3. Ancient Library shows a study hall interior with visible crystal ball, bookshelves, and map table
   4. Tavern shows a gathering space interior with visible bar counter, notice board, and pigeon roost
   5. All four interiors are clearly distinguishable at a glance and read well at the new larger building size
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [x] 15-01-PLAN.md -- Wizard Tower and Training Grounds interior art
+- [x] 15-02-PLAN.md -- Ancient Library and Tavern interior art
 
 ### Phase 16: Agent Stations and Info Overlay
 **Goal**: Agents visibly work at themed stations inside workspace interiors and workspaces display current tool info
@@ -123,5 +126,5 @@ Plans:
 | 12. Jobs Done Global Signal | v1.3 | - | REMOVED | - |
 | 13. Ready to Work Reminders | v1.3 | 1/1 | Complete | 2026-02-27 |
 | 14. World Layout Reorganization | v1.4 | Complete    | 2026-02-27 | 2026-02-27 |
-| 15. Workspace Interior Art | 1/2 | In Progress|  | - |
+| 15. Workspace Interior Art | v1.4 | 2/2 | Complete | 2026-02-27 |
 | 16. Agent Stations and Info Overlay | v1.4 | 0/? | Not started | - |

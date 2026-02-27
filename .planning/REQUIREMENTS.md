@@ -18,8 +18,8 @@ Requirements for Enhanced Session Workspaces milestone. Each maps to roadmap pha
 - [x] **WORK-01**: Buildings replaced with larger detailed interior scenes showing themed workspace environments
 - [x] **WORK-02**: Wizard Tower interior shows an arcane study (enchanting table, scroll desk, rune bench)
 - [x] **WORK-03**: Training Grounds interior shows an arena/workshop (target dummy, obstacle course, potion station)
-- [ ] **WORK-04**: Ancient Library interior shows a study hall (crystal ball, bookshelves, map table)
-- [ ] **WORK-05**: Tavern interior shows a gathering space (bar counter, notice board, pigeon roost)
+- [x] **WORK-04**: Ancient Library interior shows a study hall (crystal ball, bookshelves, map table)
+- [x] **WORK-05**: Tavern interior shows a gathering space (bar counter, notice board, pigeon roost)
 - [ ] **WORK-06**: Each workspace displays the current tool name being used by active sessions
 
 ### Agent
@@ -60,8 +60,8 @@ Requirements for Enhanced Session Workspaces milestone. Each maps to roadmap pha
 | WORK-01 | Phase 15 | Complete |
 | WORK-02 | Phase 15 | Complete |
 | WORK-03 | Phase 15 | Complete |
-| WORK-04 | Phase 15 | Pending |
-| WORK-05 | Phase 15 | Pending |
+| WORK-04 | Phase 15 | Complete |
+| WORK-05 | Phase 15 | Complete |
 | WORK-06 | Phase 16 | Pending |
 | AGENT-01 | Phase 16 | Pending |
 | AGENT-02 | Phase 16 | Pending |
