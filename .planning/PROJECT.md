@@ -46,7 +46,18 @@ Instantly see the status of all Claude Code sessions so you know which one needs
 
 ### Active
 
-(No active requirements — planning next milestone)
+## Current Milestone: v1.4 Enhanced Session Workspaces
+
+**Goal:** Replace small building exteriors with large, detailed activity-themed interior workspaces that show agents working inside, current focus, and recent activity — making each workspace a rich visual status dashboard.
+
+**Target features:**
+- Reorganize 1024x768 layout to give workspace buildings much more screen space
+- Replace 96x96 building sprites with larger detailed interior scenes (wizard's study, arena, library, tavern)
+- Agents visibly work inside themed workspace interiors at stations
+- Current file/tool and recent activity displayed as text overlays on workspaces
+- Workspaces grouped per project (multiple sessions share a workspace)
+- Guild Hall reduced to small waypoint for celebrations/transitions only
+- Rich visuals AND information density at a glance
 
 ### Out of Scope
 
@@ -104,4 +115,4 @@ Instantly see the status of all Claude Code sessions so you know which one needs
 | Active-cycle guard for reminders (v1.3) | Session must go active before reminder can fire again; prevents nagging | ✓ Good |
 
 ---
-*Last updated: 2026-02-27 after v1.3 milestone*
+*Last updated: 2026-02-27 after v1.4 milestone started*

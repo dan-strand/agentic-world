@@ -1,14 +1,14 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.3
-milestone_name: Audio & Status Reliability
-status: complete
-last_updated: "2026-02-27T04:30:00.000Z"
+milestone: v1.4
+milestone_name: Enhanced Session Workspaces
+status: defining_requirements
+last_updated: "2026-02-27T16:00:00.000Z"
 progress:
-  total_phases: 2
-  completed_phases: 2
-  total_plans: 4
-  completed_plans: 4
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State
@@ -18,11 +18,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-27)
 
 **Core value:** Instantly see the status of all Claude Code sessions so you know which one needs attention next.
-**Current focus:** Planning next milestone
+**Current focus:** Defining requirements for v1.4 Enhanced Session Workspaces
 
 ## Current Position
 
-Milestone v1.3 complete. All phases shipped.
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-02-27 — Milestone v1.4 started
 
 ## Performance Metrics
 
@@ -70,5 +73,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-27
-Stopped at: Completed v1.3 milestone archival
+Stopped at: Defining v1.4 requirements
 Resume file: None
