@@ -106,7 +106,10 @@ Plans:
   1. Agents are drawn inside workspace interiors (not outside/on top of buildings) when in the working state
   2. Each agent's work position corresponds to a specific themed station within that building's interior
   3. Current tool name is displayed as a text overlay on each workspace that has an active session
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 16-01-PLAN.md -- Data pipeline (lastToolName in SessionInfo) and station coordinate/wander constants
+- [ ] 16-02-PLAN.md -- Agent interior behavior (wander, scale, z-order, station assignment) and tool name overlay
 
 ## Progress
 
@@ -127,4 +130,4 @@ Plans:
 | 13. Ready to Work Reminders | v1.3 | 1/1 | Complete | 2026-02-27 |
 | 14. World Layout Reorganization | v1.4 | Complete    | 2026-02-27 | 2026-02-27 |
 | 15. Workspace Interior Art | v1.4 | Complete    | 2026-02-27 | 2026-02-27 |
-| 16. Agent Stations and Info Overlay | v1.4 | 0/? | Not started | - |
+| 16. Agent Stations and Info Overlay | v1.4 | 0/2 | Not started | - |
