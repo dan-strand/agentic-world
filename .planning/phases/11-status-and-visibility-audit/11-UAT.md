@@ -1,5 +1,5 @@
 ---
-status: complete
+status: diagnosed
 phase: 11-status-and-visibility-audit
 source: 11-01-SUMMARY.md, 11-02-SUMMARY.md
 started: 2026-02-27T00:30:00Z
@@ -48,12 +48,18 @@ skipped: 0
 
 ## Gaps
 
-- truth: "A session that has been waiting for user input should remain visible with waiting status and not be reported as done"
+- truth: "A session that is actively processing (tool execution in progress) should not trigger 'job's done' celebration"
   status: failed
   reason: "User reported: i got a 'job's done' on the forma session, though it's still processing"
   severity: major
   test: 2
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
+  root_cause: "Two interacting bugs: (1) determineStatus() treats all assistant entries identically -- after 2s returns 'waiting' even when the entry contains a tool_use request and the tool is still executing (no JSONL writes during tool execution). (2) checkForCompletion() fires on any active->waiting transition without verifying the turn actually completed (no system/turn_duration entry check). Combined: tool executions >6s trigger false celebration."
+  artifacts:
+    - path: "src/main/session-detector.ts"
+      issue: "assistant entry type mapped to waiting after 2s without distinguishing tool_use from final response (line 231)"
+    - path: "src/renderer/world.ts"
+      issue: "checkForCompletion() fires on any active->waiting transition without additional validation (line 587)"
+  missing:
+    - "Detect tool_use in assistant entry content and treat as active instead of waiting"
+    - "Harden checkForCompletion to require system entry type (turn_duration) as definitive completion signal"
+  debug_session: ".planning/debug/false-jobs-done-active-session.md"
