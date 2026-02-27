@@ -5,7 +5,7 @@ import type { WorkSpot } from '../shared/constants';
 
 /**
  * Building -- A static world entity wrapping a Sprite from the building atlas
- * with a BitmapText label displayed above.
+ * with a BitmapText label integrated as an interior sign/banner.
  *
  * Sprite anchor is at (0.5, 1.0) -- bottom-center for ground placement.
  * The Container position represents the ground-center point of the building.
@@ -30,17 +30,19 @@ export class Building extends Container {
     sprite.anchor.set(0.5, 1.0);
     this.addChild(sprite);
 
-    // Label above building using BitmapText with pixel signpost font
+    // Label as interior banner/sign -- positioned inside the building scene near the top,
+    // not floating above. This makes labels feel integrated into the building interior.
     this.labelText = new BitmapText({
       text: this.defaultLabel,
       style: {
         fontFamily: 'PixelSignpost',
-        fontSize: 16,
+        fontSize: 20, // Slightly larger for readability in bigger buildings
       },
     });
-    this.labelText.anchor.set(0.5, 1);
-    // Position label above the sprite top (sprite extends upward from anchor)
-    this.labelText.position.set(0, -texture.height - 4);
+    this.labelText.anchor.set(0.5, 0.5);
+    // Position inside the building: ~85% up from the base (within sprite bounds)
+    // Sprite extends upward from anchor (0.5, 1.0), so -height*0.85 is near the top interior
+    this.labelText.position.set(0, -texture.height * 0.85);
     this.addChild(this.labelText);
 
     // Draw small RPG prop indicators at each work spot position
@@ -116,7 +118,7 @@ export class Building extends Container {
   /**
    * Get a specific named work spot position in local coordinates.
    * Spots are defined per building type in BUILDING_WORK_SPOTS.
-   * Falls back to getWorkPosition() for guild_hall or out-of-range index.
+   * Falls back to getWorkPosition() for campfire or out-of-range index.
    */
   getWorkSpot(spotIndex: number): { x: number; y: number } {
     const spots = BUILDING_WORK_SPOTS[this.buildingType];

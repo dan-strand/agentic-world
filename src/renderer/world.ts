@@ -1,13 +1,15 @@
-import { Application, Container, ColorMatrixFilter } from 'pixi.js';
+import { Application, Container, Sprite, ColorMatrixFilter } from 'pixi.js';
 import type { SessionInfo, ActivityType, SessionStatus } from '../shared/types';
 import {
   BACKGROUND_COLOR,
   STATUS_DEBOUNCE_MS,
-  GUILD_HALL_POS,
+  CAMPFIRE_POS,
+  CAMPFIRE_SIZE,
   QUEST_ZONE_POSITIONS,
   WORLD_WIDTH,
   WORLD_HEIGHT,
   ACTIVITY_BUILDING,
+  BUILDING_HEIGHT,
   IDLE_TIMEOUT_MS,
   IDLE_REMINDER_MS,
   WAITING_REMINDER_MS,
@@ -40,8 +42,8 @@ interface StatusDebounce {
  *
  * Scene hierarchy:
  *   app.stage [warm ColorMatrixFilter]
- *   +-- tilemapLayer (canvas-rendered grass + dirt paths)
- *   +-- buildingsContainer (Guild Hall + 4 quest zone buildings)
+ *   +-- tilemapLayer (canvas-rendered grass + dirt star-pattern paths)
+ *   +-- buildingsContainer (campfire waypoint + 4 quest zone buildings in 2x2 grid)
  *   +-- ambientParticles (floating firefly particles)
  *   +-- agentsContainer (dynamic Agent children)
  */
@@ -50,7 +52,7 @@ export class World {
 
   // Scene containers (z-order: tilemap, buildings, ambient particles, agents)
   private tilemapLayer!: Container;
-  private guildHall!: Building;
+  private campfire!: Sprite;
   private buildingsContainer!: Container;
   private ambientParticles!: AmbientParticles;
   private agentsContainer!: Container;
@@ -127,29 +129,34 @@ export class World {
     this.app.stage.addChild(this.tilemapLayer);
 
     const tilemap = buildWorldTilemap(
-      GUILD_HALL_POS,
+      CAMPFIRE_POS,
       Object.values(QUEST_ZONE_POSITIONS),
     );
     this.tilemapLayer.addChild(tilemap);
 
-    // Buildings container (replaces HQ + compoundsContainer)
+    // Buildings container (campfire + 4 quest zone buildings in 2x2 grid)
     this.buildingsContainer = new Container();
     this.app.stage.addChild(this.buildingsContainer);
 
-    // Position center for guild hall
+    // Position center for campfire
     this.centerX = WORLD_WIDTH / 2;
     this.centerY = WORLD_HEIGHT / 2;
 
-    // Create Guild Hall at world center
-    this.guildHall = new Building('campfire', campfireTexture['campfire']);
-    this.guildHall.position.set(GUILD_HALL_POS.x, GUILD_HALL_POS.y);
-    this.buildingsContainer.addChild(this.guildHall);
+    // Create campfire sprite at world center (small waypoint, not a full building)
+    this.campfire = new Sprite(campfireTexture['campfire']);
+    this.campfire.anchor.set(0.5, 0.5);
+    this.campfire.position.set(CAMPFIRE_POS.x, CAMPFIRE_POS.y);
+    this.buildingsContainer.addChild(this.campfire);
 
-    // Create 4 quest zone buildings from QUEST_ZONE_POSITIONS
+    // Create 4 quest zone buildings at 2x2 grid positions
+    // Buildings use anchor (0.5, 1.0) so position bottom-center at quadrant bottom-center
     for (const [activityType, pos] of Object.entries(QUEST_ZONE_POSITIONS)) {
       const buildingType: BuildingType = ACTIVITY_BUILDING[activityType as ActivityType];
       const building = new Building(buildingType, buildingTextures[buildingType]);
-      building.position.set(pos.x, pos.y);
+      // Building anchor is (0.5, 1.0) -- bottom-center. Position so the building
+      // is visually centered in its quadrant by placing bottom-center at the
+      // quadrant center offset down by half the building height.
+      building.position.set(pos.x, pos.y + BUILDING_HEIGHT / 2);
       this.buildingsContainer.addChild(building);
       this.questZones.set(activityType as ActivityType, building);
     }
@@ -426,9 +433,9 @@ export class World {
         // Create new agent
         const slot = this.agentFactory.getSlot(session.sessionId);
         agent = new Agent(session.sessionId, slot);
-        // Start at Guild Hall (not 0,0) so agents don't walk from the corner
-        agent.x = this.guildHall.x;
-        agent.y = this.guildHall.y + 20;
+        // Start at campfire (not 0,0) so agents don't walk from the corner
+        agent.x = this.campfire.x;
+        agent.y = this.campfire.y + CAMPFIRE_SIZE / 2 + 10;
         this.agents.set(session.sessionId, agent);
         this.agentsContainer.addChild(agent);
 
@@ -487,12 +494,12 @@ export class World {
           if (agentState === 'idle_at_hq') {
             // Assign deterministic initial spot based on session hash
             this.agentSpotIndex.set(session.sessionId, hashSessionId(session.sessionId) % 3);
-            // Agent at guild hall, needs to go work -- send to project building
+            // Agent at campfire, needs to go work -- send to project building
             const entrance = this.getBuildingEntrance(building);
             const workPos = this.getBuildingWorkPosition(building, session.sessionId);
             agent.assignToCompound(entrance, workPos);
             this.agentBuilding.set(session.sessionId, building);
-            // BUBBLE-03: Show speech bubble on initial departure from Guild Hall
+            // BUBBLE-03: Show speech bubble on initial departure from campfire
             const bubble = this.speechBubbles.get(session.sessionId);
             if (bubble) bubble.show(activityType);
           } else if (agentState === 'working') {
@@ -511,21 +518,21 @@ export class World {
             }
           }
         } else {
-          // 5th+ project overflow: stay at Guild Hall
+          // 5th+ project overflow: stay at campfire
           if (agentState !== 'idle_at_hq' && agentState !== 'walking_to_building') {
-            const idlePos = this.getGuildHallIdlePosition(session.sessionId);
+            const idlePos = this.getCampfireIdlePosition(session.sessionId);
             agent.assignToHQ(idlePos);
             this.agentBuilding.delete(session.sessionId);
           }
         }
       } else {
-        // Activity is idle -- agent should be at Guild Hall
+        // Activity is idle -- agent should be at campfire
         if (
           agentState !== 'idle_at_hq' &&
           agentState !== 'walking_to_building' &&
           agentState !== 'celebrating'
         ) {
-          const idlePos = this.getGuildHallIdlePosition(session.sessionId);
+          const idlePos = this.getCampfireIdlePosition(session.sessionId);
           agent.assignToHQ(idlePos);
           this.agentBuilding.delete(session.sessionId);
         }
@@ -561,12 +568,13 @@ export class World {
       }
     }
 
-    // Reposition idle agents at Guild Hall
+    // Reposition idle agents at campfire
     this.repositionIdleAgents();
   }
 
   /**
-   * Reposition all idle agents in front of Guild Hall.
+   * Reposition all idle agents around the campfire.
+   * Fans agents horizontally below the campfire sprite.
    */
   private repositionIdleAgents(): void {
     const idleAgents: Agent[] = [];
@@ -576,12 +584,14 @@ export class World {
       }
     }
 
+    const spacing = 30;
+    const baseY = this.campfire.y + CAMPFIRE_SIZE / 2 + 10;
     for (let i = 0; i < idleAgents.length; i++) {
-      const localPos = this.guildHall.getIdlePosition(i, idleAgents.length);
-      // Convert guild hall local position to global position
+      const totalWidth = (idleAgents.length - 1) * spacing;
+      const startX = this.campfire.x - totalWidth / 2;
       const globalPos = {
-        x: this.guildHall.x + localPos.x,
-        y: this.guildHall.y + localPos.y,
+        x: startX + i * spacing,
+        y: baseY,
       };
       idleAgents[i].setHQPosition(globalPos);
     }
@@ -675,7 +685,7 @@ export class World {
       }
     }
 
-    // All 4 slots full -- overflow to Guild Hall
+    // All 4 slots full -- overflow to campfire
     return null;
   }
 
@@ -720,10 +730,10 @@ export class World {
   }
 
   /**
-   * Get a global idle position at Guild Hall for a specific agent.
-   * Used when sending an agent back to Guild Hall.
+   * Get a global idle position at the campfire for a specific agent.
+   * Used when sending an agent back to the campfire waypoint.
    */
-  private getGuildHallIdlePosition(sessionId: string): { x: number; y: number } {
+  private getCampfireIdlePosition(sessionId: string): { x: number; y: number } {
     // Count current idle agents + this one
     let idleCount = 1;
     let thisIndex = 0;
@@ -734,10 +744,12 @@ export class World {
         thisIndex++;
       }
     }
-    const localPos = this.guildHall.getIdlePosition(thisIndex, idleCount);
+    const spacing = 30;
+    const totalWidth = (idleCount - 1) * spacing;
+    const startX = this.campfire.x - totalWidth / 2;
     return {
-      x: this.guildHall.x + localPos.x,
-      y: this.guildHall.y + localPos.y,
+      x: startX + thisIndex * spacing,
+      y: this.campfire.y + CAMPFIRE_SIZE / 2 + 10,
     };
   }
 }
