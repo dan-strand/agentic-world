@@ -37,3 +37,22 @@
 
 ---
 
+
+## v1.4 Enhanced Session Workspaces (Shipped: 2026-02-27)
+
+**Phases:** 14-16 | **Plans:** 6 | **Timeline:** 1 day (2026-02-27)
+**Codebase:** 6,461 LOC TypeScript/JS, 15 files modified, +1,893 net lines
+**Git range:** `87a576a` → `49d7930` (22 commits)
+
+**Key accomplishments:**
+1. World restructured to 2x2 grid of 464x336 landscape buildings filling the 1024x768 screen
+2. Guild Hall replaced with compact 64x64 campfire waypoint at world center with star-pattern footpaths
+3. Four detailed top-down interior scenes: Wizard Tower (arcane study), Training Grounds (arena), Ancient Library (study hall), Tavern (gathering space)
+4. Agents walk into building interiors and position at themed stations with wander behavior (~40px radius)
+5. Tool name overlay banners display current tool on each active workspace building
+6. Agent z-ordering, reparenting between global/building containers, and station management for interior/exterior transitions
+
+**Delivered:** Workspace buildings expanded from 96x96 exteriors to 464x336 detailed interiors showing agents working at themed stations with tool info — each building is now a visual status dashboard.
+
+---
+

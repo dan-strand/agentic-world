@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A locally-run animated 2D visualizer that shows your active Claude Code sessions as Fantasy RPG adventurers in a pixel-art world. Each agent represents a running Claude session — mages, warriors, rangers, and rogues walk between a central Guild Hall and themed quest zone buildings. When sessions complete, agents celebrate with a golden light column and return to the guild. Waiting sessions get gentle audio nudges after sitting unattended. It's a persistent, always-on dashboard that gives you an at-a-glance view of which sessions are active, idle, or waiting for input.
+A locally-run animated 2D visualizer that shows your active Claude Code sessions as Fantasy RPG adventurers in a pixel-art world. Each agent represents a running Claude session — mages, warriors, rangers, and rogues walk into detailed workspace interiors (Wizard Tower, Training Grounds, Ancient Library, Tavern) and work at themed stations. Buildings display current tool info, agents wander around their stations, and the world shows at a glance which sessions are active, idle, or waiting for input. When sessions complete, agents celebrate with a golden light column and return to the central campfire.
 
 ## Core Value
 
@@ -43,21 +43,18 @@ Instantly see the status of all Claude Code sessions so you know which one needs
 - ✓ Per-session waiting reminder from "waiting" status (not idle) — v1.3 Phase 13
 - ✓ Reminder sounds throttled with ~30s minimum gap — v1.3 Phase 13
 - ✓ Reminder requires active-cycle before repeating — v1.3 Phase 13
+- ✓ World layout reorganized with 464x336 buildings in 2x2 grid — v1.4 Phase 14
+- ✓ Guild Hall replaced with compact campfire waypoint — v1.4 Phase 14
+- ✓ Star-pattern footpaths connecting campfire to all buildings — v1.4 Phase 14
+- ✓ Detailed top-down workspace interiors for all four buildings — v1.4 Phase 15
+- ✓ Agents positioned at themed stations inside workspace interiors — v1.4 Phase 16
+- ✓ Tool name overlay banners on each active workspace — v1.4 Phase 16
+- ✓ Agent z-ordering and reparenting between global/building containers — v1.4 Phase 16
+- ✓ Agent wander behavior around station centers (~40px radius) — v1.4 Phase 16
 
 ### Active
 
-## Current Milestone: v1.4 Enhanced Session Workspaces
-
-**Goal:** Replace small building exteriors with large, detailed activity-themed interior workspaces that show agents working inside, current focus, and recent activity — making each workspace a rich visual status dashboard.
-
-**Target features:**
-- Reorganize 1024x768 layout to give workspace buildings much more screen space
-- Replace 96x96 building sprites with larger detailed interior scenes (wizard's study, arena, library, tavern)
-- Agents visibly work inside themed workspace interiors at stations
-- Current file/tool and recent activity displayed as text overlays on workspaces
-- Workspaces grouped per project (multiple sessions share a workspace)
-- Guild Hall reduced to small waypoint for celebrations/transitions only
-- Rich visuals AND information density at a glance
+(No active requirements — planning next milestone)
 
 ### Out of Scope
 
@@ -72,12 +69,14 @@ Instantly see the status of all Claude Code sessions so you know which one needs
 ## Context
 
 - User runs multiple Claude Code sessions simultaneously in different bash terminals on Windows (MINGW64/Git Bash)
-- Shipped v1.0 through v1.3 in 3 days (2026-02-25 → 2026-02-27)
-- Codebase: 3,269 LOC TypeScript, 22 source files, 3 pngjs generator scripts
+- Shipped v1.0 through v1.4 in 3 days (2026-02-25 → 2026-02-27)
+- Codebase: 6,461 LOC TypeScript/JS, 22 source files, 3 pngjs generator scripts
 - Tech stack: Electron 40.6.1, PixiJS 8.16.0, TypeScript 5.7, pixi-filters 6.1.5, Webpack (Electron Forge)
 - Atlas-first asset pipeline: pngjs generates PNG atlases, JSON descriptors, loadAllAssets() with Promise.all
 - 6-state agent machine: idle_at_hq, walking_to_building, walking_to_workspot, working, celebrating, fading_out
-- Canvas-rendered static tilemap ground, static Building instances, AnimatedSprite agents
+- Agent interior mode: 1.5x scale inside buildings, wander behavior, z-ordered reparenting between containers
+- Canvas-rendered static tilemap ground, static Building instances with agentsLayer, AnimatedSprite agents
+- Buildings: 464x336 landscape in 2x2 grid, detailed top-down interiors, station tracking, tool name banners
 - SoundManager singleton with HTML5 Audio API for jobs-done and ready-to-work sounds
 - Status debounce (2.5s) prevents visual flickering; dual-gate completion detection (status transition + system entry)
 - Session status lifecycle: active → waiting → idle (waiting = task done, idle = dormant)
@@ -113,6 +112,12 @@ Instantly see the status of all Claude Code sessions so you know which one needs
 | Reminder from waiting, not idle (v1.3) | "Waiting" is the actionable state; "idle" is dormant | ✓ Good |
 | 30s reminder throttle (v1.3) | Prevents audio spam when multiple sessions finish close together | ✓ Good |
 | Active-cycle guard for reminders (v1.3) | Session must go active before reminder can fire again; prevents nagging | ✓ Good |
+| 2x2 grid layout with 464x336 buildings (v1.4) | Fill screen with workspace detail; symmetric, comfortable ~64px gaps | ✓ Good |
+| Campfire replaces Guild Hall (v1.4) | Small 64x64 waypoint for transitions; buildings get the screen space | ✓ Good |
+| Top-down detailed interiors (v1.4) | Well-furnished ~60-70%, themed lighting, identifiable stations | ✓ Good |
+| Agent reparenting between containers (v1.4) | Z-ordering requires agents as building children; coordinate conversion at boundary | ✓ Good |
+| Station wander behavior (v1.4) | Agents move ~40px around station center; makes interiors feel alive | ✓ Good |
+| Activity-type station switching (v1.4) | Stations switch on activity category change, not per-tool-name; simpler | ✓ Good |
 
 ---
-*Last updated: 2026-02-27 after v1.4 milestone started*
+*Last updated: 2026-02-27 after v1.4 milestone shipped*

@@ -1,9 +1,9 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
+milestone: v1.4
 milestone_name: Enhanced Session Workspaces
-status: in-progress
-last_updated: "2026-02-27T22:15:00Z"
+status: completed
+last_updated: "2026-02-27T22:45:00Z"
 progress:
   total_phases: 16
   completed_phases: 16
@@ -18,21 +18,21 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-27)
 
 **Core value:** Instantly see the status of all Claude Code sessions so you know which one needs attention next.
-**Current focus:** Phase 16 - Agent Stations and Info Overlay (v1.4 Enhanced Session Workspaces)
+**Current focus:** v1.4 shipped — planning next milestone
 
 ## Current Position
 
-Phase: 16 of 16 (Agent Stations and Info Overlay)
-Plan: 2 of 2 in current phase (all complete)
-Status: All phases complete -- ready for milestone audit
-Last activity: 2026-02-27 -- Completed 16-02 (agent interior behavior + tool overlay + bug fix)
+Phase: All complete
+Plan: All complete
+Status: v1.4 shipped, ready for next milestone
+Last activity: 2026-02-27 — v1.4 milestone archived
 
-Progress: [##############################] 100% (32/32 plans)
+Progress: [##############################] 100% (32/32 plans across 16 phases)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 31 (v1.0: 9, v1.1: 9, v1.2: 4, v1.3: 4, v1.4: 5)
+- Total plans completed: 32 (v1.0: 9, v1.1: 9, v1.2: 4, v1.3: 4, v1.4: 6)
 - Total execution time: ~3 days
 
 **By Phase:**
@@ -54,36 +54,13 @@ Progress: [##############################] 100% (32/32 plans)
 - **v1.1 Fantasy RPG Aesthetic** (2026-02-26): Tilemap, buildings, animated sprites, effects
 - **v1.2 Activity Monitoring & Labeling** (2026-02-26): Building labels, speech bubbles, fade-out lifecycle
 - **v1.3 Audio & Status Reliability** (2026-02-27): Status pipeline hardening, tool_use detection, waiting reminders
+- **v1.4 Enhanced Session Workspaces** (2026-02-27): Detailed interiors, agent stations, tool overlays, campfire waypoint
 
 ## Accumulated Context
 
 ### Decisions
 
 Decisions are logged in PROJECT.md Key Decisions table.
-
-Key context for v1.4:
-- Buildings now 464x336 landscape (was 96x96), filling 2x2 grid within 1024x768
-- BuildingType 'guild_hall' replaced with 'campfire' throughout constants and world.ts
-- Campfire is separate sprite atlas (campfire.json/png) loaded alongside buildings
-- Campfire is plain Sprite (not Building), idle positioning computed inline in World.ts
-- Work spots scaled to x=+/-140, y=-100/-40 for larger building interiors
-- Star-pattern 1-tile footpaths radiate from campfire center to each building
-- Ground decorations scattered via seeded random, avoiding building bounding boxes
-- Building labels positioned inside building sprite as interior signs
-- Phase 15 Plan 01 complete: Wizard Tower and Training Grounds now have detailed interior art
-- Wizard Tower: purple/blue arcane study with enchanting table, scroll desk, rune bench
-- Training Grounds: red/brown arena with target dummy, obstacle course, potion station
-- Phase 15 Plan 02 complete: Ancient Library and Tavern now have detailed interior art
-- Ancient Library: teal/gold study hall with crystal ball, bookshelves, map table
-- Tavern: amber/orange gathering space with bar counter, notice board, pigeon roost
-- All 4 workspace interiors complete with stations spread in distinct quadrants for Phase 16 agent placement
-- Phase 16 Plan 01 complete: lastToolName field added to SessionInfo IPC pipeline
-- BUILDING_WORK_SPOTS coordinates updated to match Phase 15 interior art station positions
-- Agent interior constants defined: AGENT_INTERIOR_SCALE (1.5), AGENT_WANDER_RADIUS (40px), AGENT_WANDER_INTERVAL_MS (2000ms), AGENT_INTERIOR_WALK_SPEED (60px/s)
-- Phase 16 Plan 02 complete: agents walk into building interiors with wander, z-ordering, station management
-- Tool name overlay with RPG-styled banners on each active building
-- Bug fix: hqPosition initialized on agent creation to prevent walk-to-origin after celebrations
-- Bug fix: agents reparented out of buildings before fade-out for disappeared sessions
 
 ### Blockers/Concerns
 
@@ -92,5 +69,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-27
-Stopped at: All v1.4 phases complete (16/16)
-Resume file: N/A -- ready for /gsd:audit-milestone
+Stopped at: v1.4 milestone complete
+Resume file: N/A — run /gsd:new-milestone for next milestone
