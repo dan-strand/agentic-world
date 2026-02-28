@@ -24,8 +24,8 @@ Requirements for Enhanced Session Workspaces milestone. Each maps to roadmap pha
 
 ### Agent
 
-- [ ] **AGENT-01**: Agents positioned at visible stations inside workspace interiors when working
-- [ ] **AGENT-02**: Agent work positions correspond to themed stations within the interior scene
+- [x] **AGENT-01**: Agents positioned at visible stations inside workspace interiors when working
+- [x] **AGENT-02**: Agent work positions correspond to themed stations within the interior scene
 
 ## Future Requirements
 
@@ -63,8 +63,8 @@ Requirements for Enhanced Session Workspaces milestone. Each maps to roadmap pha
 | WORK-04 | Phase 15 | Complete |
 | WORK-05 | Phase 15 | Complete |
 | WORK-06 | Phase 16 | Complete |
-| AGENT-01 | Phase 16 | Pending |
-| AGENT-02 | Phase 16 | Pending |
+| AGENT-01 | Phase 16 | Complete |
+| AGENT-02 | Phase 16 | Complete |
 
 **Coverage:**
 - v1.4 requirements: 11 total

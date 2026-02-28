@@ -65,7 +65,7 @@ See: [`.planning/milestones/v1.3-ROADMAP.md`](milestones/v1.3-ROADMAP.md) for fu
 
 - [x] **Phase 14: World Layout Reorganization** - Restructure 1024x768 world for large workspace buildings; Guild Hall becomes small waypoint; tilemap paths updated (completed 2026-02-27)
 - [x] **Phase 15: Workspace Interior Art** - Replace 96x96 building sprites with larger detailed interior scenes for all four workspace types (completed 2026-02-27)
-- [ ] **Phase 16: Agent Stations and Info Overlay** - Agents work at themed stations inside interiors; current tool name displayed per workspace
+- [x] **Phase 16: Agent Stations and Info Overlay** - Agents work at themed stations inside interiors; current tool name displayed per workspace (completed 2026-02-27)
 
 ## Phase Details
 
@@ -108,8 +108,8 @@ Plans:
   3. Current tool name is displayed as a text overlay on each workspace that has an active session
 **Plans**: 2 plans
 Plans:
-- [ ] 16-01-PLAN.md -- Data pipeline (lastToolName in SessionInfo) and station coordinate/wander constants
-- [ ] 16-02-PLAN.md -- Agent interior behavior (wander, scale, z-order, station assignment) and tool name overlay
+- [x] 16-01-PLAN.md -- Data pipeline (lastToolName in SessionInfo) and station coordinate/wander constants
+- [x] 16-02-PLAN.md -- Agent interior behavior (wander, scale, z-order, station assignment) and tool name overlay
 
 ## Progress
 
@@ -130,4 +130,4 @@ Plans:
 | 13. Ready to Work Reminders | v1.3 | 1/1 | Complete | 2026-02-27 |
 | 14. World Layout Reorganization | v1.4 | Complete    | 2026-02-27 | 2026-02-27 |
 | 15. Workspace Interior Art | v1.4 | Complete    | 2026-02-27 | 2026-02-27 |
-| 16. Agent Stations and Info Overlay | 1/2 | In Progress|  | - |
+| 16. Agent Stations and Info Overlay | v1.4 | 2/2 | Complete | 2026-02-27 |
