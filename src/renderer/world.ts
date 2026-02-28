@@ -461,8 +461,10 @@ export class World {
         const slot = this.agentFactory.getSlot(session.sessionId);
         agent = new Agent(session.sessionId, slot);
         // Start at campfire (not 0,0) so agents don't walk from the corner
-        agent.x = this.campfire.x;
-        agent.y = this.campfire.y + CAMPFIRE_SIZE / 2 + 10;
+        const spawnPos = { x: this.campfire.x, y: this.campfire.y + CAMPFIRE_SIZE / 2 + 10 };
+        agent.x = spawnPos.x;
+        agent.y = spawnPos.y;
+        agent.setHQPosition(spawnPos); // Initialize hqPosition so celebration walk-back targets campfire, not (0,0)
         this.agents.set(session.sessionId, agent);
         this.agentsContainer.addChild(agent);
 
@@ -590,6 +592,11 @@ export class World {
     // Trigger fade-out for agents whose sessions have disappeared from IPC
     for (const [sessionId, agent] of this.agents) {
       if (!currentIds.has(sessionId) && agent.getState() !== 'fading_out') {
+        // Reparent out of building before fading so agent is in the correct
+        // scene graph container for removal and fades at the right screen position
+        this.reparentAgentOut(sessionId);
+        const building = this.agentBuilding.get(sessionId);
+        if (building) building.releaseStation(sessionId);
         agent.startFadeOut();
       }
     }
