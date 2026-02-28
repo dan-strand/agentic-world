@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: Enhanced Session Workspaces
 status: in-progress
-last_updated: "2026-02-27T21:23:26Z"
+last_updated: "2026-02-27T22:15:00Z"
 progress:
   total_phases: 16
-  completed_phases: 15
+  completed_phases: 16
   total_plans: 32
-  completed_plans: 31
+  completed_plans: 32
 ---
 
 # Project State
@@ -23,11 +23,11 @@ See: .planning/PROJECT.md (updated 2026-02-27)
 ## Current Position
 
 Phase: 16 of 16 (Agent Stations and Info Overlay)
-Plan: 1 of 2 in current phase (16-01 complete, 16-02 remaining)
-Status: Executing Phase 16
-Last activity: 2026-02-27 -- Completed 16-01 (tool name data pipeline + station coordinates)
+Plan: 2 of 2 in current phase (all complete)
+Status: All phases complete -- ready for milestone audit
+Last activity: 2026-02-27 -- Completed 16-02 (agent interior behavior + tool overlay + bug fix)
 
-Progress: [#############################.] 97% (31/32 plans)
+Progress: [##############################] 100% (32/32 plans)
 
 ## Performance Metrics
 
@@ -46,7 +46,7 @@ Progress: [#############################.] 97% (31/32 plans)
 | v1.3 Phase 13 | 1 | ~2 min | ~2 min |
 | v1.4 Phase 14 | 2 | ~12 min | ~6 min |
 | v1.4 Phase 15 | 2 | ~15 min | ~7 min |
-| v1.4 Phase 16 | 1 | ~1 min | ~1 min |
+| v1.4 Phase 16 | 2 | ~9 min | ~4 min |
 
 ## Shipped Milestones
 
@@ -80,6 +80,10 @@ Key context for v1.4:
 - Phase 16 Plan 01 complete: lastToolName field added to SessionInfo IPC pipeline
 - BUILDING_WORK_SPOTS coordinates updated to match Phase 15 interior art station positions
 - Agent interior constants defined: AGENT_INTERIOR_SCALE (1.5), AGENT_WANDER_RADIUS (40px), AGENT_WANDER_INTERVAL_MS (2000ms), AGENT_INTERIOR_WALK_SPEED (60px/s)
+- Phase 16 Plan 02 complete: agents walk into building interiors with wander, z-ordering, station management
+- Tool name overlay with RPG-styled banners on each active building
+- Bug fix: hqPosition initialized on agent creation to prevent walk-to-origin after celebrations
+- Bug fix: agents reparented out of buildings before fade-out for disappeared sessions
 
 ### Blockers/Concerns
 
@@ -88,5 +92,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-27
-Stopped at: Completed 16-01-PLAN.md
-Resume file: .planning/phases/16-agent-stations-and-info-overlay/16-02-PLAN.md
+Stopped at: All v1.4 phases complete (16/16)
+Resume file: N/A -- ready for /gsd:audit-milestone
