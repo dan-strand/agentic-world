@@ -15,6 +15,9 @@ export const DEFAULT_WINDOW_WIDTH = 1024;
 export const DEFAULT_WINDOW_HEIGHT = 768;
 export const BACKGROUND_COLOR = 0x1a1a2e;
 
+export const DASHBOARD_HEIGHT = 312;        // Dashboard panel height in pixels (1080 - 768)
+export const WINDOW_HEIGHT = 1080;           // Total window height (768 world + 312 dashboard)
+
 // Tilemap
 export const TILE_SIZE = 32;
 export const WORLD_COLS = 32;  // 1024 / 32
