@@ -11,6 +11,7 @@ import { installPixelFont } from './bitmap-font';
 import { initActivityIcons } from './activity-icons';
 import { loadAllAssets } from './asset-loader';
 import { SoundManager } from './sound-manager';
+import { DashboardPanel } from './dashboard-panel';
 
 async function main(): Promise<void> {
   // Wire window control buttons
@@ -90,6 +91,18 @@ async function main(): Promise<void> {
     volumeSlider.addEventListener('input', () => {
       soundManager.volume = parseInt(volumeSlider.value, 10) / 100;
     });
+  }
+
+  // 7. Init dashboard panel
+  const dashboardEl = document.getElementById('dashboard');
+  if (dashboardEl) {
+    const dashboardPanel = new DashboardPanel(dashboardEl);
+
+    window.agentWorld.onDashboardUpdate((data) => {
+      dashboardPanel.update(data);
+    });
+
+    console.log('[renderer] Dashboard panel initialized');
   }
 
   console.log('[renderer] Agent World initialized');
