@@ -254,3 +254,76 @@ export const BUILDING_WORK_SPOTS: Record<BuildingType, WorkSpot[]> = {
   ],
   campfire: [], // Campfire has no work spots (agents idle here)
 };
+
+// ── Model Pricing ──────────────────────────────────────────────────────────────
+// Verified against platform.claude.com/docs/en/about-claude/pricing (2026-03-01)
+// Cache write = 1.25x input, cache read = 0.1x input
+
+export interface ModelPricing {
+  inputPer1M: number;
+  outputPer1M: number;
+  cacheWritePer1M: number;
+  cacheReadPer1M: number;
+}
+
+export const MODEL_PRICING: Record<string, ModelPricing> = {
+  'claude-opus-4-6':   { inputPer1M: 5.00,  outputPer1M: 25.00, cacheWritePer1M: 6.25,  cacheReadPer1M: 0.50 },
+  'claude-opus-4-5':   { inputPer1M: 5.00,  outputPer1M: 25.00, cacheWritePer1M: 6.25,  cacheReadPer1M: 0.50 },
+  'claude-opus-4-1':   { inputPer1M: 15.00, outputPer1M: 75.00, cacheWritePer1M: 18.75, cacheReadPer1M: 1.50 },
+  'claude-opus-4':     { inputPer1M: 15.00, outputPer1M: 75.00, cacheWritePer1M: 18.75, cacheReadPer1M: 1.50 },
+  'claude-sonnet-4':   { inputPer1M: 3.00,  outputPer1M: 15.00, cacheWritePer1M: 3.75,  cacheReadPer1M: 0.30 },
+  'claude-sonnet-3':   { inputPer1M: 3.00,  outputPer1M: 15.00, cacheWritePer1M: 3.75,  cacheReadPer1M: 0.30 },
+  'claude-haiku-4':    { inputPer1M: 1.00,  outputPer1M: 5.00,  cacheWritePer1M: 1.25,  cacheReadPer1M: 0.10 },
+  'claude-haiku-3-5':  { inputPer1M: 0.80,  outputPer1M: 4.00,  cacheWritePer1M: 1.00,  cacheReadPer1M: 0.08 },
+  'claude-opus-3':     { inputPer1M: 15.00, outputPer1M: 75.00, cacheWritePer1M: 18.75, cacheReadPer1M: 1.50 },
+  'claude-haiku-3':    { inputPer1M: 0.25,  outputPer1M: 1.25,  cacheWritePer1M: 0.30,  cacheReadPer1M: 0.03 },
+};
+
+export const BARE_MODEL_ALIASES: Record<string, string> = {
+  'opus': 'claude-opus-4-6',
+  'sonnet': 'claude-sonnet-4',
+  'haiku': 'claude-haiku-4',
+};
+
+export const DEFAULT_MODEL_PRICING: ModelPricing = MODEL_PRICING['claude-sonnet-4'];
+
+export function resolveModelPricing(model: string): { pricing: ModelPricing; isEstimate: boolean } {
+  // 1. Check bare aliases (opus, sonnet, haiku)
+  if (BARE_MODEL_ALIASES[model]) {
+    const key = BARE_MODEL_ALIASES[model];
+    return { pricing: MODEL_PRICING[key] ?? DEFAULT_MODEL_PRICING, isEstimate: false };
+  }
+  // 2. Exact match
+  if (MODEL_PRICING[model]) {
+    return { pricing: MODEL_PRICING[model], isEstimate: false };
+  }
+  // 3. Prefix match (handles date-suffixed names)
+  for (const prefix of Object.keys(MODEL_PRICING)) {
+    if (model.startsWith(prefix)) {
+      return { pricing: MODEL_PRICING[prefix], isEstimate: false };
+    }
+  }
+  // 4. Default fallback -- flag as estimate
+  return { pricing: DEFAULT_MODEL_PRICING, isEstimate: true };
+}
+
+export function calculateCost(usage: { inputTokens: number; outputTokens: number; cacheCreationTokens: number; cacheReadTokens: number }, pricing: ModelPricing): number {
+  return (
+    (usage.inputTokens * pricing.inputPer1M / 1_000_000) +
+    (usage.outputTokens * pricing.outputPer1M / 1_000_000) +
+    (usage.cacheCreationTokens * pricing.cacheWritePer1M / 1_000_000) +
+    (usage.cacheReadTokens * pricing.cacheReadPer1M / 1_000_000)
+  );
+}
+
+export function calculateCacheSavings(cacheReadTokens: number, pricing: ModelPricing): number {
+  return cacheReadTokens * (pricing.inputPer1M - pricing.cacheReadPer1M) / 1_000_000;
+}
+
+export function getModelDisplayName(model: string): string {
+  const lower = model.toLowerCase();
+  if (lower === 'opus' || lower.includes('opus')) return 'Opus';
+  if (lower === 'sonnet' || lower.includes('sonnet')) return 'Sonnet';
+  if (lower === 'haiku' || lower.includes('haiku')) return 'Haiku';
+  return model || 'Unknown';
+}

@@ -25,12 +25,47 @@ export interface SessionInfo {
 export const IPC_CHANNELS = {
   SESSIONS_UPDATE: 'sessions-update',
   GET_INITIAL_SESSIONS: 'get-initial-sessions',
+  DASHBOARD_UPDATE: 'dashboard-update',
 } as const;
 
 // Type-safe API exposed via contextBridge
+export interface DashboardSession {
+  sessionId: string;
+  projectName: string;
+  status: SessionStatus;
+  lastToolName: string;
+  lastModified: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheCreationTokens: number;
+  cacheReadTokens: number;
+  totalCostUsd: number;
+  cacheSavingsUsd: number;
+  model: string;
+  modelDisplayName: string;
+  isEstimate: boolean;
+  turnCount: number;
+}
+
+export interface TodayTotals {
+  inputTokens: number;
+  outputTokens: number;
+  cacheCreationTokens: number;
+  cacheReadTokens: number;
+  totalCostUsd: number;
+  cacheSavingsUsd: number;
+  sessionCount: number;
+}
+
+export interface DashboardData {
+  sessions: DashboardSession[];
+  todayTotals: TodayTotals;
+}
+
 export interface IAgentWorldAPI {
   onSessionsUpdate: (callback: (sessions: SessionInfo[]) => void) => void;
   getInitialSessions: () => Promise<SessionInfo[]>;
+  onDashboardUpdate: (callback: (data: DashboardData) => void) => void;
   minimizeWindow: () => void;
   closeWindow: () => void;
   startDrag: () => void;
