@@ -1,33 +1,31 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.4
-milestone_name: Enhanced Session Workspaces
-status: completed
-last_updated: "2026-02-27T22:45:00Z"
+milestone: v1.5
+milestone_name: Usage Dashboard
+status: defining_requirements
+last_updated: "2026-03-01T00:00:00Z"
 progress:
-  total_phases: 16
-  completed_phases: 16
-  total_plans: 32
-  completed_plans: 32
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-27)
+See: .planning/PROJECT.md (updated 2026-03-01)
 
 **Core value:** Instantly see the status of all Claude Code sessions so you know which one needs attention next.
-**Current focus:** v1.4 shipped — planning next milestone
+**Current focus:** v1.5 Usage Dashboard — defining requirements
 
 ## Current Position
 
-Phase: All complete
-Plan: All complete
-Status: v1.4 shipped, ready for next milestone
-Last activity: 2026-02-27 — v1.4 milestone archived
-
-Progress: [##############################] 100% (32/32 plans across 16 phases)
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-01 — Milestone v1.5 started
 
 ## Performance Metrics
 
@@ -68,6 +66,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-02-27
-Stopped at: v1.4 milestone complete
-Resume file: N/A — run /gsd:new-milestone for next milestone
+Last session: 2026-03-01
+Stopped at: Defining v1.5 requirements
+Resume file: N/A

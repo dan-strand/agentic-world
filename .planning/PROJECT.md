@@ -54,7 +54,12 @@ Instantly see the status of all Claude Code sessions so you know which one needs
 
 ### Active
 
-(No active requirements — planning next milestone)
+- [ ] Expand window height to fit dashboard panel below the world view
+- [ ] Dashboard panel with live session list (compact rows, expandable detail)
+- [ ] Token tracking from JSONL `message.usage` (input, output, cache read/write)
+- [ ] Cost estimation with auto-detected model pricing
+- [ ] Historical stats: today's totals + 30-day daily breakdown
+- [ ] Session metrics: counts, durations, completions
 
 ### Out of Scope
 
@@ -66,11 +71,23 @@ Instantly see the status of all Claude Code sessions so you know which one needs
 - Per-session sound selection — over-engineering for current use case
 - Global "all-waiting" sound — user prefers per-session sounds
 
+## Current Milestone: v1.5 Usage Dashboard
+
+**Goal:** Add a usage dashboard below the world view showing live session details, token usage, cost estimates, and 30-day historical trends.
+
+**Target features:**
+- Expanded window height with dashboard panel below the RPG world
+- Live session list with compact rows (name, status, duration, tool) and click-to-expand details (tokens, cost)
+- Token tracking parsed from JSONL `message.usage` fields (input_tokens, output_tokens, cache_creation_input_tokens, cache_read_input_tokens)
+- Cost estimation using auto-detected model pricing (Opus, Sonnet, Haiku rates)
+- Today's totals + 30-day daily breakdown with session counts, durations, and completions
+
 ## Context
 
 - User runs multiple Claude Code sessions simultaneously in different bash terminals on Windows (MINGW64/Git Bash)
 - Shipped v1.0 through v1.4 in 3 days (2026-02-25 → 2026-02-27)
 - Codebase: 6,461 LOC TypeScript/JS, 22 source files, 3 pngjs generator scripts
+- JSONL logs at `~/.claude/projects/{encoded-path}/{session-uuid}.jsonl` contain `message.usage` with `input_tokens`, `output_tokens`, `cache_creation_input_tokens`, `cache_read_input_tokens`, and `model` name
 - Tech stack: Electron 40.6.1, PixiJS 8.16.0, TypeScript 5.7, pixi-filters 6.1.5, Webpack (Electron Forge)
 - Atlas-first asset pipeline: pngjs generates PNG atlases, JSON descriptors, loadAllAssets() with Promise.all
 - 6-state agent machine: idle_at_hq, walking_to_building, walking_to_workspot, working, celebrating, fading_out
@@ -120,4 +137,4 @@ Instantly see the status of all Claude Code sessions so you know which one needs
 | Activity-type station switching (v1.4) | Stations switch on activity category change, not per-tool-name; simpler | ✓ Good |
 
 ---
-*Last updated: 2026-02-27 after v1.4 milestone shipped*
+*Last updated: 2026-03-01 after v1.5 milestone started*
