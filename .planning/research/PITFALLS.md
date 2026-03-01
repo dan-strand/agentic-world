@@ -1,270 +1,411 @@
 # Pitfalls Research
 
-**Domain:** Adding dynamic building labels, auto-fading speech bubbles, and agent fade-out lifecycle to existing PixiJS 8 + Electron Fantasy RPG visualizer
-**Researched:** 2026-02-26
-**Confidence:** HIGH (verified via PixiJS 8 official docs, GitHub issues, codebase inspection of all 22 source files)
+**Domain:** Adding a usage/cost dashboard (token tracking, cost estimation, historical stats) to an existing Electron + PixiJS Fantasy RPG visualizer
+**Researched:** 2026-03-01
+**Confidence:** HIGH (verified via Electron docs, PixiJS GitHub issues, Node.js streaming patterns, Claude JSONL structure from ccusage community, Anthropic pricing history)
 
 ---
 
 ## Critical Pitfalls
 
-### Pitfall 1: BitmapText Visibility Bug Prevents Dynamic Label Updates
+### Pitfall 1: Synchronous JSONL Parsing Blocks the Electron Main Process
 
 **What goes wrong:**
-Building labels are changed from static RPG names to dynamic project names by setting `label.text = projectName`. The text appears correct initially. Later, when a building's label needs to revert to its RPG name (because sessions end), the BitmapText is invisible or was previously hidden during a transition. The text property is set while `visible = false` or while the BitmapText is off-screen. After being made visible again, the label shows stale text or fails to render the update. This is a confirmed PixiJS 8 bug (GitHub issue #11294).
+A session JSONL file can be 2-18MB. Reading it with `fs.readFileSync()` or even `fs.readFile()` followed by `content.split('\n').map(JSON.parse)` blocks the Node.js event loop for 100-800ms on a mid-range Windows machine. In Electron, the main process drives the entire application frame pipeline. Blocking the main process causes the PixiJS animation to visibly stutter or freeze — the RPG world hitches while parsing. Users experience this as the visualizer locking up every time the dashboard refreshes data.
 
 **Why it happens:**
-PixiJS 8 has a known issue where setting `text` on a BitmapText instance that is currently invisible (`visible = false`) causes the internal `didViewUpdate` flag to remain stale. The rendering pipeline skips the dirty check because the object is invisible, and when it becomes visible again, the new text is not processed. This is subtle because it only manifests when text is changed while the object is hidden -- a pattern that naturally arises when toggling labels during building state transitions.
+The straightforward approach to reading JSONL is `readFileSync` + split + parse. This works fine for small files but does not scale to 18MB. Developers reaching for "quick" implementations use the synchronous pattern because it is simpler. The problem is compounded by the fact that this app already has a 3-second session poll loop, and if the poll also triggers a full re-parse of all JSONL files (including historical ones), the main process is blocked on every tick.
 
 **How to avoid:**
-Never hide BitmapText with `visible = false` if you intend to change its text while hidden. Instead, keep the BitmapText always visible and use `alpha = 0` to hide it visually. Alternatively, always set `visible = true` before updating the text, then set `visible = false` afterward if needed. The safest pattern for dynamic labels: always keep label `visible = true` and only change the `text` property directly. Since building labels in this app should always be visible (they just change content), this is the natural approach -- do not introduce a show/hide pattern for labels.
+Use Node.js `readline` with `fs.createReadStream()` for line-by-line streaming. This reads and parses JSONL incrementally without loading the full file into memory or blocking the event loop:
 
-**Warning signs:**
-- A building label shows "Wizard Tower" even though a project is assigned to it
-- Labels sometimes "stick" to an old value after sessions change
-- The bug is intermittent -- it depends on whether a state update happens to coincide with the label being invisible during a transition
-
-**Phase to address:**
-Phase 1 (dynamic labels). Keep BitmapText labels always visible; only change the `text` property, never toggle `visible`.
-
----
-
-### Pitfall 2: BitmapFont Character Set Missing Project Name Characters
-
-**What goes wrong:**
-Building labels switch from hardcoded RPG names ("Wizard Tower", "Training Grounds") to user project folder names ("my-react-app", "Agent World", "TODO_v2"). The label renders correctly for some project names but shows blank spaces or missing characters for others. Specifically, characters like `(`, `)`, `!`, `@`, `#`, `$`, `%`, `&`, `+`, `=`, or Unicode characters are missing because the installed BitmapFont only covers a limited character set.
-
-**Why it happens:**
-The existing `installPixelFont()` function in `bitmap-font.ts` defines a restricted character set: `a-z`, `A-Z`, `0-9`, space, `-`, `.`, `_`, `/`, `\`. This was adequate for the five hardcoded RPG building names. Project folder names from the filesystem can contain any character the OS allows -- on Windows this includes parentheses, ampersands, plus signs, etc. When BitmapText encounters a character not in the installed font, PixiJS either silently skips it or triggers dynamic font generation (which creates per-character textures and produces a warning when 50+ are generated).
-
-**How to avoid:**
-Expand the character set in `installPixelFont()` to cover all printable ASCII characters. Use `BitmapFont.ASCII` or manually add all characters from code point 32 (space) to 126 (`~`). This covers every character a Windows folder name can contain. Also add a defensive truncation: before setting a building label, truncate the project name to a maximum display length (e.g., 16 characters) and replace any remaining non-ASCII characters with `?`. This prevents exotic Unicode folder names from triggering dynamic font generation.
-
-**Warning signs:**
-- Building labels render with gaps or missing characters for certain project names
-- Console warning: "%.0f dynamically created textures" from PixiJS BitmapFont system
-- Label text width is shorter than expected even though the full name was set
-
-**Phase to address:**
-Phase 1 (dynamic labels). Expand the character set in `installPixelFont()` before any dynamic text is assigned. This is a one-line change to the `chars` array.
-
----
-
-### Pitfall 3: Agent Fade-Out Without Proper Destroy Causes Memory Leak Over Hours
-
-**What goes wrong:**
-Agents that complete their session now fade to alpha 0 at the Guild Hall instead of remaining visible forever. The fade animation runs, the agent becomes invisible -- but the Agent container, its AnimatedSprite, its SpeechBubble child, and all associated Map entries (`agents`, `speechBubbles`, `statusDebounce`, `lastActivity`, `lastCommittedStatus`, `lastRawStatus`) remain in memory. Over 8-24 hours of continuous use (the app is "always-on"), dozens of invisible agents accumulate. Each invisible agent still has its `tick()` called every frame (the tick loop iterates all agents in the Map), wasting CPU. AnimatedSprite frame textures are not freed. The scene graph grows.
-
-**Why it happens:**
-The current architecture in `world.ts` never removes agents from the `agents` Map. The `SessionStore` also never removes sessions ("completed/ended sessions persist until app restart"). This was acceptable when agents remained visible at the Guild Hall -- they served as a visible history. Once agents fade out and become invisible, they serve no purpose but still consume resources. The natural instinct is to add a fade animation and then stop -- but "faded out" is not the same as "cleaned up."
-
-**How to avoid:**
-Add a new terminal state to the agent state machine: `faded_out`. After the celebration completes and the agent walks back to the Guild Hall, begin an alpha fade (e.g., over 2 seconds). When alpha reaches 0, transition to `faded_out`. In the World's tick loop, check for `faded_out` agents and perform full cleanup:
-1. Remove the Agent container from `agentsContainer`
-2. Remove the SpeechBubble from the agent and destroy it
-3. Call `agent.destroy({ children: true })` to free the AnimatedSprite and its textures
-4. Delete the sessionId from all six Maps: `agents`, `speechBubbles`, `statusDebounce`, `lastActivity`, `lastCommittedStatus`, `lastRawStatus`
-
-Also tell the `SessionStore` (main process) to remove the session entry so it is no longer pushed via IPC. Otherwise the renderer will recreate the agent on the next `updateSessions` call.
-
-**Warning signs:**
-- Task Manager shows Electron memory growing steadily over hours
-- CPU usage slowly increases even when no active sessions exist
-- DevTools shows the `agentsContainer.children` array growing over time
-- Invisible agents still receive `tick()` calls (add a console.log guard to detect)
-
-**Phase to address:**
-Phase 3 (agent lifecycle). This must be implemented as a complete pipeline: fade animation + state transition + full cleanup + session store sync. Do not implement the fade without the cleanup.
-
----
-
-### Pitfall 4: Fade-Out Agent Gets Resurrected by Next IPC Update
-
-**What goes wrong:**
-An agent begins fading out after celebrating. Midway through the fade (or after reaching alpha 0 but before cleanup), the next 3-second `SessionStore` poll arrives via IPC. The `updateSessions` call in `world.ts` sees the session still present in the data (because `SessionStore` never removes sessions). The code path `let agent = this.agents.get(session.sessionId)` finds the fading/invisible agent, and the session routing logic tries to assign it to a building again. The agent snaps back to full alpha or walks to a building while mostly transparent, creating a ghost effect.
-
-**Why it happens:**
-The `SessionStore` was explicitly designed to never remove sessions: "completed/ended sessions stay visible until app restart." This was fine for v1.0/v1.1 where agents accumulated visually at the Guild Hall. For v1.2, the fade-out lifecycle creates a new requirement: the renderer must know that a faded-out agent should not be reactivated by stale session data. The 3-second polling interval means there is always a window where stale data can arrive after the renderer has decided to fade out an agent.
-
-**How to avoid:**
-Two-part fix:
-1. **Renderer side:** Add a `fadingOut` Set or flag on the Agent. Once an agent enters the fade-out sequence, mark it as `fadingOut`. In `manageAgents()`, skip all routing logic for agents in the `fadingOut` set -- do not reassign them to buildings or update their activity.
-2. **Main process side:** Add a mechanism for the renderer to tell the SessionStore to drop a session. Add an IPC channel `session-dismiss` that the renderer sends when an agent reaches `faded_out`. The SessionStore removes the session from its map, so subsequent polls no longer include it.
-
-Without part 2, the session will keep appearing in IPC data forever, and the renderer will need to maintain a `dismissedSessionIds` set that grows without bound (minor but inelegant).
-
-**Warning signs:**
-- Agents that should be fading out suddenly snap to full opacity and start walking
-- "Ghost" agents appear partially transparent at buildings
-- Agents oscillate between fading and visible state every 3 seconds (aligned with poll interval)
-
-**Phase to address:**
-Phase 3 (agent lifecycle). The `fadingOut` guard must be implemented in the same phase as the fade animation -- they are inseparable. The IPC dismiss channel should be added in the same phase.
-
----
-
-### Pitfall 5: Activity-Based Building Routing Conflicts With Project-Based Label Assignment
-
-**What goes wrong:**
-v1.2 introduces project-based building labels (e.g., "Agent World" replaces "Wizard Tower"). But the existing agent routing in `world.ts` sends agents to buildings based on `activityType` (coding -> Wizard Tower, testing -> Training Grounds, etc.). This means two agents from the same project working on different activities go to different buildings. Building "Agent World" (Wizard Tower) shows one agent coding, but the same project's testing agent is at "Training Grounds" -- which might be labeled with a different project or the default RPG name. The visual mapping of "project <-> building" breaks because the routing is still activity-based, not project-based.
-
-**Why it happens:**
-The v1.2 requirements say "buildings labeled with active project folder names (max 4 projects)" but the existing routing maps activities to buildings, not projects. These two systems are fundamentally different mapping strategies:
-- Activity routing: `activityType -> buildingType` (many-to-one, activities are deterministic)
-- Project routing: `projectName -> buildingType` (requires a project-to-building assignment that changes dynamically)
-
-If you add dynamic labels without changing the routing, the labels lie -- a building labeled "Agent World" might have agents from three different projects, because the activity-based routing doesn't respect project boundaries.
-
-**How to avoid:**
-Replace activity-based routing with project-based routing. Each active project gets assigned to one of the four quest zone buildings. The ACTIVITY_BUILDING constant should be replaced (or supplemented) by a dynamic `projectToBuilding` Map in World that assigns projects as they appear:
-- First active project gets building slot 0 (Wizard Tower position)
-- Second active project gets building slot 1 (Training Grounds position)
-- Max 4 projects fill all four slots
-- When a project's sessions all end, its building slot becomes available for reuse
-- Building label reflects the assigned project name, or reverts to RPG name when unassigned
-
-This is the largest architectural change in v1.2 and should be designed carefully before implementation.
-
-**Warning signs:**
-- Building labels show a project name but agents from that project are scattered across multiple buildings
-- Two buildings show the same project name because two activities from one project were routed to different buildings
-- The "max 4 projects" constraint has no enforcement, causing a 5th project's agents to have nowhere to go
-
-**Phase to address:**
-Phase 2 (building labels + routing). The routing change and the label change must be implemented together -- they are two sides of the same feature. Implementing labels without routing creates a misleading UI.
-
----
-
-### Pitfall 6: Changing Building Labels Without Repositioning the Label Anchor
-
-**What goes wrong:**
-Building labels change from "Wizard Tower" (12 characters) to "my-incredibly-long-project-name" (31 characters). The label extends far beyond the building width, overlapping adjacent buildings or going off-screen. Short project names like "App" leave the label looking oddly undersized. The label is anchored at `(0.5, 1)` (center-bottom), which works for the fixed-length RPG names but creates visual problems with variable-length project names.
-
-**Why it happens:**
-The Building constructor positions the BitmapText label above the building sprite at a fixed offset: `label.position.set(0, -texture.height - 4)`. The anchor at `(0.5, 1)` centers the text horizontally over the building. This works because all five RPG building names are 10-16 characters and fit within the 96px building width at 16px font size. Dynamic project names have no length constraint and can be 1-40+ characters.
-
-**How to avoid:**
-Truncate project names to a maximum display width before setting them as labels. Calculate max characters based on building width: at 16px BitmapFont with monospace, each character is approximately 8-10px wide, so 96px building width supports about 10-12 characters. Truncate longer names with an ellipsis: `"my-incredibly..."`. Store a `setLabel(text: string)` method on the Building class that handles truncation, so the caller does not need to worry about length. Also consider reducing font size to 12px for project names (vs. 16px for RPG names) to fit more characters.
-
-Additionally, the current Building class has no public reference to the BitmapText label -- it is created in the constructor and added as a child but not stored as a property. You will need to store `this.label = label` to update it later.
-
-**Warning signs:**
-- Long project names visually overlap neighboring buildings
-- Very short names look oddly small centered above a wide building
-- Label text extends beyond the 1024px window boundary for corner buildings
-
-**Phase to address:**
-Phase 1 (dynamic labels). Add a `setLabel()` method to Building and implement truncation before any dynamic labels are assigned. Also store the BitmapText as a class property.
-
----
-
-### Pitfall 7: Speech Bubble Auto-Fade Conflicts With Agent Alpha Fade-Out
-
-**What goes wrong:**
-An agent is in the process of fading out (alpha going from 1 to 0 over 2 seconds) after completing and returning to the Guild Hall. The speech bubble, which is a child of the Agent container, inherits the parent's alpha through PixiJS's alpha multiplication. If the speech bubble was still visible (mid-display or mid-fade), its alpha is now `bubbleAlpha * agentAlpha`. This creates a double-fade effect where the bubble disappears too quickly. Worse, if the speech bubble's own fade logic checks `this.alpha <= 0` to mark itself as inactive, the inherited alpha from the parent can cause it to trigger the inactive state prematurely.
-
-**Why it happens:**
-PixiJS alpha is multiplicative through the scene hierarchy. The SpeechBubble reads its own `this.alpha` in the `tick()` method (line 67: `if (this.alpha <= 0)`), but `this.alpha` is the local alpha, not the world alpha. The local alpha might still be 0.5 (mid-fade), but the visual alpha is 0.5 * 0.3 (parent agent alpha) = 0.15. The bubble appears nearly invisible but its internal fade logic thinks it is still partially visible. This is confusing but does not cause the premature-deactivation bug. The actual bug is the reverse: if the agent fade sets `agent.alpha = 0` before the bubble's own fade completes, the bubble becomes invisible instantly (visual alpha = 0) even though its internal timer has not elapsed. When the bubble later "fades" through its normal timer, it is already invisible -- wasting tick cycles on an already-invisible element.
-
-**How to avoid:**
-When an agent enters the fade-out sequence, immediately deactivate its speech bubble (`bubble.visible = false; bubble.isActive = false`). Do not let the speech bubble's independent fade timer run concurrently with the agent's fade-out. The agent fade-out should take priority: once the agent starts fading, its speech bubble should be killed instantly. This is cleaner than trying to coordinate two independent fade timers on parent and child.
-
-**Warning signs:**
-- Speech bubbles flash or pop during agent fade-out
-- Speech bubbles appear to fade faster when the agent is also fading
-- Invisible agents still have their speech bubble tick running (wasted CPU)
-
-**Phase to address:**
-Phase 3 (agent lifecycle). When implementing the agent fade-out, add explicit bubble cleanup as part of the fade initiation, not as an afterthought.
-
----
-
-### Pitfall 8: Agent Removal During Tick Loop Iteration Causes Concurrent Modification
-
-**What goes wrong:**
-In the World's `tick()` method, the code iterates over `this.agents` with a `for...of` loop. The fade-out cleanup logic (removing agents from the Map when they reach alpha 0) runs inside this same loop. Deleting a Map entry during `for...of` iteration is technically safe in JavaScript (the iterator handles deletions), but the code also iterates over `this.speechBubbles` in the same tick and accesses `this.lastActivity`, `this.statusDebounce`, etc. If cleanup deletes from multiple Maps mid-iteration, the tick loop produces inconsistent state. Worse, `agent.destroy()` removes the agent from `agentsContainer.children`, which can cause issues if PixiJS is mid-render or if subsequent code references the destroyed container.
-
-**Why it happens:**
-The tick loop in `world.ts` currently assumes agents are never removed. All agent management happens in `updateSessions()` (driven by IPC), and the tick loop is purely for animation advancement. Adding removal to the tick loop breaks this assumption. Additionally, PixiJS documentation warns that removing display objects from their parent during event handlers or update loops can cause issues because the display list may be iterated elsewhere.
-
-**How to avoid:**
-Use a deferred removal pattern. During the tick loop, collect sessionIds that need removal into a `toRemove` array. After the tick loop completes (after all agents and bubbles have been ticked), iterate `toRemove` and perform cleanup:
 ```typescript
-// In tick():
-const toRemove: string[] = [];
-for (const agent of this.agents.values()) {
-  agent.tick(deltaMs);
-  if (agent.getState() === 'faded_out') {
-    toRemove.push(agent.sessionId);
+import { createReadStream } from 'fs';
+import { createInterface } from 'readline';
+
+async function parseJsonl(filePath: string): Promise<UsageEntry[]> {
+  const entries: UsageEntry[] = [];
+  const rl = createInterface({
+    input: createReadStream(filePath),
+    crlfDelay: Infinity
+  });
+  for await (const line of rl) {
+    if (!line.trim()) continue;
+    try {
+      entries.push(JSON.parse(line));
+    } catch {
+      // skip malformed lines
+    }
   }
-}
-// After all iteration:
-for (const id of toRemove) {
-  this.cleanupAgent(id);
+  return entries;
 }
 ```
-This ensures no Map mutation during iteration and no display list modification during the tick traversal.
+
+For historical aggregation (multiple files from previous days), process files sequentially with `await`, not `Promise.all()` — parallel streaming of 30 JSONL files simultaneously saturates I/O and provides no speedup while increasing memory pressure. Aggregate incrementally: accumulate totals per file, never hold all files in memory at once.
+
+For live sessions (the active JSONL file being written by Claude Code), track the last-read byte offset and use `fs.createReadStream({ start: offset })` to tail only new lines on each poll cycle. This avoids re-parsing the entire file every 3 seconds.
 
 **Warning signs:**
-- Sporadic "Cannot read property of undefined" errors during tick
-- Agents occasionally fail to clean up (skip condition hit inconsistently)
-- PixiJS console warnings about destroyed display objects during render
+- PixiJS animation visibly hitches or freezes every 3 seconds (aligned with the session poll interval)
+- `--inspect` profiling shows long tasks in the main process during the poll cycle
+- Node.js event loop lag exceeds 100ms during data refresh
 
 **Phase to address:**
-Phase 3 (agent lifecycle). The deferred removal pattern must be the implementation strategy from the start. Do not attempt inline removal during iteration.
+Phase 1 (JSONL parsing infrastructure). Establish the streaming pattern and tail-read approach before any dashboard UI is built. It is much harder to retrofit streaming after synchronous parsing is wired into multiple call sites.
 
 ---
 
-### Pitfall 9: Building Label Revert Logic Races With Session Polling
+### Pitfall 2: Window Height Expansion Corrupts PixiJS Canvas Coordinates
 
 **What goes wrong:**
-A project's last session ends. The building label should revert from "Agent World" to "Wizard Tower." But the session data is stale -- the SessionStore still has the session marked as "idle" (not removed). On the next poll, the renderer sees the session, keeps the building assigned to the project, and the label stays as "Agent World." The label never reverts. Alternatively, the renderer correctly detects all sessions for a project are idle and reverts the label, but 3 seconds later the next poll arrives with the same stale session, re-assigning the building and flipping the label back to "Agent World." The label flickers between RPG name and project name every 3 seconds.
+The current window is a fixed 1024x768 with `resizable: false`. Expanding the window height to 1024x1068 (adding a 300px dashboard panel below the 768px world view) changes the window dimensions. If this resize is not handled carefully, the PixiJS canvas either stays at 768px height (leaving a gap), stretches to fill 1068px (distorting the pixel-art world), or misaligns its CSS position relative to the new window geometry. Building positions (computed relative to the 1024x768 canvas) remain hardcoded and correct, but the canvas `<canvas>` DOM element may report wrong `getBoundingClientRect()` values if its CSS height is recalculated incorrectly, breaking any future hit-testing.
+
+Additionally, if `app.renderer.resize()` is called without explicitly pinning the world canvas to its original 768px height, PixiJS may attempt to fill the new 1068px container, scaling all sprite coordinates by `1068/768 = 1.39x` and displacing agents, buildings, and the tilemap from their intended positions.
 
 **Why it happens:**
-The `SessionStore` never removes sessions by design. An "idle" session and a "completed and gone" session are indistinguishable in the current data model. The renderer cannot tell whether an idle session will become active again in 10 seconds (user just paused) or will never update again (user closed the terminal). Without a "session ended" signal, the label revert timing is ambiguous.
+The existing code assumes 1024x768 everywhere — building coordinates, agent positions, tilemap dimensions, campfire location, and station offsets are all computed against this fixed size. When the Electron window grows taller, the browser layout reflows. If the PixiJS `<canvas>` element has `width: 100%; height: 100%` CSS (a common default), it stretches to fill the new window height. PixiJS then calls its auto-resize logic and invalidates the coordinate system. The `resizeTo` option in `app.init()` compounds this: per PixiJS issue #11427 (May 2025), `resizeTo` only triggers on window resize events, not on DOM layout changes, so even a ResizeObserver approach has edge cases.
 
 **How to avoid:**
-Define a clear "session is dead" heuristic. Options:
-1. **Time-based:** If a session has been idle for more than N minutes (e.g., 5 minutes), consider it dead. The building label reverts, and the agent begins its fade-out sequence. This is simple and matches user expectations.
-2. **Process-based:** Have the SessionDetector check if the Claude Code process is still running (via PID or lock file). If the process is gone, mark the session as `ended`. This is more accurate but requires process detection logic.
-3. **Explicit removal:** Add a `session-ended` status to the SessionInfo type. The SessionDetector transitions idle sessions to `ended` after the idle threshold. The renderer treats `ended` sessions as triggering label revert and agent fade-out.
+Structure the HTML layout so the PixiJS canvas has a fixed, explicit pixel height that never changes:
 
-Option 3 is recommended because it gives the renderer a clear signal and does not require guessing. The idle-to-ended transition happens in the main process, and the renderer reacts to it deterministically.
+```html
+<body style="display: flex; flex-direction: column; height: 1068px; overflow: hidden;">
+  <canvas id="pixi-canvas" style="width: 1024px; height: 768px; flex-shrink: 0;"></canvas>
+  <div id="dashboard" style="width: 1024px; height: 300px; flex-shrink: 0; overflow-y: auto;"></div>
+</body>
+```
+
+Do NOT use `resizeTo` or `autoResize` on the PixiJS application — the canvas must be frozen at 1024x768. Initialize the PixiJS app with explicit `width: 1024, height: 768` and never call `app.renderer.resize()` after startup. The Electron `BrowserWindow` is resized programmatically via `mainWindow.setSize(1024, 1068)` (or `setContentSize`), but the PixiJS canvas within it remains unchanged.
+
+Keep `resizable: false` in Electron's `BrowserWindow` options — only the programmatic initial resize is needed. Verify using `mainWindow.getContentSize()` vs. `mainWindow.getSize()` — on Windows, the content size excludes the title bar, so use `setContentSize(1024, 1068)` to ensure the canvas + dashboard both fit.
 
 **Warning signs:**
-- Building labels never revert to RPG names even after all Claude sessions are closed
-- Labels flicker between project name and RPG name on a 3-second cycle
-- Closing all terminals does not change the world at all
+- Agents appear at wrong positions after window height is changed
+- Building interiors render outside the visible canvas area
+- Console shows PixiJS warnings about renderer resize
+- CSS `height: 100%` on the canvas element (audit for this immediately)
 
 **Phase to address:**
-Phase 2 (building labels). The "when to revert" logic must be designed alongside the "when to assign" logic. These are complementary halves of the same feature.
+Phase 1 (window layout). The HTML structure, CSS, and Electron `BrowserWindow` configuration must be locked before any dashboard HTML is added. Adding dashboard HTML before fixing the canvas CSS risks the canvas stretching silently.
 
 ---
 
-### Pitfall 10: Speech Bubble Shows Activity Text But Content Is Stale After Auto-Fade
+### Pitfall 3: Token Double-Counting from Re-Reading Already-Parsed JSONL Lines
 
 **What goes wrong:**
-The v1.2 requirement says "speech bubbles show current activity text." The existing SpeechBubble shows an activity icon (coding wrench, reading magnifier, etc.) and auto-fades after 4 seconds. When the bubble fades and the activity changes again, the bubble reappears with a new icon. But if the activity does not change for a long time (agent sits at a building coding for 5 minutes), the bubble fades and stays hidden. The user cannot tell what the agent is doing. The bubble only reappears on activity change, but continuous work within the same activity type produces no visual feedback.
-
-If v1.2 changes bubbles to show text (e.g., "reading files" or "running tests") instead of icons, the problem is worse: the text fades, and there is no indication of what the agent is currently doing until the next activity change.
+The app reads active session JSONL files on each 3-second poll cycle. A naive implementation re-reads the entire JSONL file each poll and sums all `message.usage` entries. This works correctly for totals but inflates counts when the same entries are read multiple times. If the cache is not used and line counts are not tracked, the dashboard shows token counts climbing even when Claude has not generated new output — because the same 500 lines are being re-summed on every poll tick.
 
 **Why it happens:**
-The current SpeechBubble design is event-driven: it shows on activity change and fades after a timeout. This works for icons (the activity type is shown on the agent's building assignment). But text-based bubbles create an expectation that the bubble reflects current state, not just the last state change. Users glancing at the screen expect to see what each agent is doing right now.
+"Parse the file and sum tokens" is the obvious implementation. The bug is invisible during development (a freshly-started session has few lines), but manifests in production where sessions run for hours and JSONL files grow to thousands of entries. Each 3-second re-parse re-adds all historical tokens from the session, multiplying real counts by `(elapsed_time / 3s)`.
 
 **How to avoid:**
-Two approaches:
-1. **Keep bubbles event-driven, rely on building context:** The bubble shows on activity change and fades. Users know the agent is at the Wizard Tower (coding). The bubble is supplementary, not the primary status indicator. This preserves the current pattern and avoids clutter.
-2. **Add periodic re-show:** If the activity text is important, re-show the bubble every N seconds while the agent is working (e.g., flash briefly every 30 seconds). This risks visual noise.
+Track the last-read line count (or byte offset) per session file. On each poll cycle, only parse new lines appended since the last read. Accumulate a running total in memory per session rather than re-summing from scratch. Store `{ sessionId, byteOffset, runningTotal }` in a Map:
 
-Approach 1 is recommended for this app. The building assignment is the primary "what is this agent doing" signal. The speech bubble is a change notification, not a persistent status display. Keep the auto-fade behavior as-is and do not try to make bubbles show persistent state.
+```typescript
+const sessionOffsets = new Map<string, { offset: number; tokens: TokenTotals }>();
+
+async function updateSessionTokens(sessionId: string, filePath: string) {
+  const state = sessionOffsets.get(sessionId) ?? { offset: 0, tokens: emptyTokens() };
+  const newLines = await readLinesFrom(filePath, state.offset);
+  const newOffset = await getFileSize(filePath);
+
+  for (const line of newLines) {
+    const entry = JSON.parse(line);
+    if (entry.message?.usage) {
+      accumulate(state.tokens, entry.message.usage);
+    }
+  }
+
+  sessionOffsets.set(sessionId, { offset: newOffset, tokens: state.tokens });
+}
+```
+
+For historical data (previous days), parse once and store aggregated results — never re-parse historical JSONL files on each poll.
 
 **Warning signs:**
-- Users complain they cannot tell what an agent is doing (signals the bubble is relied upon too heavily)
-- Bubbles re-appearing repeatedly create visual noise that distracts from the dashboard's at-a-glance purpose
-- Attempting to keep bubbles always-visible defeats the "clean dashboard" aesthetic
+- Token counts in the dashboard grow faster than expected relative to actual Claude activity
+- Restarting the app shows a different (lower) token count for completed sessions
+- Dashboard totals are not reproducible between app restarts
 
 **Phase to address:**
-Phase 2 (speech bubbles). Decide the bubble's role (change notification vs. persistent status) before implementation. Document the decision.
+Phase 1 (JSONL parsing infrastructure). The offset-tracking approach must be the implementation from the start. Retrofitting it after the UI is wired up requires auditing all call sites.
+
+---
+
+### Pitfall 4: Cache Token Accounting is Non-Intuitive and Easily Mis-Totaled
+
+**What goes wrong:**
+The JSONL `message.usage` object contains four fields: `input_tokens`, `output_tokens`, `cache_creation_input_tokens`, and `cache_read_input_tokens`. A dashboard that shows "total tokens" by summing only `input_tokens + output_tokens` significantly undercounts because it ignores cache tokens. Conversely, a dashboard that sums all four fields for "total input" is also misleading — cache reads and cache writes have different pricing than regular input tokens, and showing them as undifferentiated "input" causes cost estimates to be wrong.
+
+Cache tokens are also structurally confusing: `cache_creation_input_tokens` appears on the first turn of a cached context block (high cost per token), while `cache_read_input_tokens` appears on all subsequent turns using that cache (low cost per token). A long session will show a spike in `cache_creation_input_tokens` at the start and high `cache_read_input_tokens` accumulation thereafter. Summing all turns naively gives a distorted picture of actual spending.
+
+**Why it happens:**
+The four-field structure is specific to Anthropic's API and not well-documented for tool authors. Most third-party token trackers initially got this wrong and had to correct their implementations. The Claude Code JSONL files accumulate cache tokens heavily because every turn re-sends the full conversation history as cached context — per GitHub issue #24147, `cache_read_input_tokens` can dominate 99.93% of quota usage as CLAUDE.md files grow.
+
+**How to avoid:**
+Track all four token types separately and display them separately in the UI:
+
+```typescript
+interface TokenBreakdown {
+  inputTokens: number;           // billed at standard input rate
+  outputTokens: number;          // billed at output rate (typically 5x input)
+  cacheCreationTokens: number;   // billed at 1.25x input rate (write)
+  cacheReadTokens: number;       // billed at 0.1x input rate (read)
+}
+```
+
+Cost calculation must use separate rates for each field:
+
+```typescript
+function calculateCost(tokens: TokenBreakdown, rates: ModelRates): number {
+  return (
+    tokens.inputTokens * rates.inputPerToken +
+    tokens.outputTokens * rates.outputPerToken +
+    tokens.cacheCreationTokens * rates.cacheWritePerToken +
+    tokens.cacheReadTokens * rates.cacheReadPerToken
+  );
+}
+```
+
+In the UI, show the breakdown so users can see why cache dominates. A single "total tokens" number without the breakdown is misleading for Claude Code sessions.
+
+**Warning signs:**
+- Cost estimates appear far lower than actual Anthropic invoices
+- "Total tokens" does not match what `ccusage` reports for the same sessions
+- Sessions with long CLAUDE.md files show suspiciously low token counts
+
+**Phase to address:**
+Phase 2 (token counting). Design the data model with all four token types from the start. Adding cache token fields later requires migrating stored historical data.
+
+---
+
+### Pitfall 5: Hardcoded Token Pricing Rates Become Stale Within Months
+
+**What goes wrong:**
+The dashboard embeds pricing rates like `sonnet_input: 0.000003` (per token). Anthropic cut Claude Opus prices by 67% in 2025 (from $15 to $5 per million input tokens). The Claude 4 series introduced Opus 4.5 and Sonnet 4.6 with new pricing tiers. Model names in JSONL files also change (e.g., `claude-sonnet-4-5` becomes `claude-sonnet-4-6`). A hardcoded rate table that does not match the actual model names in the JSONL files defaults to $0 cost for unrecognized models, silently underreporting costs. A rate table that is not updated becomes increasingly inaccurate as Anthropic adjusts prices every few months.
+
+**Why it happens:**
+Hardcoding rates is the fastest implementation. It works for the current moment but requires manual code changes on every Anthropic pricing update. Given that Anthropic has released three major model updates in two months (Sonnet 4.5 → Haiku 4.5 → Opus 4.5) and made large price cuts, any hardcoded table has a short shelf life.
+
+**How to avoid:**
+Store pricing rates in a user-editable JSON config file, not in source code:
+
+```json
+// ~/.claude/agent-world-config.json or app userData path
+{
+  "pricingRates": {
+    "claude-opus-4-6": { "input": 5.00, "output": 25.00, "cacheWrite": 6.25, "cacheRead": 0.50 },
+    "claude-sonnet-4-6": { "input": 3.00, "output": 15.00, "cacheWrite": 3.75, "cacheRead": 0.30 },
+    "claude-haiku-4-5": { "input": 1.00, "output": 5.00, "cacheWrite": 1.25, "cacheRead": 0.10 },
+    "default": { "input": 3.00, "output": 15.00, "cacheWrite": 3.75, "cacheRead": 0.30 }
+  },
+  "pricingUnit": "per_million_tokens"
+}
+```
+
+Key design decisions:
+- Use per-million-token units in the config (matches Anthropic's published rates) and convert to per-token internally
+- Include a `default` entry that applies to unrecognized model names, with a note in the UI that the rate is estimated
+- When a JSONL entry has a `model` field that does not match any config key, log the unrecognized model name so users know to update their config
+- Show the pricing version date and a link to Anthropic's pricing page in the dashboard footer so users know when to update
+
+Do NOT attempt to auto-fetch pricing from Anthropic — they have no public pricing API, and scraping the pricing page would be fragile.
+
+**Warning signs:**
+- Console logs show "unrecognized model: claude-opus-4-6, using default rate" often
+- Cost estimates are $0 for recent sessions while older sessions show costs
+- User reports that estimated costs do not match their Anthropic invoice
+
+**Phase to address:**
+Phase 2 (cost estimation). Design the config file format before implementing the cost calculation. Never write pricing values directly in TypeScript source files.
+
+---
+
+### Pitfall 6: Historical Storage Approach Chosen Too Late Requires Data Migration
+
+**What goes wrong:**
+The dashboard shows "today's totals + 30-day daily breakdown." If historical data is stored as individual JSONL files re-parsed on demand, the 30-day view requires reading up to 30 days × (multiple sessions per day) JSONL files on each open — potentially 50-100 files at 2-18MB each. This is unacceptably slow. If data is stored as a single growing JSON file (`history.json`), the entire file must be read and written on every update — at 30 days of data, this file can grow to several MB, and JSON.parse of the full file on startup adds startup latency. SQLite avoids both problems but adds a native module dependency that must be rebuilt for the specific Electron ABI version.
+
+**Why it happens:**
+Teams reach for the simplest storage mechanism (JSON file) for early features and discover its limitations only when the dataset grows. For 30 days of daily aggregates, the data volume is actually small (30 records × ~5 fields each). The problem is not data size — it is re-parsing raw JSONL on demand versus reading pre-aggregated summaries.
+
+**How to avoid:**
+Use a pre-aggregated JSON store with one record per day, stored in Electron's `app.getPath('userData')`:
+
+```typescript
+// ~/.config/Agent World/usage-history.json (or Windows equivalent)
+{
+  "version": 1,
+  "dailyTotals": {
+    "2026-02-28": {
+      "inputTokens": 1250000,
+      "outputTokens": 180000,
+      "cacheCreationTokens": 95000,
+      "cacheReadTokens": 3200000,
+      "estimatedCostUSD": 4.23,
+      "sessionCount": 8,
+      "completionCount": 6
+    },
+    "2026-03-01": { ... }
+  },
+  "lastUpdated": "2026-03-01T14:32:00Z"
+}
+```
+
+This approach:
+- Stores only 30 records (one per day), not raw JSONL data
+- Can be read synchronously at startup (tiny file, < 10KB for 30 days)
+- Requires writing only on day boundary transitions (once per day, not every poll)
+- Requires no native module dependencies (no SQLite rebuild against Electron ABI)
+- Is human-readable and user-inspectable
+
+Do NOT use SQLite unless the data model requires complex queries. For 30-day daily aggregates, SQLite is engineering overkill and adds Electron native module complexity (better-sqlite3 must be rebuilt against each Electron major version).
+
+**Warning signs:**
+- Dashboard startup takes > 500ms (signals re-parsing historical JSONL)
+- The history store file grows > 1MB (signals storing raw entries instead of aggregates)
+- Console shows "rebuilding SQLite native module" on first run (signals premature SQLite adoption)
+
+**Phase to address:**
+Phase 3 (historical data). Decide the storage format before writing any persistence code. The pre-aggregated JSON approach handles the 30-day case cleanly with zero dependencies.
+
+---
+
+### Pitfall 7: Dashboard HTML Rendered in PixiJS Canvas Space Instead of DOM Layer
+
+**What goes wrong:**
+The developer attempts to build the dashboard as a PixiJS Graphics/Text layer added below the world's stage. This creates several problems: text rendering in PixiJS is either BitmapText (good for pixel art but poor for dense numerical data) or HTMLText (which uses CSS in an SVG foreignObject and has known rendering issues in Electron). Click interactions on dashboard rows require manual hit-testing against PixiJS display objects instead of native DOM events. Scrolling a 30-day breakdown list in PixiJS requires implementing a custom scroll container. Updating token counts on each 3-second poll requires re-rendering dozens of PixiJS text objects, which is expensive compared to updating DOM `textContent`.
+
+Additionally, per PixiJS issue #4327, mixing DOM elements with PixiJS elements using `DOMContainer` has an unresolved architectural complexity: DOM elements must be positioned as CSS overlays synchronized with PixiJS transforms, which breaks if the canvas moves.
+
+**Why it happens:**
+For developers already working in PixiJS, the temptation is to build everything inside the canvas. The fantasy RPG world is PixiJS, so "add the dashboard to PixiJS" feels natural. But dashboards are a DOM-native use case — tabular data, scrolling lists, styled text, interactive rows — and implementing them in WebGL/Canvas is strictly harder than using HTML.
+
+**How to avoid:**
+Build the dashboard as a plain HTML `<div>` below the PixiJS `<canvas>`. The canvas occupies the top 768px; the dashboard div occupies the bottom 300px. They never interact. The dashboard reads token data via IPC from the main process and updates `textContent` and `classList` directly. This approach uses:
+- Native DOM scrolling for the 30-day breakdown list
+- Native CSS for hover states, truncation, expandable rows
+- No PixiJS involvement in the dashboard layer
+
+The PixiJS canvas and the dashboard div are completely separate. The only shared concern is the overall window height. This is the correct architecture.
+
+```html
+<div style="display:flex; flex-direction:column; height:1068px;">
+  <canvas id="world" style="width:1024px; height:768px; flex:0 0 768px;"></canvas>
+  <div id="dashboard" style="flex:0 0 300px; overflow-y:auto; background:#1a1a2e;">
+    <!-- session rows, token totals, 30-day chart rendered as HTML -->
+  </div>
+</div>
+```
+
+**Warning signs:**
+- Session rows are being added as PixiJS Text or Container objects
+- Dashboard scrolling requires a custom PixiJS viewport implementation
+- Token count updates cause PixiJS to re-render the display list unnecessarily
+- Click handling on dashboard rows goes through PixiJS event system
+
+**Phase to address:**
+Phase 1 (window layout). Establish the HTML structure as the first step. The architecture decision (HTML div, not PixiJS layer) must be made before any dashboard rendering code is written.
+
+---
+
+### Pitfall 8: 30-Day Retention Cleanup Race Condition Corrupts History File
+
+**What goes wrong:**
+The cleanup job that removes history entries older than 30 days runs at startup or on a timer. If the app is closed mid-write during the cleanup (or if the write and the cleanup both run simultaneously), the `usage-history.json` file can be written in a partially truncated state. On next startup, `JSON.parse` fails and the entire history is lost. This is particularly bad because history cannot be reconstructed from JSONL files without re-parsing all historical sessions (which may no longer exist if Claude Code has cleaned up its own JSONL files).
+
+**Why it happens:**
+`fs.writeFileSync()` is not atomic. Writing a large JSON file replaces the file in place. If the process crashes between the old file being cleared and the new content being written, the file is empty. Concurrent writes (main process writes a daily update while the startup cleanup is also running) can interleave and corrupt the output.
+
+**How to avoid:**
+Use an atomic write pattern: write to a `.tmp` file first, then rename:
+
+```typescript
+import { writeFileSync, renameSync } from 'fs';
+import { join } from 'path';
+
+function saveHistoryAtomically(historyPath: string, data: HistoryData): void {
+  const tmpPath = historyPath + '.tmp';
+  writeFileSync(tmpPath, JSON.stringify(data, null, 2), 'utf-8');
+  renameSync(tmpPath, historyPath);  // atomic on most filesystems
+}
+```
+
+On Windows, `renameSync` over an existing file may fail if the file is locked. Use a try/catch and fall back to `copyFileSync` + `unlinkSync` if rename fails.
+
+Serialize all history writes through a single async queue — never write the history file from two concurrent code paths. The main process owns the history file exclusively; the renderer reads it via IPC only.
+
+**Warning signs:**
+- `usage-history.json` is zero bytes on startup after an unexpected app close
+- `JSON.parse` failures in startup logs
+- History data resets to empty without user action
+
+**Phase to address:**
+Phase 3 (historical data persistence). The atomic write pattern must be the implementation from day one. Retrofitting it requires auditing all write call sites.
+
+---
+
+### Pitfall 9: IPC Data Transfer Overhead for Large Token Aggregates on Each Poll
+
+**What goes wrong:**
+The 3-second poll cycle pushes session data from main process to renderer via IPC. If the full token breakdown (all 30 days of history + all live session token counts) is serialized and sent on every poll tick, the IPC payload grows as more sessions accumulate. IPC in Electron serializes objects to JSON for transfer — sending 30 days × 8 sessions/day × 4 token fields = 960+ numbers plus metadata on every 3-second tick is wasteful. More importantly, if the renderer processes a large IPC payload synchronously, it blocks the PixiJS render loop.
+
+**Why it happens:**
+The existing IPC pattern sends all session data on each `updateSessions` IPC call. Extending this call to also include token data and historical summaries is the path of least resistance. But combining live session state (changes every 3 seconds) with historical data (changes at most once per day) into the same frequent IPC call is architecturally wrong.
+
+**How to avoid:**
+Split IPC into two channels with different update frequencies:
+
+1. **`session-update` (every 3 seconds):** Sends only live session state — status, current tool, token delta since last poll (not cumulative totals). The renderer accumulates deltas locally.
+
+2. **`history-snapshot` (on startup + once per day at midnight):** Sends the full 30-day historical summary. The renderer caches this and only re-requests it via `ipcRenderer.invoke('get-history')` when the user navigates to the history view.
+
+This keeps the high-frequency IPC payload small (< 1KB per tick for typical 4-session usage) and avoids re-sending historical data that has not changed.
+
+**Warning signs:**
+- IPC messages are larger than a few KB per 3-second tick
+- The renderer's `ipcRenderer.on('session-update')` handler takes > 16ms (misses a frame)
+- Historical data is included in every live poll response
+
+**Phase to address:**
+Phase 2 (dashboard live data). Design the IPC protocol separation before writing any token-to-renderer IPC code. The separation is cheap to do upfront and expensive to refactor later.
+
+---
+
+### Pitfall 10: Session Duration Calculation is Wrong for Long-Running or Interrupted Sessions
+
+**What goes wrong:**
+Session duration is calculated as `lastActivity - firstActivity` from JSONL timestamps. For a session that ran from 9am to 5pm but was idle from 12pm to 2pm (user at lunch), this reports 8 hours even though Claude was only actively working for 6 hours. For sessions interrupted by a system restart or app crash, the last JSONL timestamp before the crash is used as the end time, which may be hours before the session actually stopped. The dashboard shows inflated "active session duration" metrics.
+
+**Why it happens:**
+"Duration = last timestamp - first timestamp" is the obvious calculation. It is wrong for long-running sessions with idle gaps, which are exactly the sessions users care most about tracking.
+
+**How to avoid:**
+Calculate duration as the sum of active intervals rather than total elapsed time. Define an "active interval" as a sequence of JSONL entries where no gap between consecutive entries exceeds a threshold (e.g., 5 minutes — the same threshold used for idle timeout in the existing session detection logic). If two consecutive JSONL entries are more than 5 minutes apart, the gap is not counted toward duration. This gives "active working time" rather than "wall clock time."
+
+```typescript
+function calculateActiveSessionDuration(entries: JsonlEntry[]): number {
+  const GAP_THRESHOLD_MS = 5 * 60 * 1000;
+  let totalMs = 0;
+  for (let i = 1; i < entries.length; i++) {
+    const gap = entries[i].timestamp - entries[i-1].timestamp;
+    if (gap < GAP_THRESHOLD_MS) {
+      totalMs += gap;
+    }
+  }
+  return totalMs;
+}
+```
+
+Use the same 5-minute idle threshold already used in the session detection logic for consistency.
+
+**Warning signs:**
+- Session durations exceed 8 hours for sessions where Claude was clearly idle overnight
+- Duration shown for crashed sessions matches the time from session start to app restart, not actual work time
+- "Average session duration" is disproportionately high compared to subjective experience
+
+**Phase to address:**
+Phase 2 (token counting + session metrics). Define the duration calculation algorithm explicitly and document it in the dashboard tooltip — users will otherwise be confused by the definition of "duration."
 
 ---
 
@@ -272,12 +413,13 @@ Phase 2 (speech bubbles). Decide the bubble's role (change notification vs. pers
 
 | Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
 |----------|-------------------|----------------|-----------------|
-| Not storing BitmapText label as a class property on Building | No refactor of existing constructor | Cannot update label text later; must restructure to add dynamic labels | Never for v1.2 -- the label must be accessible |
-| Keeping `SessionStore` "never remove" policy for v1.2 | No main-process changes needed | Renderer must maintain its own "dismissed" set that grows without bound; stale sessions create ghost state | Acceptable for MVP only if the renderer handles staleness defensively |
-| Implementing agent fade without session cleanup IPC | Simpler (renderer-only change) | Faded agents get resurrected by next IPC poll; requires fadingOut guard that papers over the root cause | Never -- the resurrection bug will ship |
-| Hard-coding max 4 projects | Matches 4 quest zone buildings | If user runs 5+ projects, 5th project's agents have no building and fall through to Guild Hall | Acceptable -- document the limit clearly and handle the overflow gracefully (agents stay at Guild Hall with a speech bubble showing the project name) |
-| Using `Container.alpha` for agent fade-out (instead of a shader/filter) | Simple, no new dependencies | Alpha is multiplicative to children; speech bubble inherits alpha | Acceptable -- just deactivate children before fading parent |
-| Skipping the `session-dismiss` IPC channel | No IPC changes, renderer-only | SessionStore grows unbounded; renderer must filter stale sessions forever | Acceptable for MVP if session count stays low (< 50 over a day) |
+| `readFileSync` for JSONL parsing | Simpler code, no async complexity | Blocks main process on 18MB files; animation hitches every 3 seconds | Never — streaming is only slightly more complex and always required |
+| Hardcoded pricing rates in source code | Fast to implement | Rates stale within months; unrecognized new model names silently cost $0 | Never — use a config JSON file from day one |
+| Single `session-update` IPC for all data | No new IPC channels needed | Historical data re-sent every 3 seconds; large payload blocks renderer | Never — split live vs. historical IPC channels |
+| Re-parsing full JSONL on each poll | No offset tracking state needed | Token counts multiply by elapsed time; CPU wasteful on 18MB files | Never — track byte offsets from the start |
+| SQLite for 30-day daily summaries | Structured queries, ACID writes | Native module ABI rebuild required per Electron major version; overkill for 30 records | Never for this scale — pre-aggregated JSON is sufficient |
+| Storing full JSONL entries in history | Easy to add new aggregation later | History file grows unbounded; re-aggregation on startup is slow | MVP only if the data is discarded on next startup (not persisted) |
+| Building dashboard as PixiJS layer | No HTML/DOM work needed | Scrolling, text, click interaction all require custom PixiJS reimplementation | Never — HTML div below canvas is strictly simpler |
 
 ---
 
@@ -285,12 +427,13 @@ Phase 2 (speech bubbles). Decide the bubble's role (change notification vs. pers
 
 | Integration | Common Mistake | Correct Approach |
 |-------------|----------------|------------------|
-| BitmapText dynamic text | Setting `text` while BitmapText is `visible = false` -- update is silently lost (PixiJS issue #11294) | Keep BitmapText always visible; only change `text` property directly |
-| BitmapFont character set | Font installed with limited chars; project names with special characters render blank | Expand font chars to cover all printable ASCII (32-126) before any dynamic text is set |
-| Agent `destroy()` with children | Calling `agent.destroy({ children: true })` while speech bubble or level-up effect still referenced elsewhere | Null out all references (speechBubbles Map, levelUpEffect) before calling destroy |
-| SessionStore + renderer lifecycle | Renderer fades out agent, but SessionStore still pushes the session on next poll, recreating the agent | Add `fadingOut` guard in `manageAgents()` to skip routing for fading agents; add IPC dismiss channel |
-| PixiJS alpha inheritance | Parent alpha set to 0 makes children invisible, but children's local alpha is unchanged | Check worldAlpha (not local alpha) for visibility decisions; or deactivate children explicitly before parent fade |
-| Map deletion during iteration | Deleting from `this.agents` Map inside `for...of` loop during tick | Collect IDs to remove in array; delete after iteration completes |
+| PixiJS canvas + dashboard HTML | CSS `height: 100%` on canvas element stretches canvas to fill new window height | Explicit `height: 768px` in CSS; never use percentage heights on the PixiJS canvas element |
+| Electron `BrowserWindow.setSize()` | Using `setSize()` instead of `setContentSize()` — content area is smaller than window by title bar height | Use `setContentSize(1024, 1068)` so canvas + dashboard fill the content area exactly |
+| JSONL `message.usage` structure | Assuming `usage` is always present on every line — most JSONL lines are tool calls with no `usage` field | Guard: `if (entry.message?.usage)` before accessing token fields |
+| Claude model name in JSONL | Model name format changes between versions (`claude-3-5-sonnet-20241022` → `claude-sonnet-4-5` → `claude-sonnet-4-6`) | Use prefix matching (`startsWith('claude-opus')`) or a fallback default rate |
+| Cache token pricing | Treating `cache_read_input_tokens` at the same rate as `input_tokens` | Cache reads cost 0.1× input rate; cache writes cost 1.25× input rate; always use separate multipliers |
+| History file write | Writing JSON directly to the target file — partial write on crash corrupts it | Write to `.tmp` file, then `renameSync` to target (atomic on most filesystems) |
+| IPC for historical data | Including 30-day history in the 3-second `session-update` IPC call | Separate `get-history` invoke (on-demand) from `session-update` push (frequent) |
 
 ---
 
@@ -298,10 +441,11 @@ Phase 2 (speech bubbles). Decide the bubble's role (change notification vs. pers
 
 | Trap | Symptoms | Prevention | When It Breaks |
 |------|----------|------------|----------------|
-| Ticking invisible faded-out agents | CPU usage grows linearly with session history; tick loop processes agents with alpha 0 | Remove agents from Map after fade-out completes; do not just hide them | After 20+ sessions complete over several hours of always-on use |
-| Updating BitmapText label every frame | Unnecessary layout recalculation on BitmapText even though text has not changed | Only set `label.text` when the value actually changes (compare before setting) | With 4 buildings updated every 3-second poll cycle -- unlikely to matter at this scale, but good hygiene |
-| Creating new SpeechBubble instances per activity change | Graphics objects and containers accumulate if bubbles are not reused | Reuse one SpeechBubble per agent (current design is correct -- preserve it) | If someone mistakenly creates new bubbles instead of calling `show()` on existing ones |
-| Running agent fade-out animation at 5fps idle ticker rate | Fade animation looks choppy and stuttery; 2-second fade at 5fps = only 10 frames of animation | Ensure fade-out keeps the ticker at active FPS (30fps) until fade completes; treat fading agents as "active" for frame rate purposes | When the only remaining activity is a fading agent and GameLoop drops to idle FPS |
+| Full JSONL re-parse on each 3-second poll | Main process CPU usage spikes every 3 seconds; animation stutters | Track byte offset per session file; only read new lines since last poll | Immediately on sessions with > 500 JSONL lines (~1MB) |
+| `Promise.all()` for parallel historical JSONL reads | Memory spike at startup; I/O saturation; no meaningful speedup | Process historical files sequentially with `await`; one file at a time | When loading 30+ historical session files simultaneously |
+| Re-rendering full dashboard on every IPC tick | DOM thrashing; token numbers flicker; forced layout recalculations | Use DOM diffing: only update `textContent` on elements whose values changed | With 8+ live sessions updating every 3 seconds |
+| Dashboard causing PixiJS frame drop | PixiJS reports 20 FPS during dashboard data updates | Dashboard JS must not run during PixiJS render frame; use `requestAnimationFrame` scheduling | Whenever dashboard JS takes > 8ms per update (common with naive DOM update loops) |
+| History cleanup deleting files while being read | Partial file read during deletion causes parse failure | Lock history file during cleanup; complete all reads before beginning cleanup writes | During startup when both init-read and cleanup run concurrently |
 
 ---
 
@@ -309,26 +453,25 @@ Phase 2 (speech bubbles). Decide the bubble's role (change notification vs. pers
 
 | Pitfall | User Impact | Better Approach |
 |---------|-------------|-----------------|
-| Building labels update instantly (no transition) | Labels snap from "Wizard Tower" to "Agent World" jarringly; feels like a glitch rather than a state change | Add a brief alpha crossfade on label change: fade old text to 0, set new text, fade to 1 (over 500ms) |
-| Agent fade-out is too fast (< 1 second) | Agent disappears abruptly after celebration; user misses it or thinks it is a bug | Use a 2-3 second fade duration; slow enough to be noticed, fast enough not to linger |
-| Agent fade-out is too slow (> 5 seconds) | Semi-transparent agents linger at Guild Hall, looking like ghosts; clutters the view | Keep fade duration to 2-3 seconds; begin fade immediately after arriving at Guild Hall |
-| Speech bubble shows raw tool names ("Bash", "Edit", "Grep") | Technical jargon meaningless to casual glances; defeats the "at-a-glance" dashboard purpose | Keep the current activity-type icons (wrench, magnifier, gear, antenna) -- they communicate category, not implementation |
-| All four buildings get project labels even when only one project is active | Three buildings with RPG names + one with a project name looks inconsistent; all four with project names when three are empty is misleading | Only label buildings that have at least one active session assigned; others keep RPG names |
-| Building label font size is too large for project names | Project names like "my-really-long-project" overflow the building width | Use smaller font (12px) for project names or truncate with ellipsis at 10-12 characters |
+| Showing raw cache token counts without explanation | Users see "cache_read_input_tokens: 3,200,000" and are confused why it is so high | Show "Cache Reads" with a tooltip: "Re-used context (billed at 0.1× input rate)" |
+| Cost estimate labeled as exact rather than estimated | User compares dashboard cost to Anthropic invoice and finds discrepancy; loses trust | Label all costs as "est." with a note that rates may differ from actual billing; link to pricing page |
+| 30-day chart without context | Bar chart with no axis labels or session counts is uninterpretable | Show date labels on x-axis and token count / cost on y-axis; add session count per bar |
+| Dashboard obscures RPG world during active sessions | User's attention is split; dashboard draws eye away from agent animations | Keep dashboard panel visually subdued (dark background, muted colors) so RPG world remains primary |
+| Token counts updating every 3 seconds cause numeric flicker | Rapidly changing numbers are stressful and unreadable | Round displayed numbers (e.g., show "1.2M" not "1,234,567") and only update when change exceeds 1% |
 
 ---
 
 ## "Looks Done But Isn't" Checklist
 
-- [ ] **Dynamic labels:** Labels change correctly -- verify labels revert to RPG names when all sessions for a project end (not just when sessions go idle temporarily)
-- [ ] **Character set:** Labels show "Agent World" correctly -- test with a project name containing parentheses, numbers, and underscores like "my_app (v2.0)"
-- [ ] **Agent fade-out:** Agents fade and disappear -- confirm GPU memory returns to baseline after 10 agents cycle through creation/celebration/fade-out/destroy
-- [ ] **Agent resurrection:** Agent fades out -- verify the same session's stale IPC data does not recreate the agent on the next poll (wait 6+ seconds to span two poll cycles)
-- [ ] **Speech bubble cleanup:** Agent fades out while speech bubble is visible -- confirm bubble stops ticking and is destroyed with the agent, not leaked
-- [ ] **Label revert timing:** All sessions close -- verify building labels revert within a reasonable time (< 5 minutes), not remain stuck on project names forever
-- [ ] **Frame rate during fade:** Last active agent finishes and fades -- confirm the ticker stays at 30fps during the fade animation, then drops to 5fps after cleanup
-- [ ] **Overflow projects:** Start 5 simultaneous projects -- verify the 5th project's agents go to Guild Hall gracefully instead of crashing or displacing existing assignments
-- [ ] **Label truncation:** Create a project with a very long folder name (30+ characters) -- verify the label truncates with ellipsis and does not overlap neighboring buildings
+- [ ] **Canvas layout:** Window height expanded to 1068px — verify PixiJS canvas is still 768px by inspecting canvas element `getBoundingClientRect()` (not stretched to 1068px)
+- [ ] **Token totals accuracy:** Compare dashboard token totals against `ccusage` output for the same session — they must match within rounding error (< 1%)
+- [ ] **Cache token separate rates:** Verify cost estimate uses different rates for `cache_creation_input_tokens` (1.25×) vs `cache_read_input_tokens` (0.1×) — not the same rate for all input token types
+- [ ] **Unrecognized model handling:** Start a session with a newly-released model not in the pricing config — verify cost shows "est. (unknown model)" rather than silently returning $0
+- [ ] **Offset tracking:** Start a session, let it generate 1000 JSONL lines, restart the app — verify token totals are not doubled (offset tracking resumes from correct position)
+- [ ] **History atomicity:** Kill the app mid-write during a daily rollover — restart and verify `usage-history.json` is valid JSON (not empty or truncated)
+- [ ] **30-day cleanup:** Simulate 31 days of history entries — verify entries older than 30 days are removed and the file does not grow unboundedly
+- [ ] **Duration calculation:** Open a session, pause for 10 minutes, resume, and close — verify the 10-minute idle gap is excluded from the reported session duration
+- [ ] **IPC payload size:** Log IPC message size on each `session-update` event — verify it stays under 10KB even with 8 active sessions
 
 ---
 
@@ -336,14 +479,13 @@ Phase 2 (speech bubbles). Decide the bubble's role (change notification vs. pers
 
 | Pitfall | Recovery Cost | Recovery Steps |
 |---------|---------------|----------------|
-| BitmapText visibility bug (stale labels) | LOW | Keep BitmapText always visible; only change `text` property; no architectural change needed |
-| Missing font characters | LOW | Expand `chars` array in `installPixelFont()` to printable ASCII; one-line fix |
-| Memory leak from undestroyed agents | MEDIUM | Implement deferred cleanup in tick loop; add `faded_out` state; audit all six Maps for leftover entries |
-| Agent resurrection by stale IPC | MEDIUM | Add `fadingOut` guard in `manageAgents()`; add `session-dismiss` IPC channel; requires main + renderer changes |
-| Activity vs. project routing mismatch | HIGH | Replace `ACTIVITY_BUILDING` routing with dynamic `projectToBuilding` assignment; significant refactor of `manageAgents()` |
-| Label overflow/truncation | LOW | Add `setLabel()` method with truncation to Building class; purely additive change |
-| Double-fade on speech bubble | LOW | Deactivate bubble when agent enters fade-out; one-line addition to fade initiation |
-| Concurrent modification during tick | LOW | Switch to deferred removal pattern; collect IDs first, remove after iteration |
+| Animation stutter from sync JSONL parse | HIGH | Identify call sites using `readFileSync`; convert each to streaming readline; test with 18MB fixture file |
+| Canvas coordinate corruption after height expand | HIGH | Audit all CSS on canvas element; enforce `height: 768px` inline style; call `app.renderer.resize(1024, 768)` after window resize if needed |
+| Token double-counting from no offset tracking | MEDIUM | Clear accumulated token state; re-parse all current session files from offset 0 (one-time cost); add offset tracking going forward |
+| Corrupted history file | MEDIUM | Delete `usage-history.json`; history resets to today-only (30-day data is lost but app continues working); add atomic write to prevent recurrence |
+| Stale pricing rates | LOW | Update config JSON file with current Anthropic rates; cost estimates recalculate on next app restart |
+| History storage approach wrong (full JSONL stored) | HIGH | Migrate data: re-aggregate stored raw entries into daily summaries; delete raw entries; update write logic to aggregate at write time |
+| Dashboard built as PixiJS layer | HIGH | Migrate to HTML div: remove PixiJS dashboard containers; create `dashboard.ts` HTML renderer; restructure layout HTML |
 
 ---
 
@@ -351,35 +493,40 @@ Phase 2 (speech bubbles). Decide the bubble's role (change notification vs. pers
 
 | Pitfall | Prevention Phase | Verification |
 |---------|------------------|--------------|
-| BitmapText visibility bug | Phase 1 (dynamic labels) | Set label text 10 times while toggling visibility; confirm all updates render correctly |
-| BitmapFont missing characters | Phase 1 (dynamic labels) | Test with project name "(Test_App v2.0!)" -- all characters must render |
-| Building label property access | Phase 1 (dynamic labels) | Verify `Building.setLabel()` exists and updates the BitmapText before any caller code is written |
-| Label truncation/overflow | Phase 1 (dynamic labels) | Test with 30-character project name; label must not exceed building width |
-| Activity-to-project routing | Phase 2 (routing change) | Two agents from same project both appear at the same building, not split by activity |
-| Label revert timing | Phase 2 (routing + labels) | Close all sessions for a project; label reverts within defined threshold |
-| Speech bubble role decision | Phase 2 (speech bubbles) | Document whether bubble is "change notification" or "persistent status"; verify behavior matches |
-| Agent fade-out + cleanup | Phase 3 (agent lifecycle) | Cycle 10 agents; memory returns to baseline; no entries left in any Map |
-| Agent resurrection guard | Phase 3 (agent lifecycle) | Fade an agent; wait 6 seconds (2 poll cycles); confirm no resurrection |
-| Deferred removal pattern | Phase 3 (agent lifecycle) | Fade multiple agents simultaneously; no errors during tick loop |
-| Speech bubble deactivation during fade | Phase 3 (agent lifecycle) | Agent fades while bubble is visible; bubble stops immediately, no double-fade |
-| Frame rate during fade | Phase 3 (agent lifecycle) | Last agent fades; ticker stays at 30fps until cleanup, then drops to 5fps |
+| Synchronous JSONL parsing blocks main process | Phase 1: Parsing infrastructure | Parse 18MB fixture file; confirm main process stays responsive (< 10ms IPC round-trip during parse) |
+| Window height expansion corrupts canvas | Phase 1: Window layout | Inspect canvas element after resize; `getBoundingClientRect().height` must equal 768 |
+| Dashboard in PixiJS canvas layer | Phase 1: Window layout | Dashboard must be a `<div>` element, not PixiJS Container; verify in DevTools Elements panel |
+| Token double-counting from re-reads | Phase 1: Parsing infrastructure | Parse same JSONL twice; totals must be identical to parsing once (idempotent) |
+| Cache token mis-accounting | Phase 2: Token counting | Compare 4-field breakdown against `ccusage` output; all four values must match |
+| Hardcoded pricing rates | Phase 2: Cost estimation | Change model name in test JSONL to unknown value; verify cost shows "est. (unknown)" not $0 |
+| IPC payload bloat | Phase 2: Dashboard live data | Log IPC message byte size; must stay < 10KB per 3-second tick |
+| Session duration inflation | Phase 2: Session metrics | Create test JSONL with 10-minute gap between entries; gap must not appear in computed duration |
+| Historical storage format | Phase 3: Historical data | History file must be < 10KB for 30 days of data; must load in < 50ms at startup |
+| History file corruption on crash | Phase 3: Historical data | Kill process during write; restart; history file must be valid JSON |
+| 30-day retention cleanup race | Phase 3: Historical data | Simulate 31-day history; verify cleanup completes atomically and does not corrupt file |
+| Stale pricing rates over time | Post-launch | Add UI note with last-updated date and link to Anthropic pricing page |
 
 ---
 
 ## Sources
 
-- [PixiJS BitmapText Visibility Bug - Issue #11294](https://github.com/pixijs/pixijs/issues/11294) -- BitmapText not updating while invisible (HIGH confidence, confirmed bug)
-- [PixiJS BitmapText Caching Issue - Issue #11877](https://github.com/pixijs/pixijs/issues/11877) -- Dynamic BitmapText style caching pitfalls (HIGH confidence)
-- [PixiJS BitmapFont Dynamic Warnings - PR #10627](https://github.com/pixijs/pixijs/pull/10627) -- Dynamic font texture warning threshold and fixes (HIGH confidence)
-- [PixiJS BitmapFont Space Corruption - Issue #11413](https://github.com/pixijs/pixijs/issues/11413) -- Space character corrupts dynamic BitmapFont (MEDIUM confidence, version-dependent)
-- [PixiJS Bitmap Text Guide](https://pixijs.com/8.x/guides/components/scene-objects/text/bitmap) -- Official BitmapText documentation for PixiJS 8 (HIGH confidence)
-- [PixiJS Garbage Collection](https://pixijs.com/8.x/guides/concepts/garbage-collection) -- TextureGCSystem and destroy() guidance (HIGH confidence)
-- [PixiJS Render Layer Destroy Bug - Issue #11373](https://github.com/pixijs/pixijs/issues/11373) -- Destroying parent with children and render layers (HIGH confidence)
-- [PixiJS visible vs renderable vs alpha](https://github.com/pixijs/pixijs/issues/3955) -- Performance difference: visible = false skips transforms; alpha = 0 still renders (HIGH confidence)
-- [PixiJS Performance Tips](https://pixijs.com/8.x/guides/concepts/performance-tips) -- Official optimization guidance for PixiJS 8 (HIGH confidence)
-- [PixiJS pixi-spine removeChild during event - Issue #203](https://github.com/pixijs-userland/spine/issues/203) -- Removing child during event trigger breaks display list (MEDIUM confidence, spine-specific but pattern applies)
-- Codebase inspection: `building.ts`, `agent.ts`, `speech-bubble.ts`, `world.ts`, `session-store.ts`, `bitmap-font.ts`, `constants.ts`, `types.ts` (HIGH confidence -- direct source code analysis)
+- [Electron Performance Docs](https://www.electronjs.org/docs/latest/tutorial/performance) — Main process blocking patterns and Worker Thread recommendations (HIGH confidence, official docs)
+- [The Horror of Blocking Electron's Main Process — Actual Budget](https://medium.com/actualbudget/the-horror-of-blocking-electrons-main-process-351bf11a763c) — Real-world case study on main process blocking consequences (MEDIUM confidence, verified pattern)
+- [PixiJS Issue #11427 — resizeTo ignores layout changes](https://github.com/pixijs/pixijs/issues/11427) — Confirmed PixiJS bug: resizeTo only responds to window resize events, not DOM layout changes (HIGH confidence, May 2025 issue)
+- [PixiJS Renderers Guide](https://pixijs.com/8.x/guides/components/renderers) — Official PixiJS 8 resize and resolution documentation (HIGH confidence)
+- [PixiJS Issue #4327 — DOM + PixiJS mixing](https://github.com/pixijs/pixijs/issues/4327) — Architectural complexity of DOMContainer approach (MEDIUM confidence)
+- [Electron BrowserWindow Docs](https://www.electronjs.org/docs/latest/api/browser-window) — setSize, setContentSize, content vs. window size (HIGH confidence, official docs)
+- [Electron Issue #6320 — Canvas disappears on Windows after minimize-restore](https://github.com/electron/electron/issues/6320) — Windows-specific canvas + minWidth/maxHeight interaction bug (MEDIUM confidence)
+- [Node.js Streams for Large Files — Paige Niedringhaus](https://www.paigeniedringhaus.com/blog/streams-for-the-win-a-performance-comparison-of-node-js-methods-for-reading-large-datasets-pt-2/) — Performance comparison: readFileSync vs. readline streaming for large files (HIGH confidence)
+- [ccusage — Claude Code Usage CLI](https://github.com/ryoppippi/ccusage) — Reference implementation for JSONL token aggregation; tracks all four token fields separately (HIGH confidence, active project as of 2026)
+- [Cache Tokens Dominate Quota — Claude Code Issue #24147](https://github.com/anthropics/claude-code/issues/24147) — Cache read tokens can be 99.93% of quota; confirms cache tokens must be tracked separately (HIGH confidence)
+- [Anthropic Pricing Page](https://platform.claude.com/docs/en/about-claude/pricing) — Current model rates and cache pricing multipliers (HIGH confidence, official docs)
+- [Anthropic Pricing Cut — InfoWorld](https://www.infoworld.com/article/4095894/anthropics-claude-opus-4-5-pricing-cut-signals-a-shift-in-the-enterprise-ai-market.html) — 67% Opus price cut in 2025 documents pricing volatility (HIGH confidence)
+- [Model Deprecations — Anthropic Docs](https://platform.claude.com/docs/en/about-claude/model-deprecations) — Deprecation timeline and 60-day notice policy (HIGH confidence, official docs)
+- [RxDB Electron Database Guide](https://rxdb.info/electron-database.html) — SQLite vs. JSON file tradeoffs for Electron persistence (MEDIUM confidence)
+- [Electron IPC Memory Leak — Issue #27039](https://github.com/electron/electron/issues/27039) — IPC event listener leaks when contextBridge is used incorrectly (MEDIUM confidence)
+- [Shipyard: Claude Code Tokens Explained](https://shipyard.build/blog/claude-code-tokens/) — Token type definitions and cost calculation methodology (MEDIUM confidence)
 
 ---
-*Pitfalls research for: Agent World v1.2 -- Dynamic building labels, auto-fading speech bubbles, agent fade-out lifecycle*
-*Researched: 2026-02-26*
+*Pitfalls research for: Agent World v1.5 — Usage Dashboard (token tracking, cost estimation, historical stats)*
+*Researched: 2026-03-01*

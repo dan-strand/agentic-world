@@ -1,196 +1,221 @@
 # Project Research Summary
 
-**Project:** Agent World v1.2 -- Activity Monitoring & Labeling
-**Domain:** Incremental feature additions to an animated 2D pixel-art desktop process visualizer (Electron + PixiJS 8, Windows)
-**Researched:** 2026-02-26
+**Project:** Agent World v1.5 — Usage Dashboard
+**Domain:** LLM token tracking and cost estimation integrated into an Electron + PixiJS desktop visualizer
+**Researched:** 2026-03-01
 **Confidence:** HIGH
 
 ## Executive Summary
 
-Agent World v1.2 is a focused feature increment on a fully working v1.1 Fantasy RPG visualizer. The three target features -- dynamic building labels showing project folder names, speech bubble auto-fade with broader trigger points, and agent fade-out lifecycle after task completion -- all operate purely in the renderer layer. The session detection pipeline already provides `projectName`, `activityType`, and `status` fields through IPC; the data is available but the display does not use it yet. No new npm dependencies are required. All three features are implementable with PixiJS 8 APIs already present in the codebase: `BitmapText.text` setter for labels, `Container.alpha` for fades, and the existing timer-based animation patterns used throughout the project.
+Agent World v1.5 adds a usage dashboard panel below the existing RPG world view — a text-data-heavy UI component that tracks token consumption, cost estimates per session, and a 30-day historical trend chart. The research strongly indicates that this is an additive feature built on top of a stable foundation: the existing Electron main process already polls JSONL session files every 3 seconds, and all the data needed for the dashboard already exists in those files but is never parsed for usage fields. The correct implementation is a two-layer HTML+PixiJS window where the PixiJS canvas is pinned at exactly 1024x768 and a new `<div id="dashboard">` occupies a new 312px strip below it. Nothing in the existing RPG world layer needs to change.
 
-The recommended approach is to implement the three features in sequence: building labels first (simplest, no dependencies), speech bubble trigger expansion second (builds familiarity with World.manageAgents()), and agent fade-out lifecycle last (most complex, touches the most files and tracking structures). All three features are technically independent and could be parallelized, but the fade-out lifecycle has the most gotchas and benefits from the implementer having already worked through the simpler World modifications. The single most consequential architectural decision is whether to change agent routing from activity-based to project-based. Currently, agents route to buildings by activity type (coding goes to Wizard Tower, testing to Training Grounds). Adding project-name labels to buildings without changing this routing creates a misleading UI where a building labeled "Agent World" might contain agents from multiple unrelated projects. The research strongly recommends project-based routing as the correct approach, though it is the largest refactor in the milestone.
+The recommended stack requires exactly one new dependency — Chart.js 4.5.1 for the 30-day bar chart. All other needs are covered by Node.js built-ins (`readline`, `fs`, `path`), Electron's existing IPC pattern, and plain HTML/CSS for the dashboard panel. The alternatives that appear tempting — SQLite for persistence, React-based charts, a second BrowserWindow, or embedding the dashboard into PixiJS — are all meaningfully worse options with documented failure modes in this specific Electron 40 + Windows environment.
 
-The key risks are: (1) agent fade-out without proper destroy causes memory leaks in this always-on app -- fading to alpha 0 is not the same as cleanup, and the `SessionStore` never-remove policy means stale sessions will resurrect faded agents unless guarded; (2) the BitmapFont character set needs expansion to cover all printable ASCII before any dynamic project names are displayed; (3) modifying agent alpha for fade-out conflicts with existing alpha manipulation for breathing effects, requiring the fade-out state to be dominant and exclusive. All risks have straightforward mitigations documented in the research files.
+The most important risk is synchronous JSONL parsing blocking Electron's main process and causing the RPG animation to stutter every 3 seconds. This must be addressed first using streaming readline with mtime-based caching. A secondary risk is that hardcoded pricing rates will become stale within months as Anthropic releases new models and adjusts prices — pricing must live in a config structure that can be updated without a code release. Both risks are straightforward to mitigate if addressed at the start of Phase 1 rather than retrofitted.
+
+---
 
 ## Key Findings
 
 ### Recommended Stack
 
-No new npm dependencies are needed for v1.2. The validated core stack (Electron 40.6.1, PixiJS 8.16.0, TypeScript 5.7, pixi-filters 6.1.5, Webpack/Electron Forge) is unchanged. All three features use PixiJS primitives already imported in the codebase. See `.planning/research/STACK.md` for full API verification and code patterns.
+The existing stack (Electron 40.6.1, PixiJS 8.16.0, TypeScript 5.7, Webpack via Electron Forge) requires no changes. One new npm dependency is warranted: **Chart.js 4.5.1** for the 30-day bar chart. Chart.js renders to an HTML `<canvas>` element, works natively in Electron's renderer without any wrapper, is 11KB gzipped, and requires only the `BarController`, `BarElement`, `CategoryScale`, `LinearScale`, and `Tooltip` components to be registered (tree-shaking via explicit registration). All other dashboard needs use Node.js built-ins: `readline` for streaming JSONL parsing, `fs` for JSON persistence, and `path` for file location. See STACK.md for full rationale on alternatives rejected (D3.js, better-sqlite3, electron-store, second BrowserWindow).
 
-**Core technologies (unchanged):**
-- **PixiJS 8.16.0 BitmapText.text setter**: Dynamic label updates -- setting text is cheap because BitmapText renders from pre-generated atlas glyphs with no texture regeneration
-- **PixiJS 8.16.0 Container.alpha**: Fade effects for both speech bubbles (already implemented) and agent fade-out (new) -- when alpha reaches 0, rendering is automatically skipped
-- **PixiJS 8.16.0 Container.destroy({ children: true })**: Agent cleanup after fade-out -- destroys agent and all children but must NOT pass `{ texture: true }` since textures are shared atlas textures
-
-**What NOT to use:**
-- GSAP or any tween library -- every animation in the project uses manual timer + linear interpolation in tick(); adding GSAP for one more fade is inconsistent and adds 30KB
-- PixiJS Text (canvas-rendered) -- heavier than BitmapText; generates a canvas texture on every text change
-- Object pooling for agents -- premature optimization for max 4 concurrent sessions
+**Core technologies (new additions only):**
+- **Chart.js 4.5.1**: 30-day trend bar chart — lightest canvas-based charting library, zero framework dependency, native Electron renderer support
+- **node:readline** (built-in): Streaming JSONL line-by-line parsing — avoids loading full 18MB files into memory
+- **node:fs** (already used): JSON persistence for daily aggregate store — no native module rebuild required
+- Plain HTML/CSS: Dashboard panel layout — already proven pattern in this project (drag region, audio controls are existing HTML elements)
 
 ### Expected Features
 
-All three v1.2 features address a specific user pain point: the world does not yet reflect what is actually happening. Buildings have static RPG names, speech bubbles only appear on building transitions, and completed agents pile up at Guild Hall forever. See `.planning/research/FEATURES.md` for full dependency analysis and prioritization matrix.
+The JSONL `assistant` entry format is verified from live session files. All four token fields (`input_tokens`, `output_tokens`, `cache_creation_input_tokens`, `cache_read_input_tokens`) are present and correctly structured. Cache tokens dominate long sessions — per confirmed issue #24147, cache reads can account for 99.93% of quota usage as CLAUDE.md files grow. Any dashboard that does not track cache tokens separately will show severely undercounted costs.
 
-**Must have (v1.2 table stakes):**
-- Dynamic building labels showing project folder names -- users need to know which building represents which project at a glance
-- Speech bubble triggers on initial agent assignment and same-building activity changes -- not just on building transitions
-- Agent fade-out after celebration + walk-back to Guild Hall -- completed agents must not accumulate forever
-- Dismissed session reactivation guard -- if a faded session becomes active again, create a new agent cleanly
+**Must have (table stakes — v1.5 Core):**
+- Window height expansion (1024x768 to 1024x1080) with PixiJS canvas pinned at 768px
+- JSONL usage parser with streaming readline + mtime-based caching in the main process
+- Bundled model pricing table (Opus/Sonnet/Haiku for Claude 3.x and 4.x families)
+- Live session list with compact rows (project name, status badge, duration, current tool)
+- Click-to-expand rows showing full 4-field token breakdown and cost estimate
+- Today's totals bar (input tokens, output tokens, cost, session count)
+- Cost estimate per session using `~$X.XX` notation to signal estimate status
 
-**Should have (polish):**
-- Label crossfade animation -- smooth transition matching the existing tint crossfade aesthetic (~300ms each direction)
-- Graceful linger before fade -- 2-second pause at Guild Hall before fade begins, feels intentional rather than abrupt
-- Long project name truncation -- cap at ~14-16 characters with `..` ellipsis for readability
-- Agent count in building label -- "(2)" suffix when multiple sessions target the same building
+**Should have (v1.5 Polish, after core validated):**
+- 30-day daily breakdown chart via Chart.js
+- Cache savings display ("Cache saved ~$X")
+- Session completion count in the totals bar
+- Cost-by-model chart stacking (Opus vs Sonnet vs Haiku colors)
 
 **Defer (v2+):**
-- Speech bubble text content showing actual tool/file descriptions instead of icons -- requires JSONL parsing changes and bubble UI redesign
-- Building visual state changes (door open/closed, lights on/off) based on occupancy
-- Agent "resurrection" animation when a faded session reactivates
-
-**Anti-features (do not build):**
-- Click building label to open project folder -- breaks the view-only constraint from PROJECT.md
-- Animated/scrolling label text -- unreadable at 16px BitmapText scale, unnecessary CPU cost
-- Permanent speech bubbles while working -- contradicts auto-fade purpose, causes visual clutter with overlapping bubbles
-- Fade ALL idle agents -- idle agents from running sessions should remain visible
+- Budget threshold coloring (requires a settings system that does not exist)
+- Per-project historical view (project-to-session mapping is currently fuzzy)
+- Data export (users have direct JSONL filesystem access; ccusage CLI covers this)
+- Cloud sync (violates local-only constraint)
+- Real-time token streaming counter (JSONL files only written at message boundaries, not during streaming)
 
 ### Architecture Approach
 
-All three features touch `src/renderer/` only. No changes to `src/main/`, `src/preload/`, or IPC contracts are needed. The scene hierarchy is unchanged; modifications are to existing components (Building stores a mutable label reference, Agent gains a `fading_out` state, SpeechBubble gets broader trigger points). The World class continues to own lifecycle decisions while components own their rendering. See `.planning/research/ARCHITECTURE.md` for the complete component modification plan and data flow diagrams.
+The architecture is purely additive — the existing RPG world layer is zero-touch. New main-process components (`UsageAggregator`, `HistoryStore`) plug into the existing `SessionStore` poll cycle and push to a new `dashboard-update` IPC channel. The renderer adds `DashboardPanel` and `HistoryChart` as HTML-only modules; neither uses PixiJS. The separation of IPC channels (`sessions-update` for the RPG world, `dashboard-update` for the dashboard) prevents slow token aggregation from blocking the status display. History is fetched once at startup via `ipcRenderer.invoke('get-history')`, not on every 3-second poll.
 
-**Major component modifications:**
+**Major components:**
+1. **UsageAggregator** (`main/usage-aggregator.ts`) — mtime-cached full JSONL scan, cost calculation using MODEL_PRICING constants; called synchronously from SessionStore poll cycle
+2. **HistoryStore** (`main/history-store.ts`) — daily aggregate JSON persistence at `~/.agent-world/history.json`, atomic writes (write-tmp-then-rename), 31-day pruning, loaded into memory at startup
+3. **DashboardPanel** (`renderer/dashboard-panel.ts`) — pure HTML/CSS session list, expandable rows, today's totals header; zero PixiJS involvement
+4. **HistoryChart** (`renderer/history-chart.ts`) — HTML Canvas 2D bar chart for 30-day trend (or Chart.js wrapper); receives `DailyAggregate[]` and renders statically
 
-1. **Building (building.ts)** -- Store `private label: BitmapText` reference (currently anonymous addChild), add `setLabel(text)` and `resetLabel()` public methods for dynamic label updates
-2. **Agent (agent.ts)** -- Add `fading_out` as 6th state to FSM, implement alpha fade in tick(), add `isFadedOut()` for World cleanup, add `cancelFadeOut()` for reactivation edge case; skip all other visual updates (tint, breathing, shake) during fade-out
-3. **World (world.ts)** -- Track project-to-building mapping for labels, show speech bubbles on initial assignment and same-building activity changes, implement deferred removal pattern for faded agents, maintain `dismissedSessions` Set to prevent resurrection
-4. **SpeechBubble (speech-bubble.ts)** -- Existing auto-fade mechanism is complete and correct; work is adding 2-3 `bubble.show()` calls at the right trigger points in World
-5. **constants.ts** -- Add `AGENT_FADEOUT_DELAY_MS`, `AGENT_FADEOUT_MS`, `MAX_LABEL_CHARS`
-6. **bitmap-font.ts** -- Expand chars to full printable ASCII range (32-126) to support all possible project folder name characters
+**Build order is dependency-driven:**
+1. Types and constants (`shared/types.ts`, `shared/constants.ts`) — foundation; no dependencies
+2. JSONL usage reader extension (additive export to `jsonl-reader.ts`)
+3. UsageAggregator + HistoryStore (depend on types and reader)
+4. IPC wiring — main + preload (depends on steps 1-3)
+5. Dashboard UI — renderer (depends on preload API from step 4)
 
 ### Critical Pitfalls
 
-Top 5 pitfalls synthesized from `.planning/research/PITFALLS.md`:
+Top 5 pitfalls from PITFALLS.md:
 
-1. **Agent fade-out without destroy causes memory leak** -- Fading to alpha 0 is not cleanup. The agent container, AnimatedSprite, SpeechBubble, and 6+ Map entries remain in memory. Each invisible agent still gets `tick()` called every frame. Over 8-24 hours of always-on use, dozens of invisible agents accumulate. Prevention: implement a single `removeAgent(sessionId)` method in World that cleans ALL maps and calls `agent.destroy({ children: true })`. Use deferred removal pattern (collect IDs in array, remove after tick loop).
+1. **Synchronous JSONL parsing blocks main process** — Use `fs.createReadStream()` + `readline` async iterator. Never use `readFileSync` + split for JSONL > 1MB. Track byte offsets per session so only new lines are parsed on each poll cycle. This must be the implementation from day one; retrofitting is costly and painful.
 
-2. **Faded agent resurrected by stale IPC data** -- SessionStore never removes sessions. After visual fade-out, the next 3-second poll still includes the idle session. Without a guard, World recreates the agent, causing flicker. Prevention: add `fadingOut` guard in `manageAgents()` that skips routing for fading agents. Maintain a `dismissedSessions: Set<string>` in World. Consider adding `session-dismiss` IPC channel so SessionStore drops the session.
+2. **Window height expansion corrupts PixiJS canvas coordinates** — The PixiJS canvas element must have explicit CSS `height: 768px` and `flex-shrink: 0`. Never use percentage heights on the canvas. Use Electron's `setContentSize(1024, 1080)` rather than `setSize()`. Do not use PixiJS `resizeTo` or `autoResize` after init — canvas dimensions must be frozen.
 
-3. **BitmapFont character set gaps for project names** -- The existing font covers only a-z, A-Z, 0-9, and a few punctuation marks. Project folder names can contain parentheses, ampersands, plus signs, etc. Missing characters render as blank spaces. Prevention: expand `installPixelFont()` chars to cover all printable ASCII (code points 32-126) before any dynamic text is set. One-line fix, negligible cost.
+3. **Cache token accounting errors produce wrong cost estimates** — `cache_read_input_tokens` are priced at 0.1× input rate; `cache_creation_input_tokens` at 1.25× input rate. Using a single input rate for all token fields produces costs that can be off by 2-5× for long sessions where cache dominates. All four token fields must be tracked separately with separate rate multipliers throughout.
 
-4. **Activity-based routing conflicts with project-based labels** -- Buildings are labeled with project names but agents route by activity type. Two agents from the same project doing different activities go to different buildings, making labels misleading. Prevention: replace or supplement activity-based routing with project-based routing where each active project gets assigned to one of four buildings.
+4. **Hardcoded pricing rates become stale within months** — Anthropic cut Opus prices 67% in 2025 and releases new model families 2-3 times per year. Model name formats change between versions. Pricing must use a structured constant with a `default` fallback that shows "est. (unknown model)" rather than silently returning $0 for unrecognized models.
 
-5. **Multiple alpha writers conflict during fade-out** -- Agent `applyStatusVisuals()` sets alpha for breathing effect, and `fading_out` state also sets alpha. A breathing update during fade resets alpha to 0.5-1.0, breaking the fade. Prevention: in `fading_out` state, skip ALL other visual updates (tint, breathing, shake). The fade-out state must be dominant and exclusive.
+5. **History file corruption on crash** — `fs.writeFileSync()` is not atomic. Write to a `.tmp` file, then `fs.renameSync()` to the target. On Windows, rename over an existing file may fail if locked — add a try/catch fallback to `copyFileSync` + `unlinkSync`. Never write from two concurrent code paths; serialize all history writes through a single owner.
+
+---
 
 ## Implications for Roadmap
 
-Based on combined research, the three features should be implemented in three phases. All are independent in terms of code dependencies, but the ordering below reflects increasing complexity and the benefit of building familiarity with World.manageAgents() before tackling the most stateful change.
+Based on research, the dependency graph strongly dictates a 3-phase structure. All pitfalls map cleanly to "which phase must prevent this." The build order identified in ARCHITECTURE.md is the correct phase order.
 
-### Phase 1: Dynamic Building Labels
+### Phase 1: Foundation (Parsing Infrastructure + Window Layout)
 
-**Rationale:** Simplest feature with the fewest moving parts. Modifies two files (Building and World) with no state machine changes. Establishes the pattern of World tracking per-building state and updating display components, which Phase 2 and 3 build upon. Must address the BitmapFont character set expansion before any dynamic text is displayed.
+**Rationale:** Every other feature depends on correct JSONL parsing and correct window geometry. Getting these wrong creates downstream bugs that are expensive to fix. Pitfall 1 (synchronous blocking) and Pitfall 2 (canvas coordinate corruption) must be resolved here before any UI work begins. This phase has zero visible user-facing output beyond a visible dashboard stub, but it determines correctness of all subsequent phases.
 
-**Delivers:** Buildings show active project folder names when sessions are working there; labels revert to RPG names when no active sessions target the building; long names truncated with ellipsis; BitmapFont expanded to full printable ASCII.
+**Delivers:**
+- Correct window layout: 1024x1080 window, PixiJS canvas pinned at 768px, `#dashboard` div stub visible
+- `readUsageTotals()` streaming JSONL reader with byte-offset tracking (verified non-blocking)
+- All new TypeScript types: `SessionUsage`, `DashboardData`, `DailyAggregate`
+- All new IPC channel constants: `DASHBOARD_UPDATE`, `GET_HISTORY`
+- `MODEL_PRICING` constants with all Claude 3.x and 4.x families and a `default` fallback
 
-**Addresses features:** Dynamic building labels (P1), building label revert to RPG names (P1), long project name truncation (P2), label crossfade animation (P2 stretch)
+**Addresses (from FEATURES.md):** Window height expansion, JSONL usage parser, bundled pricing table
 
-**Avoids pitfalls:** BitmapText visibility bug (#11294) -- keep labels always visible, only change text; BitmapFont character set gaps -- expand before any dynamic text; label overflow -- truncate with `setLabel()` method
+**Avoids (from PITFALLS.md):** Pitfall 1 (synchronous blocking), Pitfall 2 (canvas corruption), Pitfall 3 (token double-counting), Pitfall 4 (cache token mis-accounting), Pitfall 7 (dashboard as PixiJS layer)
 
-**Files modified:** `building.ts`, `bitmap-font.ts`, `world.ts`, `constants.ts`
+### Phase 2: Live Dashboard (Session List + Today's Totals)
 
-### Phase 2: Speech Bubble Trigger Expansion and Project-Based Routing
+**Rationale:** With parsing infrastructure correct, this phase wires the main-process components (`UsageAggregator`, `SessionStore` extension) to IPC and builds the renderer dashboard panel. Features in this phase use only current/live session data — no historical persistence required. The live dashboard is what users interact with daily and delivers immediate value. Pitfalls around IPC payload size and session duration calculation must be addressed here.
 
-**Rationale:** The speech bubble auto-fade mechanism is already fully implemented. The entire "feature" is adding 2-3 `bubble.show()` calls at correct trigger points in World.manageAgents(). This phase also addresses the critical routing decision: switching from activity-based to project-based building assignment. These two concerns are grouped because both modify `manageAgents()` and because the routing change determines how labels behave (which building gets which project name). The routing change is the single largest refactor in v1.2 and benefits from being tackled in its own focused phase before the more stateful fade-out work.
+**Delivers:**
+- `UsageAggregator` with mtime cache — only changed sessions re-scanned per poll cycle
+- `dashboard-update` IPC channel carrying `DashboardData` (live sessions + today's totals)
+- `DashboardPanel` HTML/CSS component: compact session rows, today's totals header bar
+- Click-to-expand rows showing 4-field token breakdown and cost estimate per session
+- Model badge per session (Sonnet, Opus, Haiku)
+- Duration calculation using active-interval algorithm (5-minute gap threshold)
 
-**Delivers:** Speech bubbles appear when agents first leave Guild Hall, when activity changes within the same building, and on building transitions (existing); project-based routing where each active project gets a dedicated building; "max 4 projects" overflow handling (5th project agents stay at Guild Hall).
+**Uses (from STACK.md):** Node.js readline, existing IPC pattern, plain HTML/CSS, MODEL_PRICING constants
 
-**Addresses features:** Speech bubble on initial assignment (P1), speech bubble on same-building activity change (P1), project-based building routing (architectural prerequisite for accurate labels)
+**Implements (from ARCHITECTURE.md):** UsageAggregator, DashboardPanel, IPC channel separation
 
-**Avoids pitfalls:** Over-triggering bubbles by resetting fadeTimer on every poll -- only trigger on meaningful activity changes; label revert timing races with session polling -- define clear "session is dead" heuristic; stale activity text after fade -- keep bubbles as change notifications, not persistent status
+**Avoids (from PITFALLS.md):** Pitfall 5 (stale pricing — unrecognized model shows "est. (unknown)" not $0), Pitfall 9 (IPC payload bloat — history not included in 3s poll), Pitfall 10 (duration inflation — gap threshold used)
 
-**Files modified:** `world.ts`, `speech-bubble.ts` (minor), `constants.ts` (if timing needs adjustment)
+### Phase 3: Historical Data (30-Day Chart + Persistence)
 
-### Phase 3: Agent Fade-Out Lifecycle
+**Rationale:** Historical data requires a persistence layer that was explicitly deferred until live data is validated. The storage format decision (pre-aggregated daily JSON, not raw JSONL mirroring) must be made before any persistence code is written, per Pitfall 6. Pitfall 8 (history file corruption) and the retention cleanup race condition are addressed here with atomic write patterns. Chart.js is added as the one new npm dependency in this phase.
 
-**Rationale:** Most complex feature. Adds a 6th state to the agent FSM, requires timer-based transitions, cleanup of 7+ Maps, edge case handling for session reactivation, deferred removal during tick iteration, and coordination with the SessionStore's never-remove policy. Should be implemented last so the implementer has already worked through World modifications in Phases 1-2 and understands the agent lifecycle intimately.
+**Delivers:**
+- `HistoryStore` with atomic JSON writes to `~/.agent-world/history.json`
+- Session completion detection triggering daily aggregate updates
+- `get-history` IPC invoke handler returning `DailyAggregate[]`
+- `HistoryChart` component using Chart.js 4.5.1 with RPG gold color palette
+- 30-day daily breakdown chart (one bar per day, cost in USD on y-axis, date labels on x-axis)
+- Cache savings display in expanded session rows
+- Session completion count in today's totals bar
+- 31-day retention pruning with atomic cleanup
 
-**Delivers:** Agents that complete celebration and walk back to Guild Hall linger briefly then fade out smoothly; faded agents are fully destroyed and cleaned from all tracking structures; dismissed sessions do not get resurrected by stale IPC data; fading agents can be reactivated if their session becomes active again; tick rate stays at 30fps during fade animations.
+**Uses (from STACK.md):** Chart.js 4.5.1 (new install: `npm install chart.js`), node:fs atomic write pattern, `~/.agent-world/` for storage location
 
-**Addresses features:** Agent fade-out state (P1), agent cleanup after fade (P1), dismissed session reactivation guard (P1), graceful linger timing (P2 stretch), agent count in building label (P2 stretch)
+**Implements (from ARCHITECTURE.md):** HistoryStore, HistoryChart, Flow 3 (history load at init), Flow 4 (completion recording)
 
-**Avoids pitfalls:** Memory leak from undestroyed agents -- single `removeAgent()` method cleans all maps; resurrection by stale IPC -- `fadingOut` guard + `dismissedSessions` Set; concurrent modification during tick -- deferred removal pattern; double-fade on speech bubble -- deactivate bubble when agent enters fade-out; alpha writer conflicts -- fading_out state is dominant and exclusive, skips breathing/tint/shake
-
-**Files modified:** `agent.ts`, `world.ts`, `constants.ts`, `types.ts` (if adding fading_out to AgentState union)
-
-### Phase 4: Polish and Verification (Optional)
-
-**Rationale:** Additive polish that is safe only after all three core features are verified working. These items improve visual quality but are not required for milestone sign-off.
-
-**Delivers:** Label crossfade animation on text change, agent count suffix in building labels, final timing tuning for fade duration and linger period, end-to-end testing with multiple simultaneous Claude Code sessions.
-
-**Files modified:** `building.ts` (crossfade), `world.ts` (agent count), `constants.ts` (timing)
+**Avoids (from PITFALLS.md):** Pitfall 6 (wrong storage format — daily aggregates not raw JSONL), Pitfall 8 (history file corruption — atomic write-tmp-then-rename), retention cleanup race condition
 
 ### Phase Ordering Rationale
 
-- **Labels before routing/bubbles**: Building label infrastructure (setLabel/resetLabel, BitmapFont expansion) must exist before the routing change that determines which labels to show. Also the simplest change, building confidence before larger refactors.
-- **Routing + bubbles before fade-out**: The routing refactor in manageAgents() restructures how agents are assigned to buildings. The fade-out lifecycle also modifies manageAgents() for the fadingOut guard. Doing routing first means the fade-out code is written against the final routing logic, not the soon-to-be-replaced activity-based routing.
-- **Fade-out last**: It touches the most code, has the most edge cases (reactivation, concurrent modification, alpha conflicts, cleanup of 7+ maps), and benefits from the implementer's familiarity with World internals gained in Phases 1-2.
-- **All three features are fully independent in terms of code dependencies**: This ordering is a recommendation based on complexity gradient and practical implementation flow, not a hard dependency chain.
+- **Types first (within Phase 1):** `shared/types.ts` and `shared/constants.ts` changes are the foundation. Every new file depends on these. Zero risk to existing code since changes are purely additive.
+- **Parsing before UI:** The streaming JSONL reader must be correct before any token numbers appear in the UI. A parsing bug discovered after the UI is wired requires changes in multiple call sites. A parsing bug discovered in isolation is contained to one file.
+- **Live data before history:** The live dashboard validates the token counting, cost calculation, and IPC flow. Problems found here would corrupt the history store if it were already committing daily aggregates to disk. Fix accuracy before persisting.
+- **History last:** Historical persistence has the highest risk of data corruption (Pitfalls 6, 8) and is the only phase requiring a new npm dependency. Deferring it ensures the live dashboard is stable before introducing persistence complexity.
 
 ### Research Flags
 
 Phases likely needing deeper research during planning:
-- **Phase 2 (routing change):** The switch from activity-based to project-based routing is the largest architectural change in v1.2. The exact assignment strategy (first-come-first-served building slots, project-to-building mapping lifecycle, overflow handling for 5+ projects) needs detailed design during phase planning. Consider `/gsd:research-phase` to validate the routing replacement strategy.
+
+- **Phase 1 (Window Layout):** The HTML structure for the expanded window with PixiJS canvas pinned is documented in ARCHITECTURE.md Pattern 1, but should be validated against the actual `index.html` before coding. Audio controls positioning relative to the new layout may need a decision (move above dashboard or keep fixed position). Low research burden — mostly verification, not discovery.
+
+- **Phase 3 (History Persistence):** Atomic rename behavior on Windows/NTFS when the target file is locked is MEDIUM confidence in sources. The fallback to `copyFileSync` + `unlinkSync` may need Windows-specific testing. Consider a brief verification task for Windows atomic write patterns before implementing `HistoryStore.save()`.
 
 Phases with standard patterns (skip research-phase):
-- **Phase 1 (dynamic labels):** Straightforward property addition to Building and data aggregation in World. All PixiJS APIs documented with code examples in STACK.md.
-- **Phase 3 (agent fade-out):** Timer-based state transitions, deferred removal, alpha fade -- all patterns already exist in the codebase (celebration timer, speech bubble fade, breathing alpha). The implementation mirrors existing code patterns.
-- **Phase 4 (polish):** Purely additive visual improvements using established patterns.
+
+- **Phase 2 (Live Dashboard):** HTML/CSS session list rows and IPC wiring follow patterns already established in the codebase. The `UsageAggregator` mtime-cache pattern mirrors `FilesystemSessionDetector.mtimeCache` exactly. No novel patterns introduced.
+
+---
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | No new dependencies needed. All PixiJS 8 APIs verified against official documentation. BitmapText.text setter, Container.alpha, Container.destroy() are stable core APIs. Known BitmapText visibility bug (#11294) documented with workaround. |
-| Features | HIGH | All features derived from direct codebase analysis of 22 source files. SessionInfo already carries all needed data (projectName, activityType, status). Feature dependencies and anti-features clearly identified with rationale. |
-| Architecture | HIGH | Comprehensive component modification plan grounded in existing code patterns. Timer-based state transitions, Map-per-concern tracking, and World-owns-lifecycle patterns are all established in the codebase. No new architectural patterns introduced. |
-| Pitfalls | HIGH | Critical pitfalls sourced from PixiJS 8 GitHub issues (#11294, #11877, #11373), official documentation (garbage collection, performance tips), and direct codebase inspection. Memory leak, resurrection, and alpha conflict pitfalls have concrete prevention strategies. |
+| Stack | HIGH | Chart.js 4.5.1 version verified via GitHub releases. All Node.js built-in alternatives confirmed. Rejection of better-sqlite3, electron-store, D3.js based on specific GitHub issues with version references. |
+| Features | HIGH | JSONL token structure verified from live session files. Feature set validated against ccusage and Claude-Code-Usage-Monitor as reference implementations. Pricing from official Anthropic docs as of 2026-03-01. |
+| Architecture | HIGH | All 22 source files analyzed directly. Live JSONL file structure inspected and field names confirmed. IPC patterns and preload API verified against actual codebase. Build order derived from concrete dependency analysis. |
+| Pitfalls | HIGH | Most pitfalls backed by specific GitHub issue references (PixiJS #11427, electron #6320, better-sqlite3 #1401/#1411, Claude Code #24147). JSONL parsing patterns cross-referenced against ccusage reference implementation. |
 
-**Overall confidence:** HIGH
+**Overall confidence: HIGH**
 
 ### Gaps to Address
 
-- **Project-based routing strategy**: The research identifies the need to switch from activity-based to project-based building routing but does not fully design the assignment algorithm. Questions remain: What happens when a project's activity type changes -- does the agent stay at the same building or move? How are building slots reclaimed when all of a project's sessions end? What is the visual treatment for the 5th+ project that overflows the 4-building limit? These need resolution during Phase 2 planning.
+- **Model name field path in JSONL:** Architecture research confirms the format as `"claude-opus-4-6"` from a live session file, but STACK.md notes the `model` field may appear in `message.model` or at the top-level `model` field. The exact field path should be verified against 2-3 different JSONL files before implementing `readUsageTotals()`. Cost: 10 minutes of inspection at implementation start.
 
-- **Session "ended" detection heuristic**: The SessionStore never removes sessions, and there is no explicit "session ended" signal. The research proposes three options (time-based idle threshold, process-based PID check, explicit `ended` status). The choice affects when building labels revert and when agent fade-out triggers. This needs a design decision during Phase 2-3 planning. The simplest viable approach: treat any session that has been `idle` for more than N minutes (e.g., 5 minutes) as ended, triggering both label revert and agent fade-out.
+- **Opus 4.6 pricing discrepancy between research files:** ARCHITECTURE.md lists `claude-opus-4-6` at `inputPer1M: 15.00` (old Opus 3 pricing tier), while STACK.md and FEATURES.md list it at `5.00` (reflecting the confirmed 2025 67% price cut). This conflict must be resolved before the pricing table is committed to code. Verify against `https://platform.claude.com/docs/en/about-claude/pricing` at implementation start.
 
-- **Speech bubble scope clarification**: The v1.2 spec says "speech bubbles show current activity text" but the current implementation shows activity icons, not text. The research recommends keeping icons (readable at 28x24px bubble size; text would be illegible) and treating the "feature" as expanding trigger points rather than changing content. This interpretation should be validated against the original specification intent.
+- **Atomic rename on Windows with locked files:** `fs.renameSync()` to overwrite an existing file is MEDIUM confidence on Windows/NTFS specifically. The exact failure conditions when the target file is locked by antivirus or another process are not fully documented. Add a try/catch fallback at implementation time and test with Windows Defender active.
 
-- **Concurrent multiple-project-per-building display**: When multiple distinct projects route to the same building (possible if routing stays activity-based, or if project count exceeds 4), the label strategy needs a policy: show first project, show most recently active, cycle, or show with count suffix. The research recommends "primary name (+N)" format. Confirm this during Phase 1-2 implementation.
+- **Audio controls repositioning:** The current `#audio-controls` element is positioned relative to the window. When the window grows from 768px to 1080px height, the audio controls may need repositioning to remain above the dashboard panel and not overlap it. This is a minor layout decision not fully resolved in the research.
+
+---
 
 ## Sources
 
 ### Primary (HIGH confidence)
-
-- [PixiJS 8.x BitmapText API](https://pixijs.download/dev/docs/scene.BitmapText.html) -- text property setter, dynamic updates
-- [PixiJS 8.x Container API](https://pixijs.download/dev/docs/scene.Container.html) -- alpha, destroy, removeChild
-- [PixiJS 8.x Bitmap Text Guide](https://pixijs.com/8.x/guides/components/scene-objects/text/bitmap) -- BitmapText performance characteristics
-- [PixiJS 8.x Container Guide](https://pixijs.com/8.x/guides/components/scene-objects/container) -- container lifecycle, scene graph management
-- [PixiJS 8.x Garbage Collection](https://pixijs.com/8.x/guides/concepts/garbage-collection) -- destroy best practices
-- [PixiJS 8.x Performance Tips](https://pixijs.com/8.x/guides/concepts/performance-tips) -- optimization guidance
-- [PixiJS Issue #11294](https://github.com/pixijs/pixijs/issues/11294) -- BitmapText not updating while invisible
-- [PixiJS Issue #11877](https://github.com/pixijs/pixijs/issues/11877) -- Dynamic BitmapText style caching pitfalls
-- [PixiJS Issue #11373](https://github.com/pixijs/pixijs/issues/11373) -- Destroying parent with children and render layers
-- [PixiJS Issue #3955](https://github.com/pixijs/pixijs/issues/3955) -- visible vs renderable vs alpha performance differences
-- Direct codebase analysis of all 22 source files in `src/` -- existing patterns verified
+- [Anthropic Pricing Docs](https://platform.claude.com/docs/en/about-claude/pricing) — Model rates for Opus/Sonnet/Haiku across Claude 3.x and 4.x families
+- [Chart.js GitHub Releases](https://github.com/chartjs/Chart.js/releases) — v4.5.1 confirmed as latest stable
+- [Chart.js Installation Docs](https://www.chartjs.org/docs/latest/getting-started/installation.html) — ESM/CJS details, tree-shaking via explicit registration
+- [Node.js readline docs](https://nodejs.org/api/readline.html) — async iterator pattern for JSONL streaming
+- [Electron BrowserWindow Docs](https://www.electronjs.org/docs/latest/api/browser-window) — setSize vs. setContentSize, window geometry
+- [PixiJS Issue #11427](https://github.com/pixijs/pixijs/issues/11427) — resizeTo only triggers on window resize events, not DOM layout changes (May 2025)
+- [better-sqlite3 Issue #1401](https://github.com/WiseLibs/better-sqlite3/issues/1401) — Windows 11 + Electron build failures
+- [better-sqlite3 Issue #1411](https://github.com/WiseLibs/better-sqlite3/issues/1411) — Node.js 25 build failures
+- [electron-store Issue #259](https://github.com/sindresorhus/electron-store/issues/259) — Electron Forge + ESM incompatibility
+- [Claude Code Issue #24147](https://github.com/anthropics/claude-code/issues/24147) — Cache tokens can be 99.93% of quota usage
+- [ccusage GitHub](https://github.com/ryoppippi/ccusage) — Reference JSONL token aggregation implementation; four-field tracking confirmed
+- Direct codebase analysis: all 22 source files in `src/` — existing patterns verified
+- Live JSONL inspection: `~/.claude/projects/C--Users-dlaws-Projects-Agent-World/5de0e917-*.jsonl` — confirmed `message.usage` structure and model field format `"claude-opus-4-6"`
 
 ### Secondary (MEDIUM confidence)
+- [Paige Niedringhaus — Node.js streaming performance comparison](https://www.paigeniedringhaus.com/blog/streams-for-the-win-a-performance-comparison-of-node-js-methods-for-reading-large-datasets-pt-2/) — readFileSync vs. readline streaming for large files
+- [PixiJS Issue #4327](https://github.com/pixijs/pixijs/issues/4327) — DOM + PixiJS mixing architectural complexity
+- [Electron Issue #6320](https://github.com/electron/electron/issues/6320) — Canvas disappears on Windows after minimize-restore
+- [Anthropic model deprecations](https://platform.claude.com/docs/en/about-claude/model-deprecations) — 60-day deprecation notice policy
+- [Shipyard: How to track Claude Code usage](https://shipyard.build/blog/claude-code-track-usage/) — Four tracking approaches compared
+- [Claude-Code-Usage-Monitor GitHub](https://github.com/Maciek-roboblog/Claude-Code-Usage-Monitor) — Real-time terminal UI reference implementation
+- Chart.js npm page — Bundle size (page returned 403 during research; 11KB gzipped confirmed via web search result)
 
-- [PixiJS BitmapFont Dynamic Warnings - PR #10627](https://github.com/pixijs/pixijs/pull/10627) -- dynamic font texture warning threshold
-- [PixiJS BitmapFont Space Corruption - Issue #11413](https://github.com/pixijs/pixijs/issues/11413) -- space character corruption (version-dependent)
-- [PixiJS v8.11.0 Release](https://pixijs.com/blog/8.11.0) -- SplitBitmapText, breakWords for BitmapText (confirms active development)
+### Tertiary (LOW confidence)
+- [RxDB Electron Database Guide](https://rxdb.info/electron-database.html) — SQLite vs. JSON tradeoffs (general patterns, not Electron 40 specific)
 
 ---
-*Research completed: 2026-02-26*
+*Research completed: 2026-03-01*
 *Ready for roadmap: yes*

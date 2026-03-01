@@ -1,204 +1,246 @@
 # Feature Research
 
-**Domain:** Dynamic labels, auto-fading speech bubbles, agent fade-out lifecycle for Fantasy RPG visualizer
-**Researched:** 2026-02-26
-**Confidence:** HIGH (features derived directly from codebase analysis of all 22 source files)
+**Domain:** LLM usage dashboard — token tracking, cost estimation, historical stats for a local Electron desktop app
+**Researched:** 2026-03-01
+**Confidence:** HIGH (confirmed by live ecosystem tools ccusage, Claude-Code-Usage-Monitor, and official Anthropic pricing docs)
 
 ## Context
 
-This is v1.2 milestone research, building on an already-shipped v1.1 Fantasy RPG visualizer. The three target features (dynamic building labels, speech bubble auto-fade triggers, agent fade-out lifecycle) address a specific user pain point: the world does not yet reflect what is actually happening. Buildings have static RPG names, speech bubbles only appear on building transitions, and completed agents pile up at Guild Hall forever.
+This is v1.5 milestone research for the Agent World project. The existing v1.4 system already parses JSONL files from `~/.claude/projects/{encoded-path}/{session-uuid}.jsonl` to detect session status. The new dashboard feature adds a panel below the RPG world view that shows live session details, token consumption, cost estimates, and 30-day historical trends.
 
-All three features operate purely in the renderer layer. The session detection pipeline (SessionStore, FilesystemSessionDetector) already provides `projectName`, `activityType`, and `status` fields -- the data is available, the display just does not use it yet.
+**Key existing assets that feed this feature:**
+- `FilesystemSessionDetector` already scans all JSONL files and extracts `sessionId`, `projectPath`, `projectName`, `status`, `lastModified`
+- `readLastJsonlLine()` / `readLastToolUse()` read the tail buffer; parsing usage requires scanning more of each file
+- `SessionInfo` type already carries `projectName`, `status`, `lastToolName`, `activityType`
+- The main-process `session-store.ts` polls every 3 seconds and pushes `sessions-update` IPC events to the renderer
+
+Token data (`message.usage`) is in the JSONL files but is never parsed today. The `usage` object in `assistant` entries contains `input_tokens`, `output_tokens`, `cache_creation_input_tokens`, `cache_read_input_tokens`. The `model` field in the same entry provides the model identifier needed for cost calculation.
 
 ## Feature Landscape
 
 ### Table Stakes (Users Expect These)
 
-These are the core v1.2 features. Without all three, the milestone is incomplete.
+Features any LLM usage dashboard must have. Missing these = dashboard feels broken.
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| **Dynamic building labels showing project names** | Users run multiple projects; need to know which building represents which project at a glance. The existing `SessionInfo.projectName` is available but never displayed on buildings. | MEDIUM | Building class has no mutable label reference -- constructs `BitmapText` with `BUILDING_LABELS[buildingType]` but does not store it. Requires: storing `private label: BitmapText` field, adding `setLabel(text: string)` method, World tracking active-project-to-building mapping, reverting to RPG names when no active sessions target that building. |
-| **Speech bubble auto-fade after display** | Persistent bubbles clutter the screen and obscure agents; auto-fade is partially implemented but under-triggered. | LOW | `SpeechBubble` already has `tick()` with `SPEECH_BUBBLE_DURATION` (4000ms) + `SPEECH_BUBBLE_FADE_MS` (1000ms). The fade mechanism is complete and working. The gap: `show()` only triggers on activity type changes between buildings (line 286 of world.ts), not on initial agent assignment or same-building activity changes. |
-| **Agent fade-out at Guild Hall after celebrating** | Completed agents accumulate at Guild Hall forever, making it crowded and making it impossible to see at a glance which sessions are truly active. | MEDIUM | No agent removal code exists anywhere. `SessionStore` explicitly never removes sessions ("persist until restart"). Need: new agent state or flag (`fading_out`), alpha tween after arriving at Guild Hall post-celebration, then full cleanup from all World tracking maps (`agents`, `agentsContainer`, `speechBubbles`, `statusDebounce`, `lastCommittedStatus`, `lastRawStatus`, `lastActivity`). |
+| **Live session list** | Users need to identify which sessions are running and their current status at a glance — this is the entry point to all other data | LOW | Already have `SessionInfo[]` from session-store IPC. Renderer renders compact rows: project name, status badge, duration, current tool. No new data needed — just a DOM panel layout using existing IPC data. |
+| **Token count per session (input + output)** | Primary unit of cost; without raw numbers there is no basis for cost estimation | MEDIUM | Requires scanning each JSONL file for all `assistant` entries with `usage` objects, not just the tail. Need `readAllUsage(filePath)` function that streams the file. Cache per session by (filePath, mtimeMs) to avoid re-scanning unchanged files. |
+| **Cost estimate per session** | Token counts mean nothing to most users; "$0.34" is actionable | MEDIUM | Hardcode pricing table for model families (Opus, Sonnet, Haiku) matching Anthropic docs. Formula: `(input_tokens * input_rate) + (output_tokens * output_rate) + (cache_creation * cache_write_rate) + (cache_read * cache_read_rate)`. Model name from JSONL `model` field. |
+| **Today's totals (tokens + cost)** | "How much have I spent today?" is the most common question for any usage tracker | MEDIUM | Sum token counts across all sessions where the JSONL mtime is within today's date. Requires parsing usage from all files, not just active ones. Accumulate in the main process; emit via IPC on each poll. |
+| **Cache token breakdown** | Cache tokens are priced differently (write = 1.25x input, read = 0.1x input); hiding them gives wrong cost estimates | LOW | Surface `cache_creation_input_tokens` and `cache_read_input_tokens` separately, or show them as a combined "cache" line below input/output in the expanded detail view. Data is already in the JSONL `usage` object. |
+| **Per-session duration** | Users need to understand "how long has this session been running?" for time-cost tradeoffs | LOW | `Date.now() - session.lastModified` gives time-since-last-activity. Session start is the mtime of the first JSONL entry; read this once on session discovery and cache it. |
+| **Model identification** | Different models have radically different pricing; must show which model is in use | LOW | Extract `model` field from `assistant` entries in JSONL. Most sessions are single-model but store it per session. Display as a badge ("Sonnet", "Opus", "Haiku"). |
 
 ### Differentiators (Competitive Advantage)
 
-Features that make the visualizer feel polished rather than merely functional.
+Features beyond the baseline that make this dashboard worth using over existing CLI tools like ccusage.
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| **Label crossfade animation** | Smooth label changes feel intentional rather than jarring; matches existing tint crossfade aesthetic used for agent status transitions. | LOW | BitmapText alpha tween: fade old label out, update text, fade new label in. ~300ms each direction. Reuse `STATUS_CROSSFADE_MS` / `lerpColor` timing pattern. |
-| **Speech bubble on initial activity assignment** | Agent walks to building but no bubble appears -- looks like a silent, context-free movement. Users cannot tell what triggered the walk. | LOW | Add `bubble.show(activityType)` call when agent transitions from `idle_at_hq` to `walking_to_building` in `manageAgents()`, not just on activity type changes. |
-| **Building label shows agent count** | Multiple sessions on same project go to same building; count makes occupancy visible (e.g., "Agent World (2)"). | LOW | Track active agent count per building, append to label string when count > 1. |
-| **Graceful linger before fade** | Instant removal after arriving at Guild Hall feels abrupt; a brief idle pause then smooth fade feels natural and gives the user a moment to register the return. | LOW | Add `GUILD_HALL_LINGER_MS` constant (~2000ms). After arriving `idle_at_hq` post-celebration, wait linger period, then begin alpha fade over `AGENT_FADEOUT_MS` (~1500ms). |
+| **30-day daily chart** | Trend visibility — "Am I using more AI this week than last week?" — not available in any of the live monitors we surveyed | HIGH | Requires parsing historical JSONL files grouped by calendar date. Each file's mtime gives its most-recent-activity date, but earlier entries within the file may be days older. For accuracy: scan all entries in each JSONL file and bucket by timestamp. Use a canvas-rendered bar chart (PixiJS Graphics or HTML canvas overlay). 30 bars, daily resolution. |
+| **Cost-by-model breakdown** | Users running mixed Opus/Sonnet sessions benefit from seeing the cost split; tells them if Haiku would be cheaper for certain tasks | MEDIUM | Track model usage per session and per day. Requires storing `Map<model, TokenCounts>` per day rather than a flat daily total. Render as a stacked or grouped bar. |
+| **Session completion count** | "I completed 7 tasks today" — gives a sense of productivity alongside cost | LOW | Count sessions that transitioned through `celebrating` state (already detected in agent lifecycle). Or count JSONL files with a `system` entry indicating task completion. The existing dual-gate completion detection can emit a counter. |
+| **Integrated live view** | The existing RPG world already shows which agents are active/waiting — the dashboard sits below it and enriches the at-a-glance view rather than replacing it | LOW | This is an architectural advantage over CLI tools (ccusage, Claude-Code-Usage-Monitor) which are separate terminal windows. No extra implementation cost — it is inherent to the Electron single-window design. |
+| **Click-to-expand session rows** | Compact default view with full token/cost detail on demand — prevents information overload while keeping details accessible | LOW | HTML click handler on row element toggles a `details` div. No state machine needed. |
+| **Cache savings display** | Show "You saved $X by using cache" = `(cache_read_tokens * (input_rate - cache_read_rate))` — motivates good prompting habits | LOW | Simple calculation once cache token counts are available. Display as a green "saved" line or tooltip. |
 
 ### Anti-Features (Commonly Requested, Often Problematic)
 
 | Feature | Why Requested | Why Problematic | Alternative |
 |---------|---------------|-----------------|-------------|
-| **Click building label to open project folder** | Seems convenient for project navigation. | Breaks the view-only constraint (established KEY DECISION in PROJECT.md). Adds IPC complexity, security surface, platform-specific `shell:open` calls. The visualizer is a monitor, not a launcher. | Keep view-only. Users already have terminals open for each project. |
-| **Animated/scrolling text for labels** | Looks flashy, game-like. | BitmapText at 16px on pixel art is already small. Animation makes it harder to read. CPU cost of per-frame text updates for a purely decorative feature. | Static text swap with optional alpha crossfade is sufficient and readable. |
-| **Speech bubbles with full activity descriptions** | More information seems better ("Reading src/renderer/world.ts"). | Requires parsing JSONL for file paths (fragile, changes with Claude Code updates), BitmapText at 16px cannot fit long strings in the tiny 28x24px bubble, and text changes too rapidly (every tool call at 3s polling). | The activity icon system already communicates the type of work (wrench, magnifier, gear, antenna). Icon-only bubbles are the right abstraction level for this display size. |
-| **Permanent speech bubble while working** | "I want to always see what each agent is doing." | Contradicts the purpose of auto-fade. Persistent bubbles overlap each other, obscure agents beneath, and create visual noise -- especially with 3-4 agents at the same building. | Auto-fade on activity change: show briefly on transitions, then get out of the way. The building label + building routing already communicate ongoing activity. |
-| **Remove idle sessions from SessionStore** | Clean up the data source instead of doing visual cleanup. | Breaks the "sessions persist until restart" design in `SessionStore.poll()`. Other code paths may depend on historical session presence. JSONL files are not deleted when sessions end, so the detector would rediscover them on the next poll. | Visual-only fade-out in renderer. Agent is removed from display but SessionStore retains the data. World tracks "dismissed" session IDs to prevent re-creation. |
-| **Fade out ALL idle agents (not just post-celebration)** | "Clean up all unused agents." | An idle agent whose session is still running should remain visible -- the user needs to know that session exists even if it is temporarily quiet. Fading idle agents removes useful information. | Only fade agents that have gone through the full completion lifecycle: active -> idle (debounced) -> celebration -> walk back -> linger -> fade out. |
+| **Real-time token streaming counter** | Watching tokens increment live is satisfying and feels informative | JSONL files are only written at message boundaries, not during streaming. A live token counter would require hooking Claude Code internals (not accessible). Polling at 3s intervals means the counter would jump in large steps, not increment smoothly. False sense of precision. | Show tokens from the last completed message, updated on each poll cycle. Make it clear this is "last message" not streaming. |
+| **Budget alerts / spend limits** | "Alert me when I hit $10/day" sounds useful | Agent World is a visualizer, not a controller. Implementing actionable alerts (pause Claude, notify via OS, etc.) requires system integration far beyond the current scope. A passive dashboard cannot enforce limits. | Display the daily running total prominently. Users can self-limit based on what they see. Flag as v2+ if genuinely needed. |
+| **Usage prediction / ML forecasting** | Claude-Code-Usage-Monitor does this and it seems impressive | For a personal desktop tool used by one developer, predictions based on 8-day history are noise, not signal. The complexity (P90 calculation, rolling average, extrapolation) far exceeds the value for a tool that updates every 3 seconds. | Show current day's total. Users have intuitive models of their own usage. |
+| **Data export (CSV/JSON)** | Power users might want to analyze data in spreadsheets | The underlying data is already in plaintext JSONL files the user owns. Adding an export button just copies data the user already has direct filesystem access to. Real cost: file dialogs, serialization format decisions, renderer-to-main IPC for file writes. | Document where JSONL files live. Point users to ccusage CLI for structured exports. |
+| **Cloud sync / remote dashboard** | "I want to see my usage on my phone" | Violates the local-only constraint (established in PROJECT.md). Requires a server, authentication, data transmission of potentially sensitive session content. The core value is local, always-on, zero-config. | Keep local. Access the app on the desktop where Claude Code runs. |
+| **Per-project cost allocation** | "How much did I spend on Project X this month?" | The project-to-session mapping is fuzzy (sessions can switch projects, project names derived from `cwd` are human-readable but not canonical identifiers). Inaccurate attribution is worse than no attribution. | Show per-session costs where the project context is reliable. Aggregate daily totals are accurate; per-project allocation is not. |
+| **Historical data persistence (database)** | "Store usage stats even after JSONL files are deleted" | JSONL files are the source of truth. Adding a separate SQLite or JSON database to mirror this data creates a sync problem: what wins when they disagree? Doubles storage, adds a migration concern. | Read JSONL files directly. Anthropic keeps them for a long time by default. If the user deletes them, the history is gone — that is correct behavior. |
 
 ## Feature Dependencies
 
 ```
-[Dynamic Building Labels]
-    |
-    +--requires--> Building.setLabel() method (store BitmapText ref)
-    +--requires--> World tracks project-to-building mapping
-    +--requires--> World detects when building has no active sessions (revert label)
-    |
-    +--enhances--> [Label Crossfade Animation] (optional polish)
+[Live Session List]
+    +--already provided by--> SessionInfo[] via IPC (no new data needed)
+    +--enhances--> [Per-Session Duration] (start time from first JSONL entry)
+    +--enhances--> [Model Badge] (model field from assistant entries)
 
-[Speech Bubble Auto-Fade]
-    |
-    +--already built--> SpeechBubble.tick() with duration + fade
-    +--requires--> Broader trigger points in World.manageAgents()
-    |
-    +--enhances--> [Show Bubble on First Assignment]
+[JSONL Usage Parser]
+    +--required by--> [Token Count per Session]
+    +--required by--> [Cost Estimate per Session]
+    +--required by--> [Cache Token Breakdown]
+    +--required by--> [Today's Totals]
+    +--required by--> [30-Day Daily Chart]
+    +--required by--> [Cost-by-Model Breakdown]
 
-[Agent Fade-Out Lifecycle]
-    |
-    +--requires--> New agent state or post-state flag (fading_out)
-    +--requires--> World.manageAgents() cleanup after fade completes
-    +--requires--> Distinguishing "idle from active session" vs "idle post-celebration"
-    |
-    +--conflicts--> SessionStore never-remove policy (resolved: visual-only removal)
-    +--enhances--> [Graceful Linger Before Fade]
+[Token Count per Session]
+    +--required by--> [Cost Estimate per Session]
+    +--required by--> [Cache Savings Display]
 
-[Dynamic Building Labels] --independent-of--> [Speech Bubble Auto-Fade]
-[Dynamic Building Labels] --independent-of--> [Agent Fade-Out Lifecycle]
-[Speech Bubble Auto-Fade] --independent-of--> [Agent Fade-Out Lifecycle]
+[Today's Totals]
+    +--required by--> [30-Day Daily Chart] (same bucketing logic, different time window)
+
+[Cost Estimate per Session]
+    +--required by--> [Cost-by-Model Breakdown]
+
+[Session Completion Count]
+    +--independent of--> [JSONL Usage Parser] (uses existing completion detection in session-store)
+
+[Click-to-Expand Session Rows]
+    +--requires--> [Live Session List] (rows must exist before expansion works)
+    +--enhances--> [Token Count per Session] (shows detail on expand)
+    +--enhances--> [Cache Token Breakdown] (shows detail on expand)
 ```
 
 ### Dependency Notes
 
-- **Building.setLabel() is a prerequisite for dynamic labels:** The current Building constructor creates a `BitmapText` with `BUILDING_LABELS[buildingType]` but does not store a reference. The label text is set once and never updated. Must store `private label: BitmapText` as a class field and expose a `setLabel()` method.
-- **World project-to-building mapping is needed for label updates:** Currently, World maps activity types to buildings via `QUEST_ZONE_POSITIONS` and `ACTIVITY_BUILDING`. For dynamic labels, World needs to track which `projectName` values have active sessions at each building and update labels when that set changes.
-- **Agent fade-out must distinguish post-celebration idle from normal idle:** An agent that is `idle_at_hq` because its session is still running (just no recent tool activity) should NOT fade out. Only agents that completed the celebration cycle and returned to Guild Hall should fade. This requires a "completed" flag on the Agent or tracking in World.
-- **All three features are fully independent:** They can be implemented in any order or in parallel. No feature blocks another. This allows flexible phase structuring.
-- **SessionStore conflict is design-level, not code-level:** Agent fade-out removes the visual agent from the renderer, but SessionStore still holds the SessionInfo. If the session becomes active again after visual removal, World must detect this and create a fresh agent. A `Set<string>` of "dismissed session IDs" in World handles this -- remove from the set if the session's status changes from `idle` to `active/waiting`.
+- **JSONL Usage Parser is the foundation:** Every cost and token feature depends on a function that scans JSONL files for `assistant` entries with `usage` objects. This parser is the first thing to build. It runs in the main process (filesystem access), results cached by `(filePath, fileSize)` to avoid redundant reads. The existing `readLastJsonlLine` tail-only approach is intentionally insufficient for usage — usage data accumulates across the entire file's history.
+
+- **Model pricing table must be bundled, not fetched:** Pricing from `platform.claude.com/docs/en/about-claude/pricing` must be baked into constants. The app is always-on and offline-capable; network fetches for pricing would create flicker on startup. The table needs maintenance when Anthropic releases new models, but this is infrequent (2-3 times per year).
+
+- **Today's Totals and 30-day Chart share the same bucketing logic:** If daily bucketing by calendar date is built for Today's Totals, the 30-day chart is an extension of the same scan with a wider date window. Build them together or ensure the data structure supports both from the start.
+
+- **Session list rows are independent of token data:** The session list (project name, status, duration, tool) can render immediately using existing IPC data. Token/cost detail only appears when rows are expanded — this allows a phased implementation: ship the list first, add expansion with token data in a later phase.
+
+- **Click-to-expand requires no new IPC:** Token data for expanded rows can be fetched on demand via a new IPC handler `get-session-usage` that takes a `sessionId` and returns `TokenCounts`. No need to include usage in every sessions-update broadcast (would bloat IPC payload on every 3-second poll).
 
 ## MVP Definition
 
-### Launch With (v1.2 Core)
+### Launch With (v1.5 Core)
 
-The three committed features from PROJECT.md, broken into atomic deliverables:
+Minimum viable dashboard that makes the "Active" requirements in PROJECT.md complete.
 
-- [ ] **Building.setLabel() method** -- Store BitmapText reference in Building class, expose text update method
-- [ ] **World dynamic label logic** -- Track project-to-building mapping, update labels each poll cycle, revert to RPG names when no active sessions
-- [ ] **Speech bubble on initial assignment** -- Show activity icon when agent first leaves Guild Hall for a building
-- [ ] **Speech bubble on same-building activity change** -- Trigger show() when activity poll data changes even within the same building type
-- [ ] **Agent fade-out state** -- New state or flag after celebrate-walk-back-arrive, with alpha tween to 0
-- [ ] **Agent cleanup after fade** -- Remove agent from all World tracking structures, add session ID to dismissed set
-- [ ] **Dismissed session reactivation** -- If a dismissed session becomes active again, clear dismissed flag and create new agent
+- [ ] **Expand window height** — Add ~200px below the 768px RPG world for the dashboard panel. Requires `BrowserWindow` height change in `main/index.ts` and CSS panel layout in renderer.
+- [ ] **JSONL usage parser (main process)** — `readSessionUsage(filePath): TokenCounts` scanning all `assistant` entries with `usage` objects. Cache by `(filePath, mtimeMs)`. This is the foundation all cost features depend on.
+- [ ] **Bundled model pricing table** — Constants for Opus, Sonnet, Haiku (input, output, cache write, cache read rates per MTok). Cover Claude 3.x through Claude 4.6 families. Source: official Anthropic docs.
+- [ ] **Live session list with compact rows** — Project name, status badge (color-coded), duration (time since session start), current tool. Renders as an HTML panel below the canvas. Updates on each `sessions-update` IPC event.
+- [ ] **Click-to-expand row with token detail** — Expanded view shows input tokens, output tokens, cache creation, cache read, cost estimate, model name. Fetched via on-demand `get-session-usage` IPC call when row is clicked.
+- [ ] **Today's totals bar** — Persistent header row in the dashboard: "Today: X input tokens | Y output tokens | ~$Z". Updated on each poll cycle.
+- [ ] **Cost estimation per session** — Apply pricing table to token counts from the usage parser. Display as `~$0.34` with tilde to signal estimate.
 
-### Add After Validation (v1.2 Polish)
+### Add After Validation (v1.5 Polish)
 
-- [ ] **Label crossfade animation** -- Alpha tween on text change (~30 lines, uses existing timing patterns)
-- [ ] **Agent count in building label** -- Append "(2)" when multiple sessions target same building
-- [ ] **Graceful linger timing** -- Tunable `GUILD_HALL_LINGER_MS` constant before fade begins
-- [ ] **Long project name truncation** -- Cap at ~16 chars with ellipsis for BitmapText readability
+- [ ] **30-day daily breakdown chart** — Canvas-rendered bar chart of daily token spend. Requires scanning all historical JSONL files grouped by date. Add only after the core session list and today's totals are working correctly.
+- [ ] **Cache savings display** — "Cache saved ~$X" line in expanded session detail. Low effort once cache token counts are available.
+- [ ] **Session completion count** — "7 tasks completed today" metric in the totals bar. Tap into the existing celebration-detection logic.
+- [ ] **Cost-by-model breakdown** — In the 30-day chart, stack Opus vs Sonnet vs Haiku costs. Adds context to the daily bar chart.
 
 ### Future Consideration (v2+)
 
-- [ ] **Speech bubble text content** -- Show actual tool/file descriptions instead of icons (requires JSONL parsing changes and bubble UI redesign)
-- [ ] **Building visual state changes** -- Door open/closed, lights on/off based on occupancy
-- [ ] **Agent "resurrection" animation** -- Visual effect when a faded-out session becomes active again (instead of just spawning a new agent)
+- [ ] **Budget display threshold coloring** — Yellow/red tinting on the totals bar above user-defined daily limits. Requires a settings system that does not exist yet.
+- [ ] **Per-project historical view** — Filter the 30-day chart by project. Depends on reliable project-to-session mapping, which is currently fuzzy for multi-project sessions.
+- [ ] **Data export** — Point users to ccusage CLI as the canonical export solution. Only revisit if there is strong demand for in-app export.
 
 ## Feature Prioritization Matrix
 
 | Feature | User Value | Implementation Cost | Priority |
 |---------|------------|---------------------|----------|
-| Dynamic building labels (project names) | HIGH | MEDIUM | P1 |
-| Building label revert to RPG names | HIGH | LOW | P1 |
-| Speech bubble on initial assignment | MEDIUM | LOW | P1 |
-| Agent fade-out after completion | HIGH | MEDIUM | P1 |
-| Dismissed session reactivation guard | HIGH | LOW | P1 |
-| Label crossfade animation | LOW | LOW | P2 |
-| Agent count in label | LOW | LOW | P2 |
-| Graceful linger timing | MEDIUM | LOW | P2 |
-| Long project name truncation | MEDIUM | LOW | P2 |
+| Window height expansion | HIGH | LOW | P1 |
+| JSONL usage parser | HIGH | MEDIUM | P1 |
+| Model pricing table constants | HIGH | LOW | P1 |
+| Live session list rows | HIGH | LOW | P1 |
+| Today's totals bar | HIGH | MEDIUM | P1 |
+| Click-to-expand token detail | HIGH | LOW | P1 |
+| Cost estimate per session | HIGH | LOW (once parser exists) | P1 |
+| 30-day daily chart | MEDIUM | HIGH | P2 |
+| Cache savings display | MEDIUM | LOW | P2 |
+| Session completion count | MEDIUM | LOW | P2 |
+| Cost-by-model chart stacking | LOW | MEDIUM | P3 |
+| Budget threshold coloring | MEDIUM | MEDIUM | P3 |
 
 **Priority key:**
-- P1: Must have for v1.2 milestone completion
-- P2: Should have, adds polish but not essential for milestone sign-off
+- P1: Must have for v1.5 milestone sign-off
+- P2: Should have, add after P1 items are validated
 - P3: Nice to have, future consideration
-
-## Implementation Complexity Analysis
-
-### Dynamic Building Labels (MEDIUM)
-
-**What changes:**
-1. `Building` class: store `private label: BitmapText`, add `setLabel(text: string)` public method
-2. `World` class: add `Map<BuildingType, string>` tracking current label text per building
-3. `World.updateSessions()`: after grouping sessions by activity, determine dominant project name per building, call `building.setLabel(projectName)` or revert to `BUILDING_LABELS[type]` when empty
-4. `constants.ts`: add `MAX_LABEL_LENGTH` (~16 chars) for truncation
-
-**Gotchas:**
-- Multiple projects can map to the same building (two different projects both doing "coding" go to Wizard Tower). Need a policy: show the project with the most active agents, or show the most recently active, or cycle between them.
-- Label should only show project name when sessions are actively *working* at that building (state: `working` or `walking_to_workspot`), not when agents are walking to the building or celebrating.
-- `installPixelFont()` char set in `bitmap-font.ts` includes `a-z, A-Z, 0-9, space, dash, dot, underscore, slash, backslash`. This covers most project names but exotic characters (parentheses, `@`, `#`) will render as missing glyphs. Not worth adding -- project folder names rarely use these.
-- Max 4 quest zone buildings means max 4 dynamic labels. Guild Hall label could optionally show "Guild Hall" always or show the number of idle agents.
-
-### Speech Bubble Auto-Fade (LOW)
-
-**What changes:**
-1. `World.manageAgents()` line ~272: add `bubble.show(activityType)` when agent transitions from `idle_at_hq` to `walking_to_building` (initial assignment)
-2. `World.manageAgents()`: consider showing bubble on any activity data change (not just building-changing transitions)
-
-**Gotchas:**
-- Over-triggering: if every 3-second poll triggers `show()` (because `lastModified` changed), the `fadeTimer` resets to 0 and the bubble never fades. Must only trigger on *meaningful* activity changes -- compare `activityType` not raw session data.
-- The existing implementation is complete and correct. The auto-fade mechanism (4s display + 1s fade) works perfectly. The entire "feature" is about adding 2-3 `bubble.show()` calls at the right trigger points.
-
-### Agent Fade-Out Lifecycle (MEDIUM)
-
-**What changes:**
-1. `Agent` class: add `fading_out` state to `AgentState` union, or add a boolean `isCompleted` flag alongside `idle_at_hq`
-2. `Agent.tick()`: in the `idle_at_hq` case (when `isCompleted`), count down a linger timer, then tween alpha from 1.0 to 0.0
-3. `Agent`: add `startFadeOut()` method (called by World when agent arrives at Guild Hall after celebration), add `isFadedOut(): boolean` getter
-4. `World.tick()`: after ticking agents, check for `isFadedOut()` and run full cleanup
-5. `World`: add `private dismissedSessions: Set<string>` to track visually-removed session IDs
-6. `World.manageAgents()`: skip agent creation for dismissed sessions unless status is `active` or `waiting` (then clear from dismissed set and create fresh agent)
-7. Cleanup code: remove agent from `agents` Map, `agentsContainer.removeChild()`, remove from `speechBubbles` (destroy bubble), remove from `statusDebounce`, `lastCommittedStatus`, `lastRawStatus`, `lastActivity`
-
-**Gotchas:**
-- **Biggest gotcha:** SessionStore never removes sessions. After visual fade-out, the next poll still includes the idle session in the `sessions` array passed to `World.updateSessions()`. Without the dismissed-sessions guard, World would immediately recreate the agent, causing a flicker loop.
-- **Fade must be interruptible:** If a session status changes to `active` during the fade animation (user started a new conversation), cancel the fade (`alpha = 1`, clear `isCompleted` flag) and reassign to a building normally.
-- **`repositionIdleAgents()` must exclude fading agents:** Fading agents should not count in the fan-out layout at Guild Hall. Otherwise, the remaining agents would shift position when the faded agent is finally removed.
-- **State machine consideration:** Adding `fading_out` as a 6th state to `AgentState` is cleaner than a boolean flag because it integrates with the existing `switch(this.state)` in `tick()`. But it means `getState()` callers need to handle the new state. A private boolean + special handling within `idle_at_hq` case keeps the public API unchanged.
 
 ## Existing Infrastructure Reuse
 
-| Existing Code | How It Is Reused |
-|---------------|-----------------|
-| `SpeechBubble.tick()` + `show()` | Already implements the full auto-fade lifecycle. Just needs more trigger points in World |
-| `BitmapText` in Building constructor | Pattern exists. Store the reference and add a setter |
-| `STATUS_CROSSFADE_MS` + `lerpColor()` | Reusable timing pattern for optional label crossfade animation |
-| Celebrate -> walk-back -> `idle_at_hq` pipeline | The trigger point for fade-out is when this pipeline completes |
-| Agent `applyStatusVisuals()` breathing alpha | Proof that `Container.alpha` manipulation works cleanly on agents |
-| `installPixelFont()` char set | Already covers common project name characters (a-z, A-Z, 0-9, space, dash, dot, underscore) |
-| `SessionInfo.projectName` field | Already available from session detector, extracted from JSONL `cwd` field via `path.basename()` |
-| `ACTIVITY_BUILDING` mapping | Already maps activity types to building types -- reuse for project-to-building label routing |
+| Existing Code | How It Is Reused for Dashboard |
+|---------------|-------------------------------|
+| `FilesystemSessionDetector.discoverSessions()` | Already scans all JSONL files. Usage parser runs on same file paths — no new discovery logic needed. |
+| `SessionStore.poll()` + IPC push | Session list update triggers are already wired. Today's totals can piggyback on the same polling cycle. |
+| `readLastJsonlLine()` in `jsonl-reader.ts` | Pattern for O(1) reads is established. Usage parser follows the same file-open/stat/read/close pattern but reads the full file rather than tail-only. |
+| `SessionInfo.projectName`, `.status`, `.lastToolName` | Live session list rows render directly from these fields — no new IPC channels needed for the list itself. |
+| `ipc-handlers.ts` + `preload.ts` + `IAgentWorldAPI` | On-demand usage fetch (`get-session-usage`) follows the existing `getInitialSessions` IPC pattern. Add a new channel, handler, and preload bridge. |
+| `IPC_CHANNELS` constant in `types.ts` | New channel names (`GET_SESSION_USAGE`, `GET_DAILY_TOTALS`) follow the same single-source-of-truth pattern. |
+| Main process file access (Electron context) | Token parsing is compute on the main process side — fits the existing architecture where all filesystem I/O happens in main, not renderer. |
+
+## Implementation Notes: JSONL Usage Parsing
+
+The JSONL `assistant` entries that carry usage data have this structure:
+
+```json
+{
+  "type": "assistant",
+  "message": {
+    "model": "claude-sonnet-4-6-20260228",
+    "usage": {
+      "input_tokens": 4821,
+      "output_tokens": 312,
+      "cache_creation_input_tokens": 3500,
+      "cache_read_input_tokens": 12000
+    }
+  }
+}
+```
+
+Key parser requirements:
+1. Scan all lines in the file (not just tail) — usage accumulates over the full session history
+2. Only process lines where `type === "assistant"` and `message.usage` is present
+3. Sum all four token fields across all assistant entries in the file
+4. Extract the most recent `message.model` for cost calculation
+5. Cache result by `(filePath, fileSizeBytes)` — if size unchanged since last scan, return cached result (JSONL files only grow, never shrink)
+
+**Cost formula (per session):**
+
+```
+cost = (input_tokens / 1_000_000) * input_rate_per_mtok
+     + (output_tokens / 1_000_000) * output_rate_per_mtok
+     + (cache_creation_input_tokens / 1_000_000) * cache_write_rate_per_mtok
+     + (cache_read_input_tokens / 1_000_000) * cache_read_rate_per_mtok
+```
+
+**Model pricing constants (as of 2026-03-01, from official Anthropic docs):**
+
+| Model family | Input $/MTok | Output $/MTok | Cache Write $/MTok | Cache Read $/MTok |
+|--------------|-------------|--------------|-------------------|------------------|
+| claude-opus-4.x | 5.00 | 25.00 | 6.25 | 0.50 |
+| claude-sonnet-4.x | 3.00 | 15.00 | 3.75 | 0.30 |
+| claude-haiku-4.x | 1.00 | 5.00 | 1.25 | 0.10 |
+| claude-sonnet-3.7 | 3.00 | 15.00 | 3.75 | 0.30 |
+| claude-haiku-3.5 | 0.80 | 4.00 | 1.00 | 0.08 |
+| claude-opus-3 | 15.00 | 75.00 | 18.75 | 1.50 |
+| claude-haiku-3 | 0.25 | 1.25 | 0.30 | 0.03 |
+
+Match by prefix substring: `model.startsWith('claude-opus-4')` → Opus 4.x pricing. Note that subscription-plan users (Claude Code Pro/Max) pay a flat monthly fee — the cost estimates will show API-equivalent pricing, not actual subscription cost. Display a disclaimer: "API-equivalent estimate."
+
+## Competitor Feature Analysis
+
+| Feature | ccusage (CLI) | Claude-Code-Usage-Monitor (terminal) | Agent World Dashboard (ours) |
+|---------|--------------|-------------------------------------|------------------------------|
+| Live session list | No (historical only) | Yes (real-time) | Yes (live, integrated with RPG view) |
+| Token breakdown | Yes (daily/monthly/session) | Yes (real-time) | Yes (per session + today totals) |
+| Cost estimate | Yes (auto/calculate/display modes) | Yes | Yes |
+| Cache token tracking | Yes | Partial | Yes |
+| Historical chart | Yes (table format) | Yes (real-time view only) | Yes (30-day bar chart, v1.5 P2) |
+| Model breakdown | Yes (optional flag) | No | Yes (model badge per session) |
+| Integration with status view | No (separate tool) | No (separate terminal) | Yes (same window as RPG visualizer) |
+| Windows native | Yes (Node.js CLI) | Yes (Python terminal) | Yes (Electron) |
+| Offline pricing | Yes (LiteLLM cached) | Unknown | Yes (bundled constants) |
+| No setup required | No (npm install needed) | No (pip install needed) | Yes (already installed) |
 
 ## Sources
 
-- Direct codebase analysis of all 22 source files in `C:/Users/dlaws/Projects/Agent World/src/`
-- `Building` class: `src/renderer/building.ts` -- static label at construction, no mutable reference stored
-- `SpeechBubble` class: `src/renderer/speech-bubble.ts` -- auto-fade fully implemented with timer + alpha tween
-- `Agent` class: `src/renderer/agent.ts` -- 5-state machine (idle_at_hq, walking_to_building, walking_to_workspot, working, celebrating), no fade-out state
-- `World` class: `src/renderer/world.ts` -- agent lifecycle management, speech bubble triggers only on activity type changes
-- `SessionStore`: `src/main/session-store.ts` -- explicitly never removes sessions from map
-- `constants.ts`: `src/shared/constants.ts` -- SPEECH_BUBBLE_DURATION=4000, SPEECH_BUBBLE_FADE_MS=1000, BUILDING_LABELS static record
-- `types.ts`: `src/shared/types.ts` -- SessionInfo includes projectName field
-- `bitmap-font.ts`: `src/renderer/bitmap-font.ts` -- PixelSignpost font char set covers standard project name characters
-- `activity-icons.ts`: `src/renderer/activity-icons.ts` -- 5 pre-built GraphicsContext icons for activity types
+- [ccusage official site](https://ccusage.com/) — feature set, cost modes, token types tracked
+- [ccusage GitHub](https://github.com/ryoppippi/ccusage) — daily/weekly/monthly/session views, JSON export, 5-hour billing windows
+- [ccusage cost modes guide](https://ccusage.com/guide/cost-modes) — auto/calculate/display modes, token formula
+- [Claude-Code-Usage-Monitor GitHub](https://github.com/Maciek-roboblog/Claude-Code-Usage-Monitor) — real-time terminal UI, P90 predictions, color-coded progress bars
+- [Anthropic Claude API pricing (official)](https://platform.claude.com/docs/en/about-claude/pricing) — per-model pricing table for all Claude 3.x and 4.x families
+- [Shipyard: How to track Claude Code usage](https://shipyard.build/blog/claude-code-track-usage/) — four approaches compared, complementary strategy
+- [Langfuse token and cost tracking](https://langfuse.com/docs/observability/features/token-and-cost-tracking) — industry patterns for LLM observability dashboards
+- [LLM Cost Estimation Guide (Medium)](https://medium.com/@alphaiterations/llm-cost-estimation-guide-from-token-usage-to-total-spend-fba348d62824) — token type breakdown, cost formula structure
+- Direct codebase analysis: `src/main/jsonl-reader.ts`, `src/main/session-detector.ts`, `src/main/session-store.ts`, `src/shared/types.ts`
 
 ---
-*Feature research for: v1.2 Activity Monitoring & Labeling milestone*
-*Researched: 2026-02-26*
+*Feature research for: v1.5 Usage Dashboard milestone*
+*Researched: 2026-03-01*
