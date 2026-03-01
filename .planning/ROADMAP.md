@@ -107,11 +107,11 @@ Plans:
   3. A totals bar at the top of the dashboard shows today's aggregate input tokens, output tokens, estimated cost, and session count
   4. Cache savings are displayed showing how much money was saved by cache reads versus full-price input
   5. Cost estimates correctly differentiate between Opus, Sonnet, and Haiku pricing, and unrecognized models show an estimate indicator rather than $0
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 18-01: TBD
-- [ ] 18-02: TBD
+- [ ] 18-01-PLAN.md -- Main process wiring: pricing constants, cost calculation, IPC channel, preload bridge
+- [ ] 18-02-PLAN.md -- Renderer dashboard UI: session rows, expandable detail, totals bar, cache savings
 
 ### Phase 19: Historical Persistence
 **Goal**: Users can see their usage trends over time, with daily aggregates persisted across application restarts and a 30-day historical view in the dashboard
