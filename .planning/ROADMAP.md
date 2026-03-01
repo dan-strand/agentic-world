@@ -76,7 +76,7 @@ See: [`.planning/milestones/v1.4-ROADMAP.md`](milestones/v1.4-ROADMAP.md) for fu
 **Milestone Goal:** Add a usage dashboard below the RPG world showing live session details, token usage, cost estimates, and 30-day historical trends.
 
 - [x] **Phase 17: Window Layout and Parsing Infrastructure** - Expanded window with dashboard div, streaming JSONL usage parser with mtime caching (completed 2026-03-01)
-- [ ] **Phase 18: Live Dashboard with Cost Estimation** - Session list, token breakdowns, cost calculation, today's totals, and cache savings display
+- [x] **Phase 18: Live Dashboard with Cost Estimation** - Session list, token breakdowns, cost calculation, today's totals, and cache savings display (completed 2026-03-01)
 - [ ] **Phase 19: Historical Persistence** - Daily aggregate storage with 30-day retention and dashboard history view
 
 ## Phase Details
@@ -150,5 +150,5 @@ Phases execute in numeric order: 17 -> 18 -> 19
 | 15. Workspace Interior Art | v1.4 | Complete | Complete | 2026-02-27 |
 | 16. Agent Stations and Info Overlay | v1.4 | 2/2 | Complete | 2026-02-27 |
 | 17. Window Layout and Parsing Infrastructure | 2/2 | Complete    | 2026-03-01 | - |
-| 18. Live Dashboard with Cost Estimation | 1/2 | In Progress|  | - |
+| 18. Live Dashboard with Cost Estimation | 2/2 | Complete   | 2026-03-01 | - |
 | 19. Historical Persistence | v1.5 | 0/TBD | Not started | - |

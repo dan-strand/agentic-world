@@ -21,8 +21,8 @@ Requirements for Usage Dashboard milestone. Each maps to roadmap phases.
 
 ### Dashboard
 
-- [ ] **DASH-01**: Live session list shows compact rows with project name, status badge, duration, and current tool
-- [ ] **DASH-02**: Clicking a session row expands to show full 4-field token breakdown and cost estimate
+- [x] **DASH-01**: Live session list shows compact rows with project name, status badge, duration, and current tool
+- [x] **DASH-02**: Clicking a session row expands to show full 4-field token breakdown and cost estimate
 - [x] **DASH-03**: Today's totals bar shows aggregate input tokens, output tokens, estimated cost, and session count
 - [x] **DASH-04**: Cache savings display shows estimated money saved via cache reads
 
@@ -71,8 +71,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PARSE-01 | Phase 17 | Complete |
 | PARSE-02 | Phase 17 | Complete |
 | PARSE-03 | Phase 17 | Complete |
-| DASH-01 | Phase 18 | Pending |
-| DASH-02 | Phase 18 | Pending |
+| DASH-01 | Phase 18 | Complete |
+| DASH-02 | Phase 18 | Complete |
 | DASH-03 | Phase 18 | Complete |
 | DASH-04 | Phase 18 | Complete |
 | COST-01 | Phase 18 | Complete |
