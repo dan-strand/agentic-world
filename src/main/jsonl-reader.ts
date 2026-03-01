@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import * as readline from 'readline';
 import { JSONL_TAIL_BUFFER_SIZE } from '../shared/constants';
 
 export interface JsonlEntry {
@@ -126,4 +127,62 @@ export function readLastToolUse(
       try { fs.closeSync(fd); } catch { /* ignore */ }
     }
   }
+}
+
+export interface TokenUsageTotals {
+  inputTokens: number;
+  outputTokens: number;
+  cacheCreationTokens: number;
+  cacheReadTokens: number;
+  model: string;
+  turnCount: number;
+}
+
+/**
+ * Stream-parse a JSONL file and accumulate token usage from all assistant entries.
+ * Uses readline + createReadStream so it never blocks the main process with readFileSync.
+ * Malformed lines are silently skipped (race condition: Claude may be mid-write).
+ */
+export async function readUsageTotals(filePath: string): Promise<TokenUsageTotals> {
+  const totals: TokenUsageTotals = {
+    inputTokens: 0, outputTokens: 0,
+    cacheCreationTokens: 0, cacheReadTokens: 0,
+    model: '', turnCount: 0,
+  };
+
+  let stream: fs.ReadStream | null = null;
+  try {
+    stream = fs.createReadStream(filePath, { encoding: 'utf-8' });
+
+    const rl = readline.createInterface({
+      input: stream,
+      crlfDelay: Infinity,
+    });
+
+    for await (const line of rl) {
+      if (!line.trim()) continue;
+      try {
+        const entry = JSON.parse(line);
+        if (entry.type !== 'assistant') continue;
+        const usage = entry.message?.usage;
+        if (!usage) continue;
+
+        totals.inputTokens += usage.input_tokens ?? 0;
+        totals.outputTokens += usage.output_tokens ?? 0;
+        totals.cacheCreationTokens += usage.cache_creation_input_tokens ?? 0;
+        totals.cacheReadTokens += usage.cache_read_input_tokens ?? 0;
+        totals.turnCount++;
+
+        if (entry.message?.model) {
+          totals.model = entry.message.model;
+        }
+      } catch {
+        // Malformed line (mid-write race) -- skip silently
+      }
+    }
+  } catch {
+    // File doesn't exist, permission error, etc. -- return zero totals
+  }
+
+  return totals;
 }

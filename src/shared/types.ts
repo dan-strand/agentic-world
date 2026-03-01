@@ -37,6 +37,25 @@ export interface IAgentWorldAPI {
   endDrag: () => void;
 }
 
+// Token usage from a single JSONL assistant entry's message.usage
+export interface TokenUsage {
+  input_tokens: number;
+  output_tokens: number;
+  cache_creation_input_tokens: number;
+  cache_read_input_tokens: number;
+}
+
+// Aggregated usage for one session (accumulated across all assistant entries)
+export interface SessionUsage {
+  sessionId: string;
+  inputTokens: number;
+  outputTokens: number;
+  cacheCreationTokens: number;
+  cacheReadTokens: number;
+  model: string;
+  turnCount: number;
+}
+
 // Extend Window for renderer access
 declare global {
   interface Window {
