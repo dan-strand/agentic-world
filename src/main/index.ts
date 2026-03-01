@@ -22,11 +22,11 @@ const store = new SessionStore(detector);
 const createWindow = (): void => {
   const mainWindow = new BrowserWindow({
     width: 1024,
-    height: 768,
+    height: 1080,
     minWidth: 1024,
-    minHeight: 768,
+    minHeight: 1080,
     maxWidth: 1024,
-    maxHeight: 768,
+    maxHeight: 1080,
     resizable: false,
     maximizable: false,
     fullscreenable: false,

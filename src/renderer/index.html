@@ -5,7 +5,7 @@
   <title>Agent World</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1a2e; }
+    html, body { width: 1024px; height: 1080px; overflow: hidden; background: #1a1a2e; display: flex; flex-direction: column; }
     #drag-region {
       position: fixed;
       top: 0;
@@ -36,13 +36,26 @@
     .window-btn:hover { background: rgba(255, 255, 255, 0.1); }
     .window-btn.close:hover { background: #c42b1c; color: #fff; }
     #app {
-      width: 100%;
-      height: 100%;
+      width: 1024px;
+      height: 768px;
+      flex-shrink: 0;
       -webkit-app-region: no-drag;
+    }
+    #dashboard {
+      width: 1024px;
+      height: 312px;
+      flex-shrink: 0;
+      overflow-y: auto;
+      background: #0f0f1a;
+      border-top: 1px solid #2a2a3e;
+      color: #c9a96e;
+      font-family: 'Segoe UI', sans-serif;
+      font-size: 13px;
+      padding: 8px 12px;
     }
     #audio-controls {
       position: fixed;
-      bottom: 8px;
+      bottom: 320px;
       right: 8px;
       z-index: 9999;
       display: flex;
@@ -83,10 +96,13 @@
     <button class="window-btn" id="btn-minimize">&#x2014;</button>
     <button class="window-btn close" id="btn-close">&#x2715;</button>
   </div>
+  <div id="app"></div>
+  <div id="dashboard">
+    <p style="color: #665533; margin-top: 4px;">Usage Dashboard</p>
+  </div>
   <div id="audio-controls">
     <button id="btn-mute" title="Mute/Unmute">&#x1F50A;</button>
     <input type="range" id="volume-slider" min="0" max="100" value="50" title="Volume" />
   </div>
-  <div id="app"></div>
 </body>
 </html>
