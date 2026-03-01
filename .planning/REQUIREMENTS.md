@@ -35,8 +35,8 @@ Requirements for Usage Dashboard milestone. Each maps to roadmap phases.
 
 ### History
 
-- [ ] **HIST-01**: Daily aggregates persisted to a JSON file for 30-day retention
-- [ ] **HIST-02**: Dashboard shows 30-day aggregate total (tokens and cost)
+- [x] **HIST-01**: Daily aggregates persisted to a JSON file for 30-day retention
+- [x] **HIST-02**: Dashboard shows 30-day aggregate total (tokens and cost)
 
 ## Future Requirements
 
@@ -79,8 +79,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | COST-02 | Phase 18 | Complete |
 | COST-03 | Phase 18 | Complete |
 | COST-04 | Phase 18 | Complete |
-| HIST-01 | Phase 19 | Pending |
-| HIST-02 | Phase 19 | Pending |
+| HIST-01 | Phase 19 | Complete |
+| HIST-02 | Phase 19 | Complete |
 
 **Coverage:**
 - v1.5 requirements: 16 total
