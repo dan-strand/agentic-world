@@ -3,6 +3,7 @@ import { SessionInfo, IPC_CHANNELS, DashboardData, DashboardSession, TodayTotals
 import { POLL_INTERVAL_MS } from '../shared/constants';
 import { SessionDetector } from './session-detector';
 import { UsageAggregator } from './usage-aggregator';
+import { HistoryStore } from './history-store';
 
 /**
  * Central session state management.
@@ -20,7 +21,11 @@ export class SessionStore {
   private pollInterval: NodeJS.Timeout | null = null;
   private mainWindow: BrowserWindow | null = null;
 
-  constructor(detector: SessionDetector, private usageAggregator: UsageAggregator) {
+  constructor(
+    detector: SessionDetector,
+    private usageAggregator: UsageAggregator,
+    private historyStore: HistoryStore,
+  ) {
     this.detector = detector;
   }
 
@@ -179,6 +184,9 @@ export class SessionStore {
       todayTotals.totalCostUsd += ds.totalCostUsd;
       todayTotals.cacheSavingsUsd += ds.cacheSavingsUsd;
     }
+
+    // Persist today's aggregate to history (skips write if unchanged)
+    this.historyStore.recordTodayTotals(todayTotals);
 
     const data: DashboardData = { sessions: dashboardSessions, todayTotals };
 

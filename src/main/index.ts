@@ -3,6 +3,7 @@ import { registerIpcHandlers } from './ipc-handlers';
 import { FilesystemSessionDetector } from './session-detector';
 import { SessionStore } from './session-store';
 import { UsageAggregator } from './usage-aggregator';
+import { HistoryStore } from './history-store';
 
 // Forge webpack magic globals for entry point URLs
 declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
@@ -19,7 +20,8 @@ Menu.setApplicationMenu(null);
 // Create detector and store at module level so they're accessible for cleanup
 const detector = new FilesystemSessionDetector();
 const usageAggregator = new UsageAggregator();
-const store = new SessionStore(detector, usageAggregator);
+const historyStore = new HistoryStore(app.getPath('userData'));
+const store = new SessionStore(detector, usageAggregator, historyStore);
 
 const createWindow = (): void => {
   const mainWindow = new BrowserWindow({
@@ -62,7 +64,7 @@ const createWindow = (): void => {
 };
 
 // Register IPC handlers with the store so get-initial-sessions can serve live data
-registerIpcHandlers(store);
+registerIpcHandlers(store, historyStore);
 
 // Window control IPC handlers
 ipcMain.on('window-minimize', (event) => {
@@ -103,6 +105,7 @@ app.on('window-all-closed', () => {
 
 // Clean up polling on quit
 app.on('before-quit', () => {
+  historyStore.flush();
   store.stop();
   console.log('[main] Cleanup complete');
 });
