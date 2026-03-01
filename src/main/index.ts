@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, Menu, screen } from 'electron';
 import { registerIpcHandlers } from './ipc-handlers';
 import { FilesystemSessionDetector } from './session-detector';
 import { SessionStore } from './session-store';
+import { UsageAggregator } from './usage-aggregator';
 
 // Forge webpack magic globals for entry point URLs
 declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
@@ -17,7 +18,8 @@ Menu.setApplicationMenu(null);
 
 // Create detector and store at module level so they're accessible for cleanup
 const detector = new FilesystemSessionDetector();
-const store = new SessionStore(detector);
+const usageAggregator = new UsageAggregator();
+const store = new SessionStore(detector, usageAggregator);
 
 const createWindow = (): void => {
   const mainWindow = new BrowserWindow({

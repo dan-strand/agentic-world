@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import { readUsageTotals, TokenUsageTotals } from './jsonl-reader';
+import { resolveModelPricing, calculateCost, calculateCacheSavings, getModelDisplayName } from '../shared/constants';
 
 /**
  * Caches parsed token usage per session, keyed by sessionId.
@@ -24,6 +25,39 @@ export class UsageAggregator {
     } catch {
       return null;  // File deleted, permissions error, etc.
     }
+  }
+
+  async getUsageWithCost(sessionId: string, filePath: string): Promise<{
+    inputTokens: number;
+    outputTokens: number;
+    cacheCreationTokens: number;
+    cacheReadTokens: number;
+    totalCostUsd: number;
+    cacheSavingsUsd: number;
+    model: string;
+    modelDisplayName: string;
+    isEstimate: boolean;
+    turnCount: number;
+  } | null> {
+    const totals = await this.getUsage(sessionId, filePath);
+    if (!totals) return null;
+
+    const { pricing, isEstimate } = resolveModelPricing(totals.model);
+    const totalCostUsd = calculateCost(totals, pricing);
+    const cacheSavingsUsd = calculateCacheSavings(totals.cacheReadTokens, pricing);
+
+    return {
+      inputTokens: totals.inputTokens,
+      outputTokens: totals.outputTokens,
+      cacheCreationTokens: totals.cacheCreationTokens,
+      cacheReadTokens: totals.cacheReadTokens,
+      totalCostUsd,
+      cacheSavingsUsd,
+      model: totals.model,
+      modelDisplayName: getModelDisplayName(totals.model),
+      isEstimate,
+      turnCount: totals.turnCount,
+    };
   }
 
   clearSession(sessionId: string): void {

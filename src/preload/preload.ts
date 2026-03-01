@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import { IPC_CHANNELS, SessionInfo } from '../shared/types';
+import { IPC_CHANNELS, SessionInfo, DashboardData } from '../shared/types';
 
 contextBridge.exposeInMainWorld('agentWorld', {
   onSessionsUpdate: (callback: (sessions: SessionInfo[]) => void): void => {
@@ -9,6 +9,11 @@ contextBridge.exposeInMainWorld('agentWorld', {
   },
   getInitialSessions: (): Promise<SessionInfo[]> => {
     return ipcRenderer.invoke(IPC_CHANNELS.GET_INITIAL_SESSIONS);
+  },
+  onDashboardUpdate: (callback: (data: DashboardData) => void): void => {
+    ipcRenderer.on(IPC_CHANNELS.DASHBOARD_UPDATE, (_event, data: DashboardData) => {
+      callback(data);
+    });
   },
   minimizeWindow: (): void => {
     ipcRenderer.send('window-minimize');

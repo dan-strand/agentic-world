@@ -1,7 +1,8 @@
 import { BrowserWindow } from 'electron';
-import { SessionInfo, IPC_CHANNELS } from '../shared/types';
+import { SessionInfo, IPC_CHANNELS, DashboardData, DashboardSession, TodayTotals } from '../shared/types';
 import { POLL_INTERVAL_MS } from '../shared/constants';
 import { SessionDetector } from './session-detector';
+import { UsageAggregator } from './usage-aggregator';
 
 /**
  * Central session state management.
@@ -19,7 +20,7 @@ export class SessionStore {
   private pollInterval: NodeJS.Timeout | null = null;
   private mainWindow: BrowserWindow | null = null;
 
-  constructor(detector: SessionDetector) {
+  constructor(detector: SessionDetector, private usageAggregator: UsageAggregator) {
     this.detector = detector;
   }
 
@@ -66,7 +67,7 @@ export class SessionStore {
    * 3. Detect changes (new sessions, status changes, lastModified changes)
    * 4. If changes found, push update to renderer via IPC
    */
-  private poll(): void {
+  private async poll(): Promise<void> {
     try {
       const discovered = this.detector.discoverSessions();
       let hasChanges = false;
@@ -108,6 +109,7 @@ export class SessionStore {
 
       if (hasChanges) {
         this.pushUpdate();
+        await this.pushDashboardUpdate();
       }
     } catch (err) {
       console.error('[session-store] Poll error:', (err as Error).message);
@@ -132,6 +134,58 @@ export class SessionStore {
       console.log(`[session-store] Pushed update: ${sessionList.length} sessions`);
     } catch (err) {
       console.warn('[session-store] Failed to push update:', (err as Error).message);
+    }
+  }
+
+  /**
+   * Build and push DashboardData (per-session usage + cost + today totals) to the renderer.
+   * Called after pushUpdate() whenever session data changes.
+   */
+  private async pushDashboardUpdate(): Promise<void> {
+    if (!this.mainWindow || this.mainWindow.isDestroyed()) return;
+
+    const sessions = this.getSessions();
+    const dashboardSessions: DashboardSession[] = [];
+
+    for (const session of sessions) {
+      const usage = await this.usageAggregator.getUsageWithCost(session.sessionId, session.filePath);
+      if (usage) {
+        dashboardSessions.push({
+          sessionId: session.sessionId,
+          projectName: session.projectName,
+          status: session.status,
+          lastToolName: session.lastToolName,
+          lastModified: session.lastModified,
+          ...usage,
+        });
+      }
+    }
+
+    const todayTotals: TodayTotals = {
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheCreationTokens: 0,
+      cacheReadTokens: 0,
+      totalCostUsd: 0,
+      cacheSavingsUsd: 0,
+      sessionCount: dashboardSessions.length,
+    };
+
+    for (const ds of dashboardSessions) {
+      todayTotals.inputTokens += ds.inputTokens;
+      todayTotals.outputTokens += ds.outputTokens;
+      todayTotals.cacheCreationTokens += ds.cacheCreationTokens;
+      todayTotals.cacheReadTokens += ds.cacheReadTokens;
+      todayTotals.totalCostUsd += ds.totalCostUsd;
+      todayTotals.cacheSavingsUsd += ds.cacheSavingsUsd;
+    }
+
+    const data: DashboardData = { sessions: dashboardSessions, todayTotals };
+
+    try {
+      this.mainWindow.webContents.send(IPC_CHANNELS.DASHBOARD_UPDATE, data);
+    } catch (err) {
+      console.warn('[session-store] Failed to push dashboard update:', (err as Error).message);
     }
   }
 }

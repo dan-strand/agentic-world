@@ -187,6 +187,7 @@ export class FilesystemSessionDetector implements SessionDetector {
 
       const sessionInfo: SessionInfo = {
         sessionId,
+        filePath,
         projectPath,
         projectName,
         status,

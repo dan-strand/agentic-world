@@ -12,6 +12,7 @@ export type SessionStatus = 'active' | 'waiting' | 'idle' | 'error';
 
 export interface SessionInfo {
   sessionId: string;
+  filePath: string;          // JSONL file path (main process only, renderer ignores)
   projectPath: string;       // Full path: C:\Users\dlaws\Projects\Agent World
   projectName: string;       // Display name: Agent World
   status: SessionStatus;
