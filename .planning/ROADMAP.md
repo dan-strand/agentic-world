@@ -7,6 +7,7 @@
 - ✅ **v1.2 Activity Monitoring & Labeling** - Phases 8-10 (shipped 2026-02-26)
 - ✅ **v1.3 Audio & Status Reliability** - Phases 11, 13 (shipped 2026-02-27)
 - ✅ **v1.4 Enhanced Session Workspaces** - Phases 14-16 (shipped 2026-02-27)
+- **v1.5 Usage Dashboard** - Phases 17-19 (in progress)
 
 ## Phases
 
@@ -70,7 +71,65 @@ See: [`.planning/milestones/v1.4-ROADMAP.md`](milestones/v1.4-ROADMAP.md) for fu
 
 </details>
 
+### v1.5 Usage Dashboard (In Progress)
+
+**Milestone Goal:** Add a usage dashboard below the RPG world showing live session details, token usage, cost estimates, and 30-day historical trends.
+
+- [ ] **Phase 17: Window Layout and Parsing Infrastructure** - Expanded window with dashboard div, streaming JSONL usage parser with mtime caching
+- [ ] **Phase 18: Live Dashboard with Cost Estimation** - Session list, token breakdowns, cost calculation, today's totals, and cache savings display
+- [ ] **Phase 19: Historical Persistence** - Daily aggregate storage with 30-day retention and dashboard history view
+
+## Phase Details
+
+### Phase 17: Window Layout and Parsing Infrastructure
+**Goal**: Users see an expanded window with the RPG world on top and an empty dashboard area below, while the system can extract token usage from every session's JSONL files without blocking the animation
+**Depends on**: Phase 16 (v1.4 complete)
+**Requirements**: LAYOUT-01, LAYOUT-02, LAYOUT-03, PARSE-01, PARSE-02, PARSE-03
+**Success Criteria** (what must be TRUE):
+  1. Application window is taller than before with a visible dashboard region below the RPG world
+  2. The RPG world animation continues to render at the same size and position with no visual changes
+  3. The dashboard region is an HTML div (not PixiJS) that can display text content
+  4. Token usage totals (input, output, cache read, cache write) can be extracted from any session's JSONL file
+  5. Parsing a large JSONL file does not cause visible animation stutter in the RPG world above
+**Plans**: TBD
+
+Plans:
+- [ ] 17-01: TBD
+- [ ] 17-02: TBD
+
+### Phase 18: Live Dashboard with Cost Estimation
+**Goal**: Users can see all active sessions, their token usage, estimated costs, and today's aggregate totals in the dashboard panel -- the primary daily-use feature
+**Depends on**: Phase 17
+**Requirements**: COST-01, COST-02, COST-03, COST-04, DASH-01, DASH-02, DASH-03, DASH-04
+**Success Criteria** (what must be TRUE):
+  1. Dashboard shows a compact row for every active session with its project name, status, duration, and current tool
+  2. Clicking a session row expands it to reveal a full token breakdown (input, output, cache read, cache write) and a cost estimate displayed as ~$X.XX
+  3. A totals bar at the top of the dashboard shows today's aggregate input tokens, output tokens, estimated cost, and session count
+  4. Cache savings are displayed showing how much money was saved by cache reads versus full-price input
+  5. Cost estimates correctly differentiate between Opus, Sonnet, and Haiku pricing, and unrecognized models show an estimate indicator rather than $0
+**Plans**: TBD
+
+Plans:
+- [ ] 18-01: TBD
+- [ ] 18-02: TBD
+
+### Phase 19: Historical Persistence
+**Goal**: Users can see their usage trends over time, with daily aggregates persisted across application restarts and a 30-day historical view in the dashboard
+**Depends on**: Phase 18
+**Requirements**: HIST-01, HIST-02
+**Success Criteria** (what must be TRUE):
+  1. Closing and reopening the application preserves today's usage totals and past daily aggregates
+  2. The dashboard shows a 30-day aggregate summary of total tokens and total cost
+  3. Historical data older than 30 days is automatically pruned without user intervention
+**Plans**: TBD
+
+Plans:
+- [ ] 19-01: TBD
+
 ## Progress
+
+**Execution Order:**
+Phases execute in numeric order: 17 -> 18 -> 19
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -87,6 +146,9 @@ See: [`.planning/milestones/v1.4-ROADMAP.md`](milestones/v1.4-ROADMAP.md) for fu
 | 11. Status & Visibility Audit | v1.3 | 3/3 | Complete | 2026-02-27 |
 | 12. Jobs Done Global Signal | v1.3 | - | REMOVED | - |
 | 13. Ready to Work Reminders | v1.3 | 1/1 | Complete | 2026-02-27 |
-| 14. World Layout Reorganization | v1.4 | Complete    | 2026-02-27 | 2026-02-27 |
-| 15. Workspace Interior Art | v1.4 | Complete    | 2026-02-27 | 2026-02-27 |
+| 14. World Layout Reorganization | v1.4 | Complete | Complete | 2026-02-27 |
+| 15. Workspace Interior Art | v1.4 | Complete | Complete | 2026-02-27 |
 | 16. Agent Stations and Info Overlay | v1.4 | 2/2 | Complete | 2026-02-27 |
+| 17. Window Layout and Parsing Infrastructure | v1.5 | 0/TBD | Not started | - |
+| 18. Live Dashboard with Cost Estimation | v1.5 | 0/TBD | Not started | - |
+| 19. Historical Persistence | v1.5 | 0/TBD | Not started | - |

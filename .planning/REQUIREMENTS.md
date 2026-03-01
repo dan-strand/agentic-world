@@ -65,28 +65,28 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| LAYOUT-01 | — | Pending |
-| LAYOUT-02 | — | Pending |
-| LAYOUT-03 | — | Pending |
-| PARSE-01 | — | Pending |
-| PARSE-02 | — | Pending |
-| PARSE-03 | — | Pending |
-| DASH-01 | — | Pending |
-| DASH-02 | — | Pending |
-| DASH-03 | — | Pending |
-| DASH-04 | — | Pending |
-| COST-01 | — | Pending |
-| COST-02 | — | Pending |
-| COST-03 | — | Pending |
-| COST-04 | — | Pending |
-| HIST-01 | — | Pending |
-| HIST-02 | — | Pending |
+| LAYOUT-01 | Phase 17 | Pending |
+| LAYOUT-02 | Phase 17 | Pending |
+| LAYOUT-03 | Phase 17 | Pending |
+| PARSE-01 | Phase 17 | Pending |
+| PARSE-02 | Phase 17 | Pending |
+| PARSE-03 | Phase 17 | Pending |
+| DASH-01 | Phase 18 | Pending |
+| DASH-02 | Phase 18 | Pending |
+| DASH-03 | Phase 18 | Pending |
+| DASH-04 | Phase 18 | Pending |
+| COST-01 | Phase 18 | Pending |
+| COST-02 | Phase 18 | Pending |
+| COST-03 | Phase 18 | Pending |
+| COST-04 | Phase 18 | Pending |
+| HIST-01 | Phase 19 | Pending |
+| HIST-02 | Phase 19 | Pending |
 
 **Coverage:**
 - v1.5 requirements: 16 total
-- Mapped to phases: 0
-- Unmapped: 16 ⚠️
+- Mapped to phases: 16
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-01*
-*Last updated: 2026-03-01 after initial definition*
+*Last updated: 2026-03-01 after roadmap creation*
