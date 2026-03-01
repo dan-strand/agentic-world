@@ -27,6 +27,7 @@ export const IPC_CHANNELS = {
   SESSIONS_UPDATE: 'sessions-update',
   GET_INITIAL_SESSIONS: 'get-initial-sessions',
   DASHBOARD_UPDATE: 'dashboard-update',
+  GET_HISTORY: 'get-history',
 } as const;
 
 // Type-safe API exposed via contextBridge
@@ -63,10 +64,22 @@ export interface DashboardData {
   todayTotals: TodayTotals;
 }
 
+export interface DailyAggregate {
+  date: string;           // YYYY-MM-DD (local time)
+  inputTokens: number;
+  outputTokens: number;
+  cacheCreationTokens: number;
+  cacheReadTokens: number;
+  totalCostUsd: number;
+  cacheSavingsUsd: number;
+  sessionCount: number;
+}
+
 export interface IAgentWorldAPI {
   onSessionsUpdate: (callback: (sessions: SessionInfo[]) => void) => void;
   getInitialSessions: () => Promise<SessionInfo[]>;
   onDashboardUpdate: (callback: (data: DashboardData) => void) => void;
+  getHistory: () => Promise<DailyAggregate[]>;
   minimizeWindow: () => void;
   closeWindow: () => void;
   startDrag: () => void;
