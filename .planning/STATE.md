@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Usage Dashboard
-status: unknown
-last_updated: "2026-03-01T19:45:07.066Z"
+status: complete
+last_updated: "2026-03-01"
 progress:
-  total_phases: 13
-  completed_phases: 13
-  total_plans: 28
-  completed_plans: 28
+  total_phases: 3
+  completed_phases: 3
+  total_plans: 6
+  completed_plans: 6
 ---
 
 # Project State
@@ -18,22 +18,21 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-01)
 
 **Core value:** Instantly see the status of all Claude Code sessions so you know which one needs attention next.
-**Current focus:** v1.5 Usage Dashboard -- Phase 19 executing
+**Current focus:** v1.5 complete — planning next milestone
 
 ## Current Position
 
 Phase: 19 of 19 (Historical Persistence)
-Plan: 2 of 2 in current phase
-Status: Phase 19 complete -- all plans done
-Last activity: 2026-03-01 -- Completed 19-02 Dashboard History Display
+Status: Milestone v1.5 complete — all 3 phases shipped
+Last activity: 2026-03-01 — Milestone v1.5 archived
 
-Progress: [██████████] 100% (Phase 19: 2/2 plans)
+Progress: [██████████] 100% (Milestone complete)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 32 (v1.0: 9, v1.1: 9, v1.2: 4, v1.3: 4, v1.4: 6)
-- Total execution time: ~3 days
+- Total plans completed: 38 (v1.0: 9, v1.1: 9, v1.2: 4, v1.3: 4, v1.4: 6, v1.5: 6)
+- Total execution time: ~5 days
 
 **By Phase:**
 
@@ -47,12 +46,9 @@ Progress: [██████████] 100% (Phase 19: 2/2 plans)
 | v1.4 Phase 14 | 2 | ~12 min | ~6 min |
 | v1.4 Phase 15 | 2 | ~15 min | ~7 min |
 | v1.4 Phase 16 | 2 | ~9 min | ~4 min |
-| v1.5 Phase 17 (17-01) | 1 | ~5 min | ~5 min |
-| v1.5 Phase 17 (17-02) | 1 | ~3 min | ~3 min |
-| v1.5 Phase 18 (18-01) | 1 | ~3 min | ~3 min |
-| v1.5 Phase 18 (18-02) | 1 | ~2 min | ~2 min |
-| v1.5 Phase 19 (19-01) | 1 | ~2 min | ~2 min |
-| v1.5 Phase 19 (19-02) | 1 | ~1 min | ~1 min |
+| v1.5 Phase 17 | 2 | ~8 min | ~4 min |
+| v1.5 Phase 18 | 2 | ~5 min | ~2.5 min |
+| v1.5 Phase 19 | 2 | ~3 min | ~1.5 min |
 
 ## Shipped Milestones
 
@@ -61,43 +57,21 @@ Progress: [██████████] 100% (Phase 19: 2/2 plans)
 - **v1.2 Activity Monitoring & Labeling** (2026-02-26): Building labels, speech bubbles, fade-out lifecycle
 - **v1.3 Audio & Status Reliability** (2026-02-27): Status pipeline hardening, tool_use detection, waiting reminders
 - **v1.4 Enhanced Session Workspaces** (2026-02-27): Detailed interiors, agent stations, tool overlays, campfire waypoint
+- **v1.5 Usage Dashboard** (2026-03-01): Token usage tracking, cost estimation, live dashboard, 30-day history
 
 ## Accumulated Context
 
 ### Decisions
 
 Decisions are logged in PROJECT.md Key Decisions table.
-Recent decisions affecting current work:
-
-- [v1.5 Research]: Dashboard as HTML div below PixiJS canvas, not embedded in PixiJS scene
-- [v1.5 Research]: Streaming readline for JSONL parsing, not readFileSync
-- [v1.5 Research]: Daily aggregate JSON persistence, not SQLite or raw JSONL mirroring
-- [v1.5 Research]: Bundled pricing constants with default fallback for unknown models
-- [Phase 17-01]: Dashboard is HTML div below PixiJS canvas, explicit pixel dimensions with flex column layout
-- [Phase 17-01]: Audio controls repositioned to bottom: 320px to stay above dashboard boundary
-- [Phase 17-02]: Used node:test built-in test framework instead of installing Jest/Vitest
-- [Phase 17-02]: readUsageTotals uses fs.createReadStream + readline for non-blocking streaming parse
-- [Phase 17-02]: UsageAggregator caches by sessionId with mtimeMs comparison, mirroring session-detector pattern
-- [Phase 18-01]: Separate dashboard-update IPC channel from sessions-update for concern isolation
-- [Phase 18-01]: filePath added to SessionInfo for main-process use (renderer ignores)
-- [Phase 18-01]: Sonnet-rate fallback for unknown models with isEstimate flag
-- [Phase 18-02]: Vanilla DOM manipulation for dashboard -- consistent with existing renderer pattern
-- [Phase 18-02]: Set-based expand tracking preserves expanded sessions across data updates
-- [Phase 18-02]: HTML escaping via textContent/innerHTML to prevent XSS from project names
-- [Phase 19-01]: Local date keys (en-CA) instead of UTC to match user's calendar day
-- [Phase 19-01]: Overwrite daily record (not accumulate) since TodayTotals is already a full aggregate
-- [Phase 19-01]: Atomic write via tmp+rename with copyFile fallback for Windows antivirus locks
-- [Phase 19-01]: JSON string comparison to skip no-op disk writes
-- [Phase 19-02]: Non-blocking history load with .then()/.catch() so dashboard renders immediately
-- [Phase 19-02]: Muted green-gold color scheme to distinguish history from today's totals
-- [Phase 19-02]: History loaded once at startup, no periodic refresh
+No active decisions pending — milestone complete.
 
 ### Blockers/Concerns
 
-- (Resolved in 19-01) Atomic rename on Windows/NTFS -- implemented try/catch with copyFile fallback
+None — all resolved.
 
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: Completed 19-02-PLAN.md (Dashboard History Display)
+Stopped at: Milestone v1.5 archived
 Resume file: N/A

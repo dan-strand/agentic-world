@@ -1,5 +1,23 @@
 # Milestones
 
+## v1.5 Usage Dashboard (Shipped: 2026-03-01)
+
+**Phases:** 17-19 | **Plans:** 6 | **Tasks:** 12 | **Timeline:** 1 day (2026-03-01)
+**Codebase:** 7,777 LOC TypeScript/JS, 37 files changed, +6,638 / -1,000
+**Git range:** `42121a6` → `1f244c6` (28 commits)
+
+**Key accomplishments:**
+1. Window expanded to 1024x1080 with flex column layout: 768px PixiJS canvas + 312px HTML dashboard panel
+2. Streaming JSONL parser extracts all token usage fields (input, output, cache read, cache write) with mtime-cached aggregator and 14 tests
+3. MODEL_PRICING table covering all Claude model families with 4-step resolution chain (bare alias, exact, prefix, fallback)
+4. Live dashboard with compact session rows, click-to-expand token breakdowns, cost estimates (~$X.XX), and cache savings display
+5. Today's aggregate totals bar (In/Out/Cost/Saved/Sessions) updated every poll cycle
+6. HistoryStore with atomic JSON persistence, 30-day retention pruning, and Windows-safe writes (EPERM/EBUSY fallback)
+
+**Delivered:** Usage dashboard below the RPG world showing live session details, token usage, cost estimates with auto-detected model pricing, and 30-day historical trends — everything needed to track Claude Code spending at a glance.
+
+---
+
 ## v1.1 Fantasy RPG Aesthetic (Shipped: 2026-02-26)
 
 **Phases:** 4-7 | **Plans:** 9 | **Timeline:** 2 days (2026-02-25 → 2026-02-26)

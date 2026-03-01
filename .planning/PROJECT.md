@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A locally-run animated 2D visualizer that shows your active Claude Code sessions as Fantasy RPG adventurers in a pixel-art world. Each agent represents a running Claude session — mages, warriors, rangers, and rogues walk into detailed workspace interiors (Wizard Tower, Training Grounds, Ancient Library, Tavern) and work at themed stations. Buildings display current tool info, agents wander around their stations, and the world shows at a glance which sessions are active, idle, or waiting for input. When sessions complete, agents celebrate with a golden light column and return to the central campfire.
+A locally-run animated 2D visualizer that shows your active Claude Code sessions as Fantasy RPG adventurers in a pixel-art world, with a usage dashboard tracking token consumption and costs. Each agent represents a running Claude session — mages, warriors, rangers, and rogues walk into detailed workspace interiors (Wizard Tower, Training Grounds, Ancient Library, Tavern) and work at themed stations. Below the RPG world, a live dashboard shows session details, token breakdowns, cost estimates, and 30-day historical trends. Buildings display current tool info, agents wander around their stations, and the world shows at a glance which sessions are active, idle, or waiting for input. When sessions complete, agents celebrate with a golden light column and return to the central campfire.
 
 ## Core Value
 
@@ -51,15 +51,17 @@ Instantly see the status of all Claude Code sessions so you know which one needs
 - ✓ Tool name overlay banners on each active workspace — v1.4 Phase 16
 - ✓ Agent z-ordering and reparenting between global/building containers — v1.4 Phase 16
 - ✓ Agent wander behavior around station centers (~40px radius) — v1.4 Phase 16
+- ✓ Expanded window height (1024x1080) with dashboard panel below RPG world — v1.5 Phase 17
+- ✓ Streaming JSONL parser with mtime-cached aggregator — v1.5 Phase 17
+- ✓ Dashboard panel with live session list (compact rows, expandable detail) — v1.5 Phase 18
+- ✓ Token tracking from JSONL `message.usage` (input, output, cache read/write) — v1.5 Phase 17-18
+- ✓ Cost estimation with auto-detected model pricing (Opus, Sonnet, Haiku) — v1.5 Phase 18
+- ✓ Today's aggregate totals bar with cache savings display — v1.5 Phase 18
+- ✓ 30-day historical persistence with atomic JSON writes — v1.5 Phase 19
 
 ### Active
 
-- [ ] Expand window height to fit dashboard panel below the world view
-- [ ] Dashboard panel with live session list (compact rows, expandable detail)
-- [ ] Token tracking from JSONL `message.usage` (input, output, cache read/write)
-- [ ] Cost estimation with auto-detected model pricing
-- [ ] Historical stats: today's totals + 30-day daily breakdown
-- [ ] Session metrics: counts, durations, completions
+(No active requirements — next milestone not yet planned)
 
 ### Out of Scope
 
@@ -70,24 +72,17 @@ Instantly see the status of all Claude Code sessions so you know which one needs
 - Custom/hand-drawn pixel art — using pngjs-generated sprites
 - Per-session sound selection — over-engineering for current use case
 - Global "all-waiting" sound — user prefers per-session sounds
-
-## Current Milestone: v1.5 Usage Dashboard
-
-**Goal:** Add a usage dashboard below the world view showing live session details, token usage, cost estimates, and 30-day historical trends.
-
-**Target features:**
-- Expanded window height with dashboard panel below the RPG world
-- Live session list with compact rows (name, status, duration, tool) and click-to-expand details (tokens, cost)
-- Token tracking parsed from JSONL `message.usage` fields (input_tokens, output_tokens, cache_creation_input_tokens, cache_read_input_tokens)
-- Cost estimation using auto-detected model pricing (Opus, Sonnet, Haiku rates)
-- Today's totals + 30-day daily breakdown with session counts, durations, and completions
+- Daily breakdown bar chart — deferred to future milestone (Chart.js)
+- Real-time token streaming counter — JSONL files only written at message boundaries
+- Per-project historical view — project-to-session mapping is fuzzy
+- Budget alerts — requires settings system that doesn't exist yet
 
 ## Context
 
 - User runs multiple Claude Code sessions simultaneously in different bash terminals on Windows (MINGW64/Git Bash)
-- Shipped v1.0 through v1.4 in 3 days (2026-02-25 → 2026-02-27)
-- Codebase: 6,461 LOC TypeScript/JS, 22 source files, 3 pngjs generator scripts
-- JSONL logs at `~/.claude/projects/{encoded-path}/{session-uuid}.jsonl` contain `message.usage` with `input_tokens`, `output_tokens`, `cache_creation_input_tokens`, `cache_read_input_tokens`, and `model` name
+- Shipped v1.0 through v1.5 in 5 days (2026-02-25 → 2026-03-01)
+- Codebase: 7,777 LOC TypeScript/JS, ~25 source files, 3 pngjs generator scripts, 14 tests
+- JSONL logs at `~/.claude/projects/{encoded-path}/{session-uuid}.jsonl` contain `message.usage` with `input_tokens`, `output_tokens`, `cache_creation_input_tokens`, `cache_read_input_tokens`, and `message.model`
 - Tech stack: Electron 40.6.1, PixiJS 8.16.0, TypeScript 5.7, pixi-filters 6.1.5, Webpack (Electron Forge)
 - Atlas-first asset pipeline: pngjs generates PNG atlases, JSON descriptors, loadAllAssets() with Promise.all
 - 6-state agent machine: idle_at_hq, walking_to_building, walking_to_workspot, working, celebrating, fading_out
@@ -99,6 +94,12 @@ Instantly see the status of all Claude Code sessions so you know which one needs
 - Session status lifecycle: active → waiting → idle (waiting = task done, idle = dormant)
 - tool_use content inspection keeps sessions active during multi-tool execution
 - Per-session waiting reminders (60s timer, 30s global throttle, active-cycle guard)
+- Dashboard panel (312px) below RPG world (768px) in 1024x1080 window with flex column layout
+- Streaming JSONL parser (readline + createReadStream) with mtime-cached UsageAggregator
+- MODEL_PRICING table with 10 Claude model entries and 4-step resolution (bare alias → exact → prefix → fallback)
+- DashboardPanel renders session rows with click-to-expand token breakdowns and cost estimates
+- HistoryStore persists daily aggregates to `~/.agent-world/history.json` with atomic writes and 30-day pruning
+- Separate dashboard-update IPC channel from sessions-update for concern isolation
 
 ## Constraints
 
@@ -135,6 +136,15 @@ Instantly see the status of all Claude Code sessions so you know which one needs
 | Agent reparenting between containers (v1.4) | Z-ordering requires agents as building children; coordinate conversion at boundary | ✓ Good |
 | Station wander behavior (v1.4) | Agents move ~40px around station center; makes interiors feel alive | ✓ Good |
 | Activity-type station switching (v1.4) | Stations switch on activity category change, not per-tool-name; simpler | ✓ Good |
+| HTML dashboard below PixiJS canvas (v1.5) | Dashboard as HTML div, not embedded in PixiJS scene; simpler, native DOM | ✓ Good |
+| Streaming readline for JSONL parsing (v1.5) | Non-blocking, handles large files without stalling animation | ✓ Good |
+| Mtime-based usage cache (v1.5) | Skip re-parsing unchanged files; mirrors session-detector pattern | ✓ Good |
+| Separate dashboard-update IPC channel (v1.5) | Isolates dashboard data flow from session status updates | ✓ Good |
+| Sonnet-rate fallback for unknown models (v1.5) | Conservative default with isEstimate flag; neither cheapest nor most expensive | ✓ Good |
+| Vanilla DOM for dashboard (v1.5) | No framework; consistent with existing renderer pattern | ✓ Good |
+| Atomic JSON writes with Windows fallback (v1.5) | tmp+rename with copyFile fallback for EPERM/EBUSY antivirus locks | ✓ Good |
+| Local date keys for history (v1.5) | en-CA format matches user's calendar day, not UTC | ✓ Good |
+| Non-blocking history load (v1.5) | .then()/.catch() so dashboard renders immediately without waiting | ✓ Good |
 
 ---
-*Last updated: 2026-03-01 after v1.5 milestone started*
+*Last updated: 2026-03-01 after v1.5 milestone complete*
