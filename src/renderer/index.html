@@ -89,6 +89,122 @@
       accent-color: #c9a96e;
       cursor: pointer;
     }
+    /* Dashboard totals bar */
+    .dashboard-totals {
+      display: flex;
+      gap: 16px;
+      padding: 6px 0 8px 0;
+      border-bottom: 1px solid #2a2a3e;
+      margin-bottom: 6px;
+      flex-wrap: wrap;
+    }
+    .dashboard-totals .stat {
+      color: #c9a96e;
+      font-size: 13px;
+    }
+    .dashboard-totals .stat-label {
+      color: #887744;
+      font-size: 11px;
+      text-transform: uppercase;
+      margin-right: 4px;
+    }
+    /* Session list */
+    .session-list {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .session-row {
+      background: #141422;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .session-row:hover {
+      background: #1a1a30;
+    }
+    .session-summary {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 8px;
+      font-size: 13px;
+    }
+    .session-summary .project-name {
+      color: #c9a96e;
+      font-weight: 600;
+      min-width: 120px;
+      max-width: 180px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .session-summary .status-badge {
+      font-size: 11px;
+      padding: 1px 6px;
+      border-radius: 3px;
+      text-transform: uppercase;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+    .status-badge.active  { background: #0a3a2a; color: #00d4aa; }
+    .status-badge.waiting { background: #3a2a0a; color: #f0a030; }
+    .status-badge.idle    { background: #2a2a2a; color: #888888; }
+    .status-badge.error   { background: #3a0a0a; color: #cc3333; }
+    .session-summary .model-badge {
+      font-size: 11px;
+      color: #8888aa;
+      background: #1e1e30;
+      padding: 1px 5px;
+      border-radius: 3px;
+    }
+    .session-summary .tool-name {
+      color: #7777aa;
+      font-size: 12px;
+      min-width: 50px;
+    }
+    .session-summary .duration {
+      color: #666688;
+      font-size: 12px;
+      margin-left: auto;
+    }
+    .session-summary .cost {
+      color: #aa9966;
+      font-size: 13px;
+      font-weight: 600;
+      min-width: 60px;
+      text-align: right;
+    }
+    /* Expanded detail */
+    .session-detail {
+      padding: 4px 8px 8px 16px;
+      border-top: 1px solid #1e1e30;
+    }
+    .token-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 2px 0;
+      font-size: 12px;
+    }
+    .token-label {
+      color: #887744;
+    }
+    .token-value {
+      color: #aaaacc;
+    }
+    .token-row.cost-row .token-value {
+      color: #c9a96e;
+      font-weight: 600;
+    }
+    .token-row.savings-row .token-value {
+      color: #44aa88;
+    }
+    .session-list .empty-state {
+      color: #665533;
+      text-align: center;
+      padding: 20px 0;
+      font-style: italic;
+    }
   </style>
 </head>
 <body>
@@ -97,9 +213,7 @@
     <button class="window-btn close" id="btn-close">&#x2715;</button>
   </div>
   <div id="app"></div>
-  <div id="dashboard">
-    <p style="color: #665533; margin-top: 4px;">Usage Dashboard</p>
-  </div>
+  <div id="dashboard"></div>
   <div id="audio-controls">
     <button id="btn-mute" title="Mute/Unmute">&#x1F50A;</button>
     <input type="range" id="volume-slider" min="0" max="100" value="50" title="Volume" />
