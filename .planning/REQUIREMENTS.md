@@ -15,9 +15,9 @@ Requirements for Usage Dashboard milestone. Each maps to roadmap phases.
 
 ### Parsing
 
-- [ ] **PARSE-01**: JSONL usage parser extracts input_tokens, output_tokens, cache_creation_input_tokens, and cache_read_input_tokens from assistant entries
-- [ ] **PARSE-02**: Parser uses streaming readline to avoid blocking the main process
-- [ ] **PARSE-03**: Parser caches results by file mtime to skip unchanged files on subsequent polls
+- [x] **PARSE-01**: JSONL usage parser extracts input_tokens, output_tokens, cache_creation_input_tokens, and cache_read_input_tokens from assistant entries
+- [x] **PARSE-02**: Parser uses streaming readline to avoid blocking the main process
+- [x] **PARSE-03**: Parser caches results by file mtime to skip unchanged files on subsequent polls
 
 ### Dashboard
 
@@ -68,9 +68,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | LAYOUT-01 | Phase 17 | Pending |
 | LAYOUT-02 | Phase 17 | Pending |
 | LAYOUT-03 | Phase 17 | Pending |
-| PARSE-01 | Phase 17 | Pending |
-| PARSE-02 | Phase 17 | Pending |
-| PARSE-03 | Phase 17 | Pending |
+| PARSE-01 | Phase 17 | Complete |
+| PARSE-02 | Phase 17 | Complete |
+| PARSE-03 | Phase 17 | Complete |
 | DASH-01 | Phase 18 | Pending |
 | DASH-02 | Phase 18 | Pending |
 | DASH-03 | Phase 18 | Pending |

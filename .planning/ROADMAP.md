@@ -149,6 +149,6 @@ Phases execute in numeric order: 17 -> 18 -> 19
 | 14. World Layout Reorganization | v1.4 | Complete | Complete | 2026-02-27 |
 | 15. Workspace Interior Art | v1.4 | Complete | Complete | 2026-02-27 |
 | 16. Agent Stations and Info Overlay | v1.4 | 2/2 | Complete | 2026-02-27 |
-| 17. Window Layout and Parsing Infrastructure | v1.5 | 0/TBD | Not started | - |
+| 17. Window Layout and Parsing Infrastructure | 1/2 | In Progress|  | - |
 | 18. Live Dashboard with Cost Estimation | v1.5 | 0/TBD | Not started | - |
 | 19. Historical Persistence | v1.5 | 0/TBD | Not started | - |

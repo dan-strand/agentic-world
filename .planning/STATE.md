@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Usage Dashboard
-status: ready_to_plan
-last_updated: "2026-03-01T00:00:00Z"
+status: unknown
+last_updated: "2026-03-01T18:31:48.317Z"
 progress:
-  total_phases: 3
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_phases: 11
+  completed_phases: 10
+  total_plans: 24
+  completed_plans: 23
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-01)
 
 **Core value:** Instantly see the status of all Claude Code sessions so you know which one needs attention next.
-**Current focus:** v1.5 Usage Dashboard -- Phase 17 ready to plan
+**Current focus:** v1.5 Usage Dashboard -- Phase 17 executing
 
 ## Current Position
 
 Phase: 17 of 19 (Window Layout and Parsing Infrastructure)
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-03-01 -- Roadmap created for v1.5
+Plan: 2 of 2 in current phase
+Status: Executing
+Last activity: 2026-03-01 -- Completed 17-02 JSONL usage parser
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [█████░░░░░] 50%
 
 ## Performance Metrics
 
@@ -47,6 +47,8 @@ Progress: [░░░░░░░░░░] 0%
 | v1.4 Phase 14 | 2 | ~12 min | ~6 min |
 | v1.4 Phase 15 | 2 | ~15 min | ~7 min |
 | v1.4 Phase 16 | 2 | ~9 min | ~4 min |
+| v1.5 Phase 17 (17-02) | 1 | ~3 min | ~3 min |
+| Phase 17 P02 | 3min | 2 tasks | 5 files |
 
 ## Shipped Milestones
 
@@ -67,6 +69,9 @@ Recent decisions affecting current work:
 - [v1.5 Research]: Streaming readline for JSONL parsing, not readFileSync
 - [v1.5 Research]: Daily aggregate JSON persistence, not SQLite or raw JSONL mirroring
 - [v1.5 Research]: Bundled pricing constants with default fallback for unknown models
+- [Phase 17]: Used node:test built-in test framework instead of installing Jest/Vitest
+- [Phase 17]: readUsageTotals uses fs.createReadStream + readline for non-blocking streaming parse
+- [Phase 17]: UsageAggregator caches by sessionId with mtimeMs comparison, mirroring session-detector pattern
 
 ### Blockers/Concerns
 
@@ -76,5 +81,5 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: Roadmap created for v1.5 Usage Dashboard
+Stopped at: Completed 17-02-PLAN.md (JSONL usage parser)
 Resume file: N/A
