@@ -102,6 +102,14 @@ async function main(): Promise<void> {
       dashboardPanel.update(data);
     });
 
+    // Load historical data once at startup
+    window.agentWorld.getHistory().then((history) => {
+      dashboardPanel.updateHistory(history);
+      console.log('[renderer] History loaded:', history.length, 'days');
+    }).catch((err) => {
+      console.warn('[renderer] Failed to load history:', err);
+    });
+
     console.log('[renderer] Dashboard panel initialized');
   }
 
