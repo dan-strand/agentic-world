@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Usage Dashboard
-status: unknown
-last_updated: "2026-03-01T18:36:35.478Z"
+status: executing
+last_updated: "2026-03-01T19:00:52Z"
 progress:
   total_phases: 11
   completed_phases: 11
-  total_plans: 24
-  completed_plans: 24
+  total_plans: 25
+  completed_plans: 25
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-01)
 
 **Core value:** Instantly see the status of all Claude Code sessions so you know which one needs attention next.
-**Current focus:** v1.5 Usage Dashboard -- Phase 17 executing
+**Current focus:** v1.5 Usage Dashboard -- Phase 18 executing
 
 ## Current Position
 
-Phase: 17 of 19 (Window Layout and Parsing Infrastructure)
-Plan: 2 of 2 in current phase (all complete)
-Status: Phase 17 complete
-Last activity: 2026-03-01 -- Completed 17-01 window layout (17-02 previously completed)
+Phase: 18 of 19 (Live Dashboard with Cost Estimation)
+Plan: 1 of 2 in current phase
+Status: Plan 18-01 complete, 18-02 pending
+Last activity: 2026-03-01 -- Completed 18-01 main-process data pipeline
 
-Progress: [██████████] 100% (Phase 17: 2/2 plans)
+Progress: [█████-----] 50% (Phase 18: 1/2 plans)
 
 ## Performance Metrics
 
@@ -49,6 +49,7 @@ Progress: [██████████] 100% (Phase 17: 2/2 plans)
 | v1.4 Phase 16 | 2 | ~9 min | ~4 min |
 | v1.5 Phase 17 (17-01) | 1 | ~5 min | ~5 min |
 | v1.5 Phase 17 (17-02) | 1 | ~3 min | ~3 min |
+| v1.5 Phase 18 (18-01) | 1 | ~3 min | ~3 min |
 
 ## Shipped Milestones
 
@@ -74,14 +75,16 @@ Recent decisions affecting current work:
 - [Phase 17-02]: Used node:test built-in test framework instead of installing Jest/Vitest
 - [Phase 17-02]: readUsageTotals uses fs.createReadStream + readline for non-blocking streaming parse
 - [Phase 17-02]: UsageAggregator caches by sessionId with mtimeMs comparison, mirroring session-detector pattern
+- [Phase 18-01]: Separate dashboard-update IPC channel from sessions-update for concern isolation
+- [Phase 18-01]: filePath added to SessionInfo for main-process use (renderer ignores)
+- [Phase 18-01]: Sonnet-rate fallback for unknown models with isEstimate flag
 
 ### Blockers/Concerns
 
-- Opus 4.6 pricing discrepancy between research files -- verify against official docs before implementing pricing table
 - Atomic rename on Windows/NTFS when target file is locked -- needs try/catch fallback in Phase 19
 
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: Completed 17-01-PLAN.md (window layout and dashboard panel). Phase 17 fully complete.
+Stopped at: Completed 18-01-PLAN.md (main-process data pipeline). Phase 18 plan 02 pending.
 Resume file: N/A
