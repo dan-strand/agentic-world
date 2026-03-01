@@ -1,4 +1,4 @@
-import { DashboardData, DashboardSession, TodayTotals } from '../shared/types';
+import { DashboardData, DashboardSession, TodayTotals, DailyAggregate } from '../shared/types';
 
 function formatTokens(n: number): string {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
@@ -28,6 +28,7 @@ const STATUS_PRIORITY: Record<string, number> = {
 export class DashboardPanel {
   private container: HTMLElement;
   private totalsBar: HTMLElement;
+  private historyBar: HTMLElement;
   private sessionList: HTMLElement;
   private expandedSessions: Set<string> = new Set();
 
@@ -39,6 +40,11 @@ export class DashboardPanel {
     this.totalsBar.className = 'dashboard-totals';
     this.container.appendChild(this.totalsBar);
 
+    this.historyBar = document.createElement('div');
+    this.historyBar.className = 'history-summary';
+    this.historyBar.style.display = 'none'; // Hidden until history data arrives
+    this.container.appendChild(this.historyBar);
+
     this.sessionList = document.createElement('div');
     this.sessionList.className = 'session-list';
     this.container.appendChild(this.sessionList);
@@ -47,6 +53,29 @@ export class DashboardPanel {
   update(data: DashboardData): void {
     this.renderTotals(data.todayTotals);
     this.renderSessions(data.sessions);
+  }
+
+  updateHistory(history: DailyAggregate[]): void {
+    if (!history || history.length === 0) {
+      this.historyBar.style.display = 'none';
+      return;
+    }
+
+    const totalTokens = history.reduce((sum, d) =>
+      sum + d.inputTokens + d.outputTokens + d.cacheCreationTokens + d.cacheReadTokens, 0);
+    const totalCost = history.reduce((sum, d) => sum + d.totalCostUsd, 0);
+    const totalSavings = history.reduce((sum, d) => sum + d.cacheSavingsUsd, 0);
+    const totalSessions = history.reduce((sum, d) => sum + d.sessionCount, 0);
+    const dayCount = history.length;
+
+    this.historyBar.style.display = 'flex';
+    this.historyBar.innerHTML =
+      `<span class="history-label">30-Day:</span>` +
+      `<span class="stat"><span class="stat-label">Tokens:</span> ${formatTokens(totalTokens)}</span>` +
+      `<span class="stat"><span class="stat-label">Cost:</span> ~$${totalCost.toFixed(2)}</span>` +
+      `<span class="stat"><span class="stat-label">Saved:</span> ~$${totalSavings.toFixed(2)}</span>` +
+      `<span class="stat"><span class="stat-label">Sessions:</span> ${totalSessions}</span>` +
+      `<span class="stat"><span class="stat-label">Days:</span> ${dayCount}</span>`;
   }
 
   private renderTotals(totals: TodayTotals): void {
