@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Usage Dashboard
-status: unknown
-last_updated: "2026-03-01T18:31:48.317Z"
+status: executing
+last_updated: "2026-03-01T18:33:00Z"
 progress:
   total_phases: 11
   completed_phases: 10
@@ -23,11 +23,11 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 ## Current Position
 
 Phase: 17 of 19 (Window Layout and Parsing Infrastructure)
-Plan: 2 of 2 in current phase
-Status: Executing
-Last activity: 2026-03-01 -- Completed 17-02 JSONL usage parser
+Plan: 2 of 2 in current phase (all complete)
+Status: Phase 17 complete
+Last activity: 2026-03-01 -- Completed 17-01 window layout (17-02 previously completed)
 
-Progress: [█████░░░░░] 50%
+Progress: [██████████] 100% (Phase 17: 2/2 plans)
 
 ## Performance Metrics
 
@@ -47,8 +47,8 @@ Progress: [█████░░░░░] 50%
 | v1.4 Phase 14 | 2 | ~12 min | ~6 min |
 | v1.4 Phase 15 | 2 | ~15 min | ~7 min |
 | v1.4 Phase 16 | 2 | ~9 min | ~4 min |
+| v1.5 Phase 17 (17-01) | 1 | ~5 min | ~5 min |
 | v1.5 Phase 17 (17-02) | 1 | ~3 min | ~3 min |
-| Phase 17 P02 | 3min | 2 tasks | 5 files |
 
 ## Shipped Milestones
 
@@ -69,9 +69,11 @@ Recent decisions affecting current work:
 - [v1.5 Research]: Streaming readline for JSONL parsing, not readFileSync
 - [v1.5 Research]: Daily aggregate JSON persistence, not SQLite or raw JSONL mirroring
 - [v1.5 Research]: Bundled pricing constants with default fallback for unknown models
-- [Phase 17]: Used node:test built-in test framework instead of installing Jest/Vitest
-- [Phase 17]: readUsageTotals uses fs.createReadStream + readline for non-blocking streaming parse
-- [Phase 17]: UsageAggregator caches by sessionId with mtimeMs comparison, mirroring session-detector pattern
+- [Phase 17-01]: Dashboard is HTML div below PixiJS canvas, explicit pixel dimensions with flex column layout
+- [Phase 17-01]: Audio controls repositioned to bottom: 320px to stay above dashboard boundary
+- [Phase 17-02]: Used node:test built-in test framework instead of installing Jest/Vitest
+- [Phase 17-02]: readUsageTotals uses fs.createReadStream + readline for non-blocking streaming parse
+- [Phase 17-02]: UsageAggregator caches by sessionId with mtimeMs comparison, mirroring session-detector pattern
 
 ### Blockers/Concerns
 
@@ -81,5 +83,5 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: Completed 17-02-PLAN.md (JSONL usage parser)
+Stopped at: Completed 17-01-PLAN.md (window layout and dashboard panel). Phase 17 fully complete.
 Resume file: N/A

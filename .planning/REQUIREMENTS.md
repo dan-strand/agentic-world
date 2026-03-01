@@ -9,9 +9,9 @@ Requirements for Usage Dashboard milestone. Each maps to roadmap phases.
 
 ### Layout
 
-- [ ] **LAYOUT-01**: Window expands from 1024x768 to 1024x1080 with dashboard panel below the RPG world
-- [ ] **LAYOUT-02**: PixiJS canvas remains pinned at exactly 1024x768 — no scene graph changes
-- [ ] **LAYOUT-03**: Dashboard panel renders as HTML/CSS div below the canvas
+- [x] **LAYOUT-01**: Window expands from 1024x768 to 1024x1080 with dashboard panel below the RPG world
+- [x] **LAYOUT-02**: PixiJS canvas remains pinned at exactly 1024x768 — no scene graph changes
+- [x] **LAYOUT-03**: Dashboard panel renders as HTML/CSS div below the canvas
 
 ### Parsing
 
@@ -65,9 +65,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| LAYOUT-01 | Phase 17 | Pending |
-| LAYOUT-02 | Phase 17 | Pending |
-| LAYOUT-03 | Phase 17 | Pending |
+| LAYOUT-01 | Phase 17 | Complete |
+| LAYOUT-02 | Phase 17 | Complete |
+| LAYOUT-03 | Phase 17 | Complete |
 | PARSE-01 | Phase 17 | Complete |
 | PARSE-02 | Phase 17 | Complete |
 | PARSE-03 | Phase 17 | Complete |
