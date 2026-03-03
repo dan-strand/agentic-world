@@ -358,6 +358,34 @@ export const CHIMNEY_POSITIONS: Record<BuildingType, { x: number; y: number }> =
   campfire:         { x: 0,    y: 0 },     // Not used
 };
 
+// ── Day/Night Cycle Constants (Phase 22) ─────────────────────────────────────
+export const DAY_NIGHT_CYCLE_MS = 10 * 60 * 1000;   // 10 minutes for a full day/night cycle
+export const DAWN_START = 0.0;        // Cycle progress where dawn begins (0.0 = start)
+export const DAY_START = 0.15;        // Full daylight begins
+export const DUSK_START = 0.5;        // Dusk begins (halfway through cycle)
+export const NIGHT_START = 0.65;      // Full night begins
+export const NIGHT_END = 0.85;        // Night starts fading toward dawn
+// Progress 0.85 -> 1.0 transitions back to dawn (wraps to 0.0)
+
+// Color temperature: RGB tint multipliers applied to stage
+// Daylight: warm golden   (R=1.0, G=0.91, B=0.75 ~= 0xFFE8C0)
+// Night:    cool blue      (R=0.4, G=0.5, B=0.8 ~= 0x6680CC)
+export const DAY_TINT_R = 1.0;
+export const DAY_TINT_G = 0.91;
+export const DAY_TINT_B = 0.75;
+export const NIGHT_TINT_R = 0.4;
+export const NIGHT_TINT_G = 0.5;
+export const NIGHT_TINT_B = 0.8;
+
+// Night glow constants
+export const GLOW_LANTERN_RADIUS = 20;     // Glow sprite radius for lanterns
+export const GLOW_TORCH_RADIUS = 16;       // Glow sprite radius for torches
+export const GLOW_CAMPFIRE_RADIUS = 40;    // Glow sprite radius for campfire
+export const GLOW_WINDOW_RADIUS = 24;      // Glow sprite radius for building windows
+export const GLOW_COLOR_WARM = 0xFFAA44;   // Warm orange glow for lanterns/torches/campfire
+export const GLOW_COLOR_WINDOW = 0xFFDD88; // Slightly cooler warm glow for windows
+export const GLOW_MAX_ALPHA = 0.6;         // Maximum glow alpha at full night
+
 // ── Model Pricing ──────────────────────────────────────────────────────────────
 // Verified against platform.claude.com/docs/en/about-claude/pricing (2026-03-01)
 // Cache write = 1.25x input, cache read = 0.1x input
