@@ -261,6 +261,25 @@ export const BUILDING_WORK_SPOTS: Record<BuildingType, WorkSpot[]> = {
   campfire: [], // Campfire has no work spots (agents idle here)
 };
 
+// ── Chimney Smoke Particle Constants (Phase 20) ─────────────────────────────
+export const CHIMNEY_SMOKE_COUNT = 5;           // Max simultaneous smoke particles per building
+export const CHIMNEY_SMOKE_SPAWN_MS = 800;      // Time between new smoke particle spawns
+export const CHIMNEY_SMOKE_RISE_SPEED = 12;     // Pixels per second upward drift
+export const CHIMNEY_SMOKE_DRIFT_SPEED = 4;     // Pixels per second horizontal drift
+export const CHIMNEY_SMOKE_LIFETIME_MS = 3000;  // How long each puff lives
+export const CHIMNEY_SMOKE_SIZE_MIN = 2;        // Starting radius of smoke puff
+export const CHIMNEY_SMOKE_SIZE_MAX = 5;        // Max radius as smoke puff grows
+export const CHIMNEY_SMOKE_COLOR = 0x999999;    // Gray smoke color
+
+// Chimney position offset per building type (relative to building container origin at bottom-center anchor 0.5, 1.0)
+export const CHIMNEY_POSITIONS: Record<BuildingType, { x: number; y: number }> = {
+  wizard_tower:     { x: -102, y: -330 },  // Top-left area of building (chimneyX=130 in atlas)
+  training_grounds: { x: 118,  y: -330 },  // Top-right area (chimneyX=350 in atlas)
+  ancient_library:  { x: -82,  y: -330 },  // Top-left area (chimneyX=150 in atlas)
+  tavern:           { x: 58,   y: -334 },  // Near center, slightly higher (larger chimney, chimneyX=290)
+  campfire:         { x: 0,    y: 0 },     // Not used
+};
+
 // ── Model Pricing ──────────────────────────────────────────────────────────────
 // Verified against platform.claude.com/docs/en/about-claude/pricing (2026-03-01)
 // Cache write = 1.25x input, cache read = 0.1x input

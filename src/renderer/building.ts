@@ -1,7 +1,22 @@
 import { Container, Sprite, BitmapText, Texture, Graphics } from 'pixi.js';
 import type { BuildingType } from '../shared/constants';
-import { BUILDING_LABELS, MAX_LABEL_CHARS, BUILDING_WORK_SPOTS } from '../shared/constants';
+import {
+  BUILDING_LABELS, MAX_LABEL_CHARS, BUILDING_WORK_SPOTS,
+  CHIMNEY_SMOKE_COUNT, CHIMNEY_SMOKE_SPAWN_MS, CHIMNEY_SMOKE_RISE_SPEED,
+  CHIMNEY_SMOKE_DRIFT_SPEED, CHIMNEY_SMOKE_LIFETIME_MS,
+  CHIMNEY_SMOKE_SIZE_MIN, CHIMNEY_SMOKE_SIZE_MAX, CHIMNEY_SMOKE_COLOR,
+  CHIMNEY_POSITIONS,
+} from '../shared/constants';
 import type { WorkSpot } from '../shared/constants';
+
+/** Chimney smoke particle data. */
+interface SmokeParticle {
+  gfx: Graphics;
+  age: number;
+  lifetime: number;
+  vx: number;
+  vy: number;
+}
 
 /** Theme colors for tool name banner backgrounds per building type. */
 const BUILDING_BANNER_COLORS: Record<BuildingType, number> = {
@@ -38,6 +53,11 @@ export class Building extends Container {
   // Tool name overlay: RPG-styled banner at the bottom of the building
   private toolLabel: BitmapText;
   private toolBanner: Graphics;
+
+  // Chimney smoke particle system (Phase 20)
+  private smokeParticles: SmokeParticle[] = [];
+  private smokeTimer = 0;
+  private smokeContainer: Container;
 
   constructor(buildingType: BuildingType, texture: Texture) {
     super();
@@ -103,6 +123,13 @@ export class Building extends Container {
     this.toolLabel.position.set(0, -20); // Same vertical position as banner
     this.toolLabel.visible = false;
     this.addChild(this.toolLabel);
+
+    // Smoke container for chimney particles (renders on top of everything)
+    // Skip smoke for campfire building type (no chimney)
+    this.smokeContainer = new Container();
+    if (buildingType !== 'campfire') {
+      this.addChild(this.smokeContainer);
+    }
   }
 
   /** Update label to show a project name (truncated if needed). */
@@ -294,5 +321,76 @@ export class Building extends Container {
 
     this.stationOccupancy.set(newSpot, sessionId);
     return newSpot;
+  }
+
+  /**
+   * Advance the chimney smoke particle system.
+   * Call this from world.ts tick loop (wiring deferred to Plan 20-03).
+   *
+   * Emits small gray smoke puffs from the chimney position that rise upward,
+   * drift horizontally, grow slightly, fade out, and self-remove after their lifetime.
+   *
+   * @param deltaMs - Milliseconds since last tick
+   */
+  tick(deltaMs: number): void {
+    // Skip smoke for campfire (no chimney)
+    if (this.buildingType === 'campfire') return;
+
+    const dt = deltaMs / 1000;
+    const chimneyPos = CHIMNEY_POSITIONS[this.buildingType];
+
+    // Advance spawn timer
+    this.smokeTimer += deltaMs;
+    if (this.smokeTimer >= CHIMNEY_SMOKE_SPAWN_MS && this.smokeParticles.length < CHIMNEY_SMOKE_COUNT) {
+      this.smokeTimer -= CHIMNEY_SMOKE_SPAWN_MS;
+
+      // Spawn a new smoke puff
+      const gfx = new Graphics();
+      gfx.circle(0, 0, CHIMNEY_SMOKE_SIZE_MIN);
+      gfx.fill({ color: CHIMNEY_SMOKE_COLOR, alpha: 0.6 });
+      gfx.position.set(chimneyPos.x, chimneyPos.y);
+
+      // Random horizontal drift direction
+      const driftDir = Math.random() < 0.5 ? -1 : 1;
+
+      const particle: SmokeParticle = {
+        gfx,
+        age: 0,
+        lifetime: CHIMNEY_SMOKE_LIFETIME_MS,
+        vx: CHIMNEY_SMOKE_DRIFT_SPEED * driftDir * (0.5 + Math.random() * 0.5),
+        vy: -CHIMNEY_SMOKE_RISE_SPEED,
+      };
+
+      this.smokeContainer.addChild(gfx);
+      this.smokeParticles.push(particle);
+    }
+
+    // Update existing particles
+    for (let i = this.smokeParticles.length - 1; i >= 0; i--) {
+      const p = this.smokeParticles[i];
+      p.age += deltaMs;
+
+      // Move upward and horizontally
+      p.gfx.x += p.vx * dt;
+      p.gfx.y += p.vy * dt;
+
+      // Progress through lifetime (0 to 1)
+      const lifeT = Math.min(p.age / p.lifetime, 1);
+
+      // Scale up slightly as smoke expands (lerp from MIN to MAX radius)
+      const currentRadius = CHIMNEY_SMOKE_SIZE_MIN + (CHIMNEY_SMOKE_SIZE_MAX - CHIMNEY_SMOKE_SIZE_MIN) * lifeT;
+      const scaleRatio = currentRadius / CHIMNEY_SMOKE_SIZE_MIN;
+      p.gfx.scale.set(scaleRatio, scaleRatio);
+
+      // Fade alpha toward 0 as age approaches lifetime
+      p.gfx.alpha = 0.6 * (1 - lifeT);
+
+      // Remove particles that exceed lifetime
+      if (p.age >= p.lifetime) {
+        this.smokeContainer.removeChild(p.gfx);
+        p.gfx.destroy();
+        this.smokeParticles.splice(i, 1);
+      }
+    }
   }
 }
