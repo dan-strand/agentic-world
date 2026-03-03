@@ -69,6 +69,77 @@ export const AGENT_COLORS = [
 
 export const CHARACTER_CLASSES: CharacterClass[] = ['mage', 'warrior', 'ranger', 'rogue'];
 
+// ── Color Palette Definitions ─────────────────────────────────────────────────
+// 25 palettes for visual identity -- each defines replacement colors for 3 character regions.
+// These get swapped onto the base sprite at render time to differentiate agents.
+
+export interface PaletteDef {
+  robe: [number, number, number];    // RGB for primary body/clothing
+  hair: [number, number, number];    // RGB for secondary accent/hair
+  accent: [number, number, number];  // RGB for tertiary detail (belt, trim, glow)
+}
+
+export const PALETTE_DEFS: PaletteDef[] = [
+  // --- Neutral (default) ---
+  { robe: [120, 120, 135], hair: [180, 160, 130], accent: [200, 180, 80] },   // 0: steel gray / sandy / gold
+  // --- Warm ---
+  { robe: [180, 40, 40],   hair: [255, 200, 100], accent: [255, 255, 200] },  // 1: crimson / gold / ivory
+  { robe: [200, 100, 30],  hair: [60, 40, 30],    accent: [255, 220, 100] },  // 2: burnt orange / dark brown / gold
+  { robe: [220, 60, 80],   hair: [255, 180, 160], accent: [200, 180, 80] },   // 3: rose / peach / gold
+  { robe: [180, 80, 30],   hair: [240, 200, 140], accent: [120, 80, 40] },    // 4: amber / wheat / dark leather
+  { robe: [200, 50, 50],   hair: [80, 60, 50],    accent: [255, 200, 50] },   // 5: flame red / dark mocha / sunflower
+  // --- Cool ---
+  { robe: [40, 80, 180],   hair: [200, 210, 220], accent: [100, 200, 220] },  // 6: ocean blue / silver / teal
+  { robe: [30, 120, 140],  hair: [180, 220, 240], accent: [200, 180, 80] },   // 7: deep teal / sky blue / gold
+  { robe: [50, 60, 160],   hair: [160, 170, 220], accent: [100, 180, 255] },  // 8: navy / lavender / bright blue
+  { robe: [40, 150, 150],  hair: [200, 230, 230], accent: [80, 200, 180] },   // 9: cyan / frost / mint
+  { robe: [60, 100, 200],  hair: [220, 220, 240], accent: [180, 200, 255] },  // 10: royal blue / pearl / ice
+  // --- Earth ---
+  { robe: [60, 120, 50],   hair: [160, 120, 70],  accent: [200, 180, 80] },   // 11: forest green / brown / gold
+  { robe: [100, 80, 50],   hair: [200, 180, 140], accent: [80, 60, 40] },     // 12: earth brown / tan / dark
+  { robe: [80, 130, 60],   hair: [180, 150, 100], accent: [140, 180, 80] },   // 13: olive green / sandy / lime
+  { robe: [110, 90, 60],   hair: [220, 200, 160], accent: [160, 120, 60] },   // 14: sienna / cream / ochre
+  { robe: [50, 90, 50],    hair: [140, 100, 60],  accent: [100, 160, 60] },   // 15: dark moss / walnut / spring
+  // --- Jewel ---
+  { robe: [120, 40, 160],  hair: [200, 180, 220], accent: [200, 180, 80] },   // 16: royal purple / lavender / gold
+  { robe: [160, 40, 120],  hair: [255, 180, 200], accent: [200, 160, 60] },   // 17: magenta / rose / old gold
+  { robe: [30, 140, 80],   hair: [180, 240, 200], accent: [80, 200, 120] },   // 18: emerald / mint / jade
+  { robe: [140, 50, 50],   hair: [200, 120, 120], accent: [180, 40, 40] },    // 19: garnet / dusty rose / ruby
+  { robe: [80, 50, 140],   hair: [180, 160, 220], accent: [140, 100, 200] },  // 20: amethyst / wisteria / violet
+  // --- Neutral/Dramatic ---
+  { robe: [40, 40, 50],    hair: [200, 60, 60],   accent: [180, 180, 190] },  // 21: obsidian / red / silver
+  { robe: [200, 200, 210], hair: [80, 80, 100],   accent: [200, 180, 80] },   // 22: white marble / slate / gold
+  { robe: [60, 60, 70],    hair: [180, 180, 190], accent: [200, 180, 80] },   // 23: charcoal / silver / gold
+  { robe: [180, 170, 150], hair: [100, 80, 60],   accent: [160, 140, 100] },  // 24: ivory / umber / khaki
+];
+
+// Template colors -- the base RGB values in the atlas that palette swap replaces.
+// One set per class, matching the actual colors used in generate-characters.js.
+export const TEMPLATE_COLORS: Record<CharacterClass, { robe: [number, number, number]; hair: [number, number, number]; accent: [number, number, number] }> = {
+  mage:    { robe: [90, 50, 160],  hair: [255, 217, 179], accent: [200, 180, 80] },
+  warrior: { robe: [160, 160, 175], hair: [180, 40, 40],  accent: [200, 180, 80] },
+  ranger:  { robe: [60, 100, 50],  hair: [130, 90, 50],   accent: [100, 70, 35] },
+  rogue:   { robe: [50, 50, 60],   hair: [255, 217, 179], accent: [100, 80, 50] },
+};
+
+// ── Fantasy Name Pool ─────────────────────────────────────────────────────────
+// ~80 names for deterministic assignment via session hash
+export const FANTASY_NAMES: string[] = [
+  'Eldric', 'Thessa', 'Kael', 'Lyra', 'Dorn', 'Mira', 'Voss', 'Sera',
+  'Bram', 'Faye', 'Thane', 'Nyx', 'Cade', 'Isla', 'Rook', 'Wren',
+  'Ash', 'Vale', 'Finn', 'Zara', 'Pike', 'Luna', 'Grim', 'Sage',
+  'Reed', 'Opal', 'Storm', 'Ember', 'Flint', 'Jade', 'Hawk', 'Coral',
+  'Birch', 'Rowan', 'Slate', 'Brynn', 'Thorn', 'Ivy', 'Drake', 'Fern',
+  'Knox', 'Aria', 'Bolt', 'Dawn', 'Crest', 'Dusk', 'Frost', 'Blaze',
+  'Sable', 'Russet', 'Onyx', 'Garnet', 'Cobalt', 'Sienna', 'Ivory', 'Raven',
+  'Cedar', 'Lark', 'Moss', 'Hazel', 'Glen', 'Bay', 'Heath', 'Clay',
+  'Pyre', 'Shale', 'Cinder', 'Dew', 'Ridge', 'Brook', 'Teal', 'Quill',
+  'Bramble', 'Maple', 'Umber', 'Flax', 'Stone', 'Echo', 'Drift', 'Spark',
+];
+
+// ── Gear Definitions ──────────────────────────────────────────────────────────
+export const GEAR_VARIANTS_PER_CLASS = 4;
+
 // Tool name -> activity category mapping (from research: verified against live JSONL files)
 export const TOOL_TO_ACTIVITY: Record<string, ActivityType> = {
   Read: 'reading',
@@ -101,10 +172,17 @@ export function getAgentSlot(sessionId: string): AgentSlot {
   const hash = hashSessionId(sessionId);
   const colorIndex = hash % 8;
   const classIndex = hash % 4;
+  // Use different bit ranges of hash for independent distribution
+  const paletteIndex = (hash >>> 4) % PALETTE_DEFS.length;
+  const gearIndex = (hash >>> 8) % GEAR_VARIANTS_PER_CLASS;
+  const nameIndex = (hash >>> 12) % FANTASY_NAMES.length;
   return {
     colorIndex,
     color: AGENT_COLORS[colorIndex],
     characterClass: CHARACTER_CLASSES[classIndex],
+    paletteIndex,
+    gearIndex,
+    agentName: FANTASY_NAMES[nameIndex],
   };
 }
 

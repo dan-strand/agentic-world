@@ -2,7 +2,7 @@ import { Texture } from 'pixi.js';
 import type { CharacterClass } from '../shared/types';
 import { characterAnimations } from './asset-loader';
 
-type AnimState = 'idle' | 'walk' | 'work';
+export type AnimState = 'idle' | 'walk' | 'work' | 'celebrate';
 
 /**
  * Get character animation texture array for a given class and state.

@@ -6,6 +6,9 @@ export interface AgentSlot {
   colorIndex: number;
   color: number;
   characterClass: CharacterClass;
+  paletteIndex: number;    // Index into PALETTE_DEFS (0-24)
+  gearIndex: number;       // Index into class gear variants (0-3)
+  agentName: string;       // Procedural fantasy name
 }
 
 export type SessionStatus = 'active' | 'waiting' | 'idle' | 'error';

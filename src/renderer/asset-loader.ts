@@ -15,6 +15,9 @@ export const characterAnimations: Record<string, Texture[]> = {};
 /** Scenery textures loaded from the spritesheet, keyed by frame name */
 export const sceneryTextures: Record<string, Texture> = {};
 
+/** Gear overlay textures loaded from the spritesheet, keyed by frame name (e.g. mage_gear_0) */
+export const gearTextures: Record<string, Texture> = {};
+
 /**
  * Load all sprite atlases. Must be called after TextureStyle.defaultOptions
  * is configured and before any World/Sprite creation.
@@ -22,12 +25,13 @@ export const sceneryTextures: Record<string, Texture> = {};
  * Atlas files are served from assets/ via CopyWebpackPlugin.
  */
 export async function loadAllAssets(): Promise<void> {
-  const [tileSheet, buildingSheet, campfireSheet, characterSheet, scenerySheet] = await Promise.all([
+  const [tileSheet, buildingSheet, campfireSheet, characterSheet, scenerySheet, gearSheet] = await Promise.all([
     Assets.load('../assets/sprites/tiles.json') as Promise<Spritesheet>,
     Assets.load('../assets/sprites/buildings.json') as Promise<Spritesheet>,
     Assets.load('../assets/sprites/campfire.json') as Promise<Spritesheet>,
     Assets.load('../assets/sprites/characters.json') as Promise<Spritesheet>,
     Assets.load('../assets/sprites/scenery.json') as Promise<Spritesheet>,
+    Assets.load('../assets/sprites/gear.json') as Promise<Spritesheet>,
   ]);
 
   // Store texture references for direct use by tilemap builder.
@@ -53,5 +57,10 @@ export async function loadAllAssets(): Promise<void> {
   // Store scenery textures for world population (trees, props, lanterns, fences)
   for (const [name, texture] of Object.entries(scenerySheet.textures)) {
     sceneryTextures[name] = texture;
+  }
+
+  // Store gear overlay textures for character accessory compositing
+  for (const [name, texture] of Object.entries(gearSheet.textures)) {
+    gearTextures[name] = texture;
   }
 }
