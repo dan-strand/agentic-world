@@ -119,11 +119,11 @@ Plans:
   2. Agents wear visible accessories or gear (hats, capes, weapons, shields) adding visual variety
   3. A fantasy name is displayed above each agent character
   4. Each RPG class has distinct animations for idle, working, and celebrating states (not shared across classes)
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 21-01: TBD
-- [ ] 21-02: TBD
+- [ ] 21-01-PLAN.md -- Identity data layer: character atlas celebrate frames, gear atlas, palette definitions, fantasy names, type system expansion
+- [ ] 21-02-PLAN.md -- Renderer integration: runtime palette swap, gear overlays, name labels, celebrate animation wiring, visual verification
 
 ### Phase 22: Day/Night Cycle & Atmosphere
 **Goal**: The world breathes with a day/night rhythm -- lighting shifts, fixtures glow at night, and enhanced particle effects create atmosphere
