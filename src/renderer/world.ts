@@ -14,6 +14,8 @@ import {
   IDLE_REMINDER_MS,
   WAITING_REMINDER_MS,
   REMINDER_THROTTLE_MS,
+  AMBIENT_AGENT_COUNT,
+  AMBIENT_AGENT_IDS,
   hashSessionId,
 } from '../shared/constants';
 import type { BuildingType } from '../shared/constants';
@@ -56,6 +58,9 @@ export class World {
   private buildingsContainer!: Container;
   private ambientParticles!: AmbientParticles;
   private agentsContainer!: Container;
+
+  // Ambient idle agents (always at campfire, decorative)
+  private ambientAgents: Agent[] = [];
 
   // State tracking
   private agents: Map<string, Agent> = new Map();
@@ -181,6 +186,22 @@ export class World {
     this.agentsContainer = new Container();
     this.app.stage.addChild(this.agentsContainer);
 
+    // Spawn ambient idle agents at campfire (decorative, always visible)
+    for (const ambientId of AMBIENT_AGENT_IDS) {
+      const slot = this.agentFactory.getSlot(ambientId);
+      const agent = new Agent(ambientId, slot);
+      const spacing = 30;
+      const index = AMBIENT_AGENT_IDS.indexOf(ambientId);
+      const totalWidth = (AMBIENT_AGENT_COUNT - 1) * spacing;
+      const startX = CAMPFIRE_POS.x - totalWidth / 2;
+      agent.x = startX + index * spacing;
+      agent.y = CAMPFIRE_POS.y + CAMPFIRE_SIZE / 2 + 10;
+      agent.setHQPosition({ x: agent.x, y: agent.y });
+      agent.applyStatusVisuals('idle');
+      this.agentsContainer.addChild(agent);
+      this.ambientAgents.push(agent);
+    }
+
     // Warm ambient lighting tint (FX-03)
     const warmFilter = new ColorMatrixFilter();
     warmFilter.tint(0xFFE8C0, false); // Warm golden tone for RPG atmosphere
@@ -210,6 +231,13 @@ export class World {
    * Buildings are always visible at alpha 1.0 -- no fade transitions needed.
    */
   tick(deltaMs: number): void {
+    // Tick ambient agents (idle animation at campfire)
+    for (const ambient of this.ambientAgents) {
+      if (ambient.visible) {
+        ambient.tick(deltaMs);
+      }
+    }
+
     // Tick agents (state machine + animation) and advance status debouncing
     for (const agent of this.agents.values()) {
       agent.tick(deltaMs);
@@ -618,6 +646,12 @@ export class World {
       }
     }
 
+    // Hide ambient agents when many real agents are present to avoid clutter
+    const hideAmbient = this.agents.size >= 4;
+    for (const ambient of this.ambientAgents) {
+      ambient.visible = !hideAmbient;
+    }
+
     // Reposition idle agents at campfire
     this.repositionIdleAgents();
   }
@@ -628,6 +662,13 @@ export class World {
    */
   private repositionIdleAgents(): void {
     const idleAgents: Agent[] = [];
+    // Include visible ambient agents in the fan layout
+    for (const ambient of this.ambientAgents) {
+      if (ambient.visible) {
+        idleAgents.push(ambient);
+      }
+    }
+    // Include real idle agents
     for (const agent of this.agents.values()) {
       if (agent.getState() === 'idle_at_hq') {
         idleAgents.push(agent);
@@ -644,6 +685,11 @@ export class World {
         y: baseY,
       };
       idleAgents[i].setHQPosition(globalPos);
+      // Ambient agents are always idle_at_hq; directly position them
+      if (idleAgents[i].getState() === 'idle_at_hq') {
+        idleAgents[i].x = globalPos.x;
+        idleAgents[i].y = globalPos.y;
+      }
     }
   }
 
@@ -893,9 +939,16 @@ export class World {
    * Used when sending an agent back to the campfire waypoint.
    */
   private getCampfireIdlePosition(sessionId: string): { x: number; y: number } {
-    // Count current idle agents + this one
+    // Count current idle agents + visible ambient agents + this one
     let idleCount = 1;
     let thisIndex = 0;
+    // Count visible ambient agents (they occupy positions before real agents)
+    for (const ambient of this.ambientAgents) {
+      if (ambient.visible) {
+        idleCount++;
+        thisIndex++;
+      }
+    }
     for (const agent of this.agents.values()) {
       if (agent.sessionId === sessionId) continue;
       if (agent.getState() === 'idle_at_hq') {
