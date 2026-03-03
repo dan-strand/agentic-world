@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: World & Character Detail
 status: unknown
-last_updated: "2026-03-03T14:46:22Z"
+last_updated: "2026-03-03T14:52:50Z"
 progress:
   total_phases: 11
   completed_phases: 11
   total_plans: 26
-  completed_plans: 26
+  completed_plans: 27
 ---
 
 # Project State
@@ -23,16 +23,16 @@ See: .planning/PROJECT.md (updated 2026-03-03)
 ## Current Position
 
 Phase: 22 of 22 (Day/Night Cycle & Atmosphere)
-Plan: 1 of 2 in current phase
-Status: Plan 22-01 Complete
-Last activity: 2026-03-03 -- Completed 22-01 (Day/Night Cycle Core)
+Plan: 2 of 2 in current phase
+Status: Phase 22 Complete -- All v2.0 phases done
+Last activity: 2026-03-03 -- Completed 22-02 (Enhanced Atmosphere & Night Effects)
 
 Progress: [##########] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 44 (v1.0: 9, v1.1: 9, v1.2: 4, v1.3: 4, v1.4: 6, v1.5: 6, v2.0: 6)
+- Total plans completed: 45 (v1.0: 9, v1.1: 9, v1.2: 4, v1.3: 4, v1.4: 6, v1.5: 6, v2.0: 7)
 - Total execution time: ~5 days
 
 **By Phase:**
@@ -53,6 +53,7 @@ Progress: [##########] 100%
 | v2.0 Phase 20 | 3 | ~14 min | ~4.7 min |
 | v2.0 Phase 21 | 2 | ~9 min | ~4.5 min |
 | v2.0 Phase 22-01 | 1 | ~8 min | ~8 min |
+| v2.0 Phase 22-02 | 1 | ~6 min | ~6 min |
 
 ## Shipped Milestones
 
@@ -87,6 +88,9 @@ Decisions are logged in PROJECT.md Key Decisions table.
 - 22-01: Concentric circles for glow sprites instead of PixiJS blur filters for performance
 - 22-01: Night glow layer placed between scenery and ambient particles in z-order
 - 22-01: Stage filter matrix set directly via 4x5 row-major array for per-channel RGB scaling
+- 22-02: Sparks use dynamic spawn/destroy lifecycle unlike pre-created fireflies
+- 22-02: Dust motes fade at night using inverse nightIntensity for daytime visibility
+- 22-02: Building smoke night modulation uses three independent multipliers (count, opacity, spawn rate)
 
 ### Blockers/Concerns
 
@@ -102,5 +106,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-03
-Stopped at: Completed 22-01-PLAN.md (Day/Night Cycle Core) -- Plan 1 of 2 in Phase 22
+Stopped at: Completed 22-02-PLAN.md (Enhanced Atmosphere & Night Effects) -- Phase 22 complete, all v2.0 phases done
 Resume file: None

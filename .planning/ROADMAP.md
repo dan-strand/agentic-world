@@ -89,7 +89,7 @@ See: [`.planning/milestones/v1.5-ROADMAP.md`](milestones/v1.5-ROADMAP.md) for fu
 
 - [x] **Phase 20: World & Building Art** - Outdoor scenery, village props, building exterior enhancements across the entire world (completed 2026-03-03)
 - [x] **Phase 21: Character Identity** - Unique agent appearances with color palettes, gear, and class-specific animations (completed 2026-03-03)
-- [ ] **Phase 22: Day/Night Cycle & Atmosphere** - Lighting cycle, night glow effects, color temperature shifts, enhanced particles
+- [x] **Phase 22: Day/Night Cycle & Atmosphere** - Lighting cycle, night glow effects, color temperature shifts, enhanced particles (completed 2026-03-03)
 
 ## Phase Details
 
@@ -169,4 +169,4 @@ Phases execute in numeric order: 20 → 21 → 22
 | 19. Historical Persistence | v1.5 | 2/2 | Complete | 2026-03-01 |
 | 20. World & Building Art | v2.0 | Complete    | 2026-03-03 | 2026-03-03 |
 | 21. Character Identity | v2.0 | 2/2 | Complete | 2026-03-03 |
-| 22. Day/Night Cycle & Atmosphere | 1/2 | In Progress|  | - |
+| 22. Day/Night Cycle & Atmosphere | 2/2 | Complete   | 2026-03-03 | - |

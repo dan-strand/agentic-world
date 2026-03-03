@@ -36,8 +36,8 @@ Requirements for World & Character Detail milestone. Each maps to roadmap phases
 
 ### Atmosphere
 
-- [ ] **ATMO-01**: Enhanced particle effects beyond current fireflies (sparks, dust motes, leaves)
-- [ ] **ATMO-02**: Campfire glow and smoke intensifies at night
+- [x] **ATMO-01**: Enhanced particle effects beyond current fireflies (sparks, dust motes, leaves)
+- [x] **ATMO-02**: Campfire glow and smoke intensifies at night
 
 ## Future Requirements
 
@@ -88,8 +88,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DNCL-01 | Phase 22 | Complete |
 | DNCL-02 | Phase 22 | Complete |
 | DNCL-03 | Phase 22 | Complete |
-| ATMO-01 | Phase 22 | Pending |
-| ATMO-02 | Phase 22 | Pending |
+| ATMO-01 | Phase 22 | Complete |
+| ATMO-02 | Phase 22 | Complete |
 
 **Coverage:**
 - v2.0 requirements: 17 total
