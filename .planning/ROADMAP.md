@@ -103,11 +103,12 @@ See: [`.planning/milestones/v1.5-ROADMAP.md`](milestones/v1.5-ROADMAP.md) for fu
   3. Paths are visually improved and a water feature (pond or stream) is visible in the world
   4. Lanterns, torches, or street lamps are placed throughout the world as lighting fixtures
   5. Each building has distinct exterior detail -- roof/chimney features, hanging signs, glowing windows, and surrounding elements (gardens, awnings, doorsteps)
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 20-01: TBD
-- [ ] 20-02: TBD
+- [ ] 20-01-PLAN.md -- Scenery sprite atlas generation and enhanced tilemap (paths, pond)
+- [ ] 20-02-PLAN.md -- Building exterior art enhancements and chimney smoke particles
+- [ ] 20-03-PLAN.md -- Wire scenery into world, place trees/props/lanterns, visual verification
 
 ### Phase 21: Character Identity
 **Goal**: Every agent on screen is visually distinct and has a name, so you can tell sessions apart at a glance
