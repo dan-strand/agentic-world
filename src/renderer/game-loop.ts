@@ -41,8 +41,11 @@ export class GameLoop {
     const hasActive = sessions.some(s => s.status === 'active') || this.world.hasActiveAnimations();
 
     if (sessions.length === 0) {
-      // No sessions at all -- stop rendering for zero CPU
-      this.app.ticker.stop();
+      // No sessions -- keep ticking at idle FPS for ambient agent animation
+      this.app.ticker.maxFPS = FPS_IDLE;
+      if (!this.app.ticker.started) {
+        this.app.ticker.start();
+      }
       this.isIdle = true;
       return;
     }

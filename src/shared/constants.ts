@@ -171,6 +171,12 @@ export const AMBIENT_PARTICLE_ALPHA_RANGE = 0.6;  // Alpha range above minimum
 export const CELEBRATION_DURATION_MS = 2500;  // How long agent stays in celebrating state before heading to HQ
 export const AGENT_FADEOUT_DELAY_MS = 2000;   // Linger at Guild Hall before fade begins
 export const AGENT_FADEOUT_DURATION_MS = 2000; // Duration of alpha fade from 1 to 0
+// Ambient idle agents -- decorative agents sitting at campfire when no sessions are active
+export const AMBIENT_AGENT_COUNT = 2;
+export const AMBIENT_AGENT_IDS = ['ambient-agent-0', 'ambient-agent-1'] as const;
+export const AMBIENT_WANDER_RADIUS = 20;          // Smaller wander radius for relaxed campfire vibe
+export const AMBIENT_WANDER_INTERVAL_MS = 4000;   // Slower wander cycle for ambient agents
+
 export const IDLE_TIMEOUT_MS = 5 * 60 * 1000;   // 5 minutes of continuous idle before fade-out
 export const IDLE_REMINDER_MS = 60 * 1000;       // 1 minute of idle before "ready to work" reminder sound
 export const WAITING_REMINDER_MS = 60 * 1000;    // 1 minute of continuous waiting before reminder sound
