@@ -16,10 +16,10 @@ Requirements for World & Character Detail milestone. Each maps to roadmap phases
 
 ### Outdoor Scenery
 
-- [ ] **SCEN-01**: Trees and vegetation (pines, bushes, flowers) placed in spaces between buildings
-- [ ] **SCEN-02**: Village props (fences, barrels, crates, market stall, well, signposts) near buildings
-- [ ] **SCEN-03**: Enhanced paths and water features (improved dirt paths, small pond or stream)
-- [ ] **SCEN-04**: Lighting props (lanterns, torches, street lamps) placed throughout the world
+- [x] **SCEN-01**: Trees and vegetation (pines, bushes, flowers) placed in spaces between buildings
+- [x] **SCEN-02**: Village props (fences, barrels, crates, market stall, well, signposts) near buildings
+- [x] **SCEN-03**: Enhanced paths and water features (improved dirt paths, small pond or stream)
+- [x] **SCEN-04**: Lighting props (lanterns, torches, street lamps) placed throughout the world
 
 ### Building Exteriors
 
@@ -77,10 +77,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CHAR-02 | Phase 21 | Pending |
 | CHAR-03 | Phase 21 | Pending |
 | CHAR-04 | Phase 21 | Pending |
-| SCEN-01 | Phase 20 | Pending |
-| SCEN-02 | Phase 20 | Pending |
-| SCEN-03 | Phase 20 | Pending |
-| SCEN-04 | Phase 20 | Pending |
+| SCEN-01 | Phase 20 | Complete |
+| SCEN-02 | Phase 20 | Complete |
+| SCEN-03 | Phase 20 | Complete |
+| SCEN-04 | Phase 20 | Complete |
 | BLDG-01 | Phase 20 | Complete |
 | BLDG-02 | Phase 20 | Complete |
 | BLDG-03 | Phase 20 | Complete |
