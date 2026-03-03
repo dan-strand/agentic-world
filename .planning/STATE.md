@@ -6,9 +6,9 @@ status: executing
 last_updated: "2026-03-03"
 progress:
   total_phases: 3
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 3
-  completed_plans: 2
+  completed_plans: 3
 ---
 
 # Project State
@@ -23,16 +23,16 @@ See: .planning/PROJECT.md (updated 2026-03-03)
 ## Current Position
 
 Phase: 20 of 22 (World & Building Art)
-Plan: 2 of 3 in current phase
-Status: Executing
-Last activity: 2026-03-03 -- Completed 20-02 (Building Exterior Details & Chimney Smoke)
+Plan: 3 of 3 in current phase (COMPLETE)
+Status: Phase 20 Complete
+Last activity: 2026-03-03 -- Completed 20-03 (Scenery & World Integration)
 
-Progress: [######░░░░] 67%
+Progress: [##########] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 40 (v1.0: 9, v1.1: 9, v1.2: 4, v1.3: 4, v1.4: 6, v1.5: 6, v2.0: 2)
+- Total plans completed: 41 (v1.0: 9, v1.1: 9, v1.2: 4, v1.3: 4, v1.4: 6, v1.5: 6, v2.0: 3)
 - Total execution time: ~5 days
 
 **By Phase:**
@@ -50,7 +50,7 @@ Progress: [######░░░░] 67%
 | v1.5 Phase 17 | 2 | ~8 min | ~4 min |
 | v1.5 Phase 18 | 2 | ~5 min | ~2.5 min |
 | v1.5 Phase 19 | 2 | ~3 min | ~1.5 min |
-| v2.0 Phase 20 | 2 | ~9 min | ~4.5 min |
+| v2.0 Phase 20 | 3 | ~14 min | ~4.7 min |
 
 ## Shipped Milestones
 
@@ -73,6 +73,9 @@ Decisions are logged in PROJECT.md Key Decisions table.
 - 20-02: Exterior details drawn as overlay functions after interior art to preserve existing interiors
 - 20-02: Alpha-blend utility added for glow compositing on existing sprite pixels
 - 20-02: Chimney positions derived from atlas coordinates and building anchor offset
+- 20-03: Used seed 7777 for scenery placement to avoid correlation with tilemap decoration
+- 20-03: Placed scenery layer between buildingsContainer and ambientParticles in scene hierarchy
+- 20-03: 96 sprites placed covering trees, bushes, flowers, props, fences, lanterns, and torches
 
 ### Blockers/Concerns
 
@@ -88,5 +91,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-03
-Stopped at: Completed 20-02-PLAN.md (Building Exterior Details & Chimney Smoke)
+Stopped at: Completed 20-03-PLAN.md (Scenery & World Integration) -- Phase 20 complete
 Resume file: None

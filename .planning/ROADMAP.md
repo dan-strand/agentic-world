@@ -87,7 +87,7 @@ See: [`.planning/milestones/v1.5-ROADMAP.md`](milestones/v1.5-ROADMAP.md) for fu
 
 **Milestone Goal:** Make the world feel alive and each agent visually unique -- richer outdoor scenery, building detail, day/night cycle, and distinct character identities.
 
-- [ ] **Phase 20: World & Building Art** - Outdoor scenery, village props, building exterior enhancements across the entire world
+- [x] **Phase 20: World & Building Art** - Outdoor scenery, village props, building exterior enhancements across the entire world (completed 2026-03-03)
 - [ ] **Phase 21: Character Identity** - Unique agent appearances with color palettes, gear, names, and class-specific animations
 - [ ] **Phase 22: Day/Night Cycle & Atmosphere** - Lighting cycle, night glow effects, color temperature shifts, enhanced particles
 
@@ -106,9 +106,9 @@ See: [`.planning/milestones/v1.5-ROADMAP.md`](milestones/v1.5-ROADMAP.md) for fu
 **Plans**: 3 plans
 
 Plans:
-- [ ] 20-01-PLAN.md -- Scenery sprite atlas generation and enhanced tilemap (paths, pond)
-- [ ] 20-02-PLAN.md -- Building exterior art enhancements and chimney smoke particles
-- [ ] 20-03-PLAN.md -- Wire scenery into world, place trees/props/lanterns, visual verification
+- [x] 20-01-PLAN.md -- Scenery sprite atlas generation and enhanced tilemap (paths, pond)
+- [x] 20-02-PLAN.md -- Building exterior art enhancements and chimney smoke particles
+- [x] 20-03-PLAN.md -- Wire scenery into world, place trees/props/lanterns, visual verification
 
 ### Phase 21: Character Identity
 **Goal**: Every agent on screen is visually distinct and has a name, so you can tell sessions apart at a glance
@@ -167,6 +167,6 @@ Phases execute in numeric order: 20 → 21 → 22
 | 17. Window Layout and Parsing Infrastructure | v1.5 | 2/2 | Complete | 2026-03-01 |
 | 18. Live Dashboard with Cost Estimation | v1.5 | 2/2 | Complete | 2026-03-01 |
 | 19. Historical Persistence | v1.5 | 2/2 | Complete | 2026-03-01 |
-| 20. World & Building Art | 2/3 | In Progress|  | - |
+| 20. World & Building Art | v2.0 | 3/3 | Complete | 2026-03-03 |
 | 21. Character Identity | v2.0 | 0/? | Not started | - |
 | 22. Day/Night Cycle & Atmosphere | v2.0 | 0/? | Not started | - |
