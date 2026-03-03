@@ -546,7 +546,7 @@ export class World {
               // Reassign to a new station (different from current if possible)
               const newStationIndex = building.reassignStation(session.sessionId);
               this.agentSpotIndex.set(session.sessionId, newStationIndex);
-              const newWorkPos = this.getBuildingWorkPosition(building, session.sessionId);
+              const newWorkPos = building.getWorkSpot(newStationIndex);
               agent.updateActivity(newWorkPos);
             }
           }
