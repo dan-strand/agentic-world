@@ -8,6 +8,7 @@
 - ✅ **v1.3 Audio & Status Reliability** - Phases 11, 13 (shipped 2026-02-27)
 - ✅ **v1.4 Enhanced Session Workspaces** - Phases 14-16 (shipped 2026-02-27)
 - ✅ **v1.5 Usage Dashboard** - Phases 17-19 (shipped 2026-03-01)
+- 🚧 **v2.0 World & Character Detail** - Phases 20-22 (in progress)
 
 ## Phases
 
@@ -82,7 +83,67 @@ See: [`.planning/milestones/v1.5-ROADMAP.md`](milestones/v1.5-ROADMAP.md) for fu
 
 </details>
 
+### 🚧 v2.0 World & Character Detail (In Progress)
+
+**Milestone Goal:** Make the world feel alive and each agent visually unique -- richer outdoor scenery, building detail, day/night cycle, and distinct character identities.
+
+- [ ] **Phase 20: World & Building Art** - Outdoor scenery, village props, building exterior enhancements across the entire world
+- [ ] **Phase 21: Character Identity** - Unique agent appearances with color palettes, gear, names, and class-specific animations
+- [ ] **Phase 22: Day/Night Cycle & Atmosphere** - Lighting cycle, night glow effects, color temperature shifts, enhanced particles
+
+## Phase Details
+
+### Phase 20: World & Building Art
+**Goal**: The world outside buildings looks like a living fantasy village, not empty space with paths
+**Depends on**: Phase 19 (v1.5 complete)
+**Requirements**: SCEN-01, SCEN-02, SCEN-03, SCEN-04, BLDG-01, BLDG-02, BLDG-03, BLDG-04
+**Success Criteria** (what must be TRUE):
+  1. Trees, bushes, and flowers fill the gaps between buildings so the world feels forested and lush
+  2. Village props (fences, barrels, crates, well, signposts) are visible near buildings creating a lived-in feel
+  3. Paths are visually improved and a water feature (pond or stream) is visible in the world
+  4. Lanterns, torches, or street lamps are placed throughout the world as lighting fixtures
+  5. Each building has distinct exterior detail -- roof/chimney features, hanging signs, glowing windows, and surrounding elements (gardens, awnings, doorsteps)
+**Plans**: TBD
+
+Plans:
+- [ ] 20-01: TBD
+- [ ] 20-02: TBD
+
+### Phase 21: Character Identity
+**Goal**: Every agent on screen is visually distinct and has a name, so you can tell sessions apart at a glance
+**Depends on**: Phase 20
+**Requirements**: CHAR-01, CHAR-02, CHAR-03, CHAR-04
+**Success Criteria** (what must be TRUE):
+  1. Each agent displays a unique color palette that distinguishes it from every other active agent
+  2. Agents wear visible accessories or gear (hats, capes, weapons, shields) adding visual variety
+  3. A fantasy name is displayed above each agent character
+  4. Each RPG class has distinct animations for idle, working, and celebrating states (not shared across classes)
+**Plans**: TBD
+
+Plans:
+- [ ] 21-01: TBD
+- [ ] 21-02: TBD
+
+### Phase 22: Day/Night Cycle & Atmosphere
+**Goal**: The world breathes with a day/night rhythm -- lighting shifts, fixtures glow at night, and enhanced particle effects create atmosphere
+**Depends on**: Phase 20 (lighting props and glowing windows must exist to illuminate at night)
+**Requirements**: DNCL-01, DNCL-02, DNCL-03, ATMO-01, ATMO-02
+**Success Criteria** (what must be TRUE):
+  1. The world cycles through day and night in roughly 10 minutes with smooth, continuous lighting transitions
+  2. At night, lanterns, torches, windows, and the campfire visibly glow as light sources
+  3. Daylight is warm-toned and nighttime shifts to cool blue, with the transition clearly visible
+  4. Additional particle effects beyond fireflies are visible (sparks near the forge, dust motes, drifting leaves)
+  5. The campfire glow and smoke visibly intensify at night compared to daytime
+**Plans**: TBD
+
+Plans:
+- [ ] 22-01: TBD
+- [ ] 22-02: TBD
+
 ## Progress
+
+**Execution Order:**
+Phases execute in numeric order: 20 → 21 → 22
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -105,3 +166,6 @@ See: [`.planning/milestones/v1.5-ROADMAP.md`](milestones/v1.5-ROADMAP.md) for fu
 | 17. Window Layout and Parsing Infrastructure | v1.5 | 2/2 | Complete | 2026-03-01 |
 | 18. Live Dashboard with Cost Estimation | v1.5 | 2/2 | Complete | 2026-03-01 |
 | 19. Historical Persistence | v1.5 | 2/2 | Complete | 2026-03-01 |
+| 20. World & Building Art | v2.0 | 0/? | Not started | - |
+| 21. Character Identity | v2.0 | 0/? | Not started | - |
+| 22. Day/Night Cycle & Atmosphere | v2.0 | 0/? | Not started | - |

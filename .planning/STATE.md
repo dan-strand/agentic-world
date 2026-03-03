@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: World & Character Detail
-status: defining_requirements
-last_updated: "2026-03-03"
+status: ready_to_plan
+last_updated: "2026-03-02"
 progress:
-  total_phases: 0
+  total_phases: 3
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -18,15 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-03)
 
 **Core value:** Instantly see the status of all Claude Code sessions so you know which one needs attention next.
-**Current focus:** v2.0 World & Character Detail — defining requirements
+**Current focus:** v2.0 World & Character Detail -- Phase 20 ready to plan
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Status: Defining requirements
-Last activity: 2026-03-03 — Milestone v2.0 started
+Phase: 20 of 22 (World & Building Art)
+Plan: 0 of ? in current phase
+Status: Ready to plan
+Last activity: 2026-03-02 -- Roadmap created for v2.0
 
-Progress: [░░░░░░░░░░] 0% (Defining requirements)
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
@@ -64,11 +65,11 @@ Progress: [░░░░░░░░░░] 0% (Defining requirements)
 ### Decisions
 
 Decisions are logged in PROJECT.md Key Decisions table.
-No active decisions pending — milestone complete.
+No active decisions pending -- roadmap just created.
 
 ### Blockers/Concerns
 
-None — all resolved.
+None.
 
 ### Quick Tasks Completed
 
@@ -79,6 +80,6 @@ None — all resolved.
 
 ## Session Continuity
 
-Last session: 2026-03-03
-Stopped at: Completed quick task 7 (ambient idle agents)
-Resume file: N/A
+Last session: 2026-03-02
+Stopped at: v2.0 roadmap created -- ready to plan Phase 20
+Resume file: None

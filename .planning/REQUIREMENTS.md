@@ -62,7 +62,7 @@ Explicitly excluded. Documented to prevent scope creep.
 | Feature | Reason |
 |---------|--------|
 | Weather effects (rain, snow) | Deferred to future milestone |
-| NPC townspeople | Agents only for now — deferred |
+| NPC townspeople | Agents only for now -- deferred |
 | Seasonal changes | Too much scope for this milestone |
 | Interactive elements | View-only design decision unchanged |
 | 3D graphics | Strictly 2D pixel art |
@@ -73,13 +73,29 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (populated during roadmap creation) | | |
+| CHAR-01 | Phase 21 | Pending |
+| CHAR-02 | Phase 21 | Pending |
+| CHAR-03 | Phase 21 | Pending |
+| CHAR-04 | Phase 21 | Pending |
+| SCEN-01 | Phase 20 | Pending |
+| SCEN-02 | Phase 20 | Pending |
+| SCEN-03 | Phase 20 | Pending |
+| SCEN-04 | Phase 20 | Pending |
+| BLDG-01 | Phase 20 | Pending |
+| BLDG-02 | Phase 20 | Pending |
+| BLDG-03 | Phase 20 | Pending |
+| BLDG-04 | Phase 20 | Pending |
+| DNCL-01 | Phase 22 | Pending |
+| DNCL-02 | Phase 22 | Pending |
+| DNCL-03 | Phase 22 | Pending |
+| ATMO-01 | Phase 22 | Pending |
+| ATMO-02 | Phase 22 | Pending |
 
 **Coverage:**
-- v2.0 requirements: 18 total
-- Mapped to phases: 0
-- Unmapped: 18
+- v2.0 requirements: 17 total
+- Mapped to phases: 17
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-03*
-*Last updated: 2026-03-03 after initial definition*
+*Last updated: 2026-03-02 after roadmap creation*
