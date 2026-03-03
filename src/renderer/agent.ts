@@ -1,4 +1,4 @@
-import { Container, AnimatedSprite } from 'pixi.js';
+import { Container, AnimatedSprite, Sprite, Text, TextStyle } from 'pixi.js';
 import type { AgentSlot, SessionStatus, CharacterClass } from '../shared/types';
 import {
   AGENT_WALK_SPEED,
@@ -21,7 +21,9 @@ import {
   lerpColor,
   hashSessionId,
 } from '../shared/constants';
-import { getCharacterAnimation } from './agent-sprites';
+import { getCharacterAnimation, type AnimState } from './agent-sprites';
+import { gearTextures } from './asset-loader';
+import { createPaletteSwappedTextures } from './palette-swap';
 import { LevelUpEffect } from './level-up-effect';
 
 /**
@@ -55,7 +57,14 @@ export class Agent extends Container {
   private state: AgentState = 'idle_at_hq';
   private sprite: AnimatedSprite;
   private characterClass: CharacterClass;
-  private currentAnimState: 'idle' | 'walk' | 'work' = 'idle';
+  private currentAnimState: AnimState = 'idle';
+
+  // Character identity (palette swap, gear overlay, name label)
+  private paletteIndex: number;
+  private gearIndex: number;
+  private agentName: string;
+  private gearSprite: Sprite | null = null;
+  private nameLabel: Text;
 
   // Movement
   private targetX = 0;
@@ -103,10 +112,14 @@ export class Agent extends Container {
     super();
     this.sessionId = sessionId;
     this.characterClass = slot.characterClass;
+    this.paletteIndex = slot.paletteIndex;
+    this.gearIndex = slot.gearIndex;
+    this.agentName = slot.agentName;
 
-    // Create AnimatedSprite from idle animation
-    const idleTextures = getCharacterAnimation(this.characterClass, 'idle');
-    this.sprite = new AnimatedSprite(idleTextures);
+    // Create AnimatedSprite from palette-swapped idle animation
+    const baseIdleTextures = getCharacterAnimation(this.characterClass, 'idle');
+    const swappedIdleTextures = createPaletteSwappedTextures(baseIdleTextures, this.characterClass, this.paletteIndex);
+    this.sprite = new AnimatedSprite(swappedIdleTextures);
     this.sprite.anchor.set(0.5, 1.0); // Bottom-center for ground placement
     this.sprite.autoUpdate = false;    // Manual tick control -- CRITICAL to avoid double-speed
     this.sprite.animationSpeed = 0.15; // ~4.5fps at 30fps ticker
@@ -117,6 +130,28 @@ export class Agent extends Container {
     this.sprite.gotoAndPlay(startFrame);
 
     this.addChild(this.sprite);
+
+    // Gear overlay sprite (hat/helm/hood positioned over character head)
+    const gearKey = `${this.characterClass}_gear_${this.gearIndex}`;
+    const gearTex = gearTextures[gearKey];
+    if (gearTex) {
+      this.gearSprite = new Sprite(gearTex);
+      this.gearSprite.anchor.set(0.5, 1.0); // Same anchor as character sprite
+      this.addChild(this.gearSprite);
+    }
+
+    // Fantasy name label above agent (always visible per CONTEXT.md)
+    const nameStyle = new TextStyle({
+      fontFamily: 'Segoe UI, Arial, sans-serif',
+      fontSize: 9,
+      fill: '#ffffff',
+      stroke: { color: '#000000', width: 2 },
+      align: 'center',
+    });
+    this.nameLabel = new Text({ text: this.agentName, style: nameStyle });
+    this.nameLabel.anchor.set(0.5, 1.0);
+    this.nameLabel.position.set(0, -34); // Above the 32px sprite (sprite anchor is bottom-center)
+    this.addChild(this.nameLabel);
   }
 
   /**
@@ -208,7 +243,7 @@ export class Agent extends Container {
         if (this.levelUpEffect) {
           this.levelUpEffect.tick(deltaMs);
         }
-        this.setAnimation('idle'); // Stand still during celebration
+        this.setAnimation('celebrate'); // Class-specific celebrate animation
         if (this.celebrationTimer >= CELEBRATION_DURATION_MS) {
           // Clean up level-up effect
           if (this.levelUpEffect) {
@@ -241,13 +276,15 @@ export class Agent extends Container {
 
   /**
    * Switch AnimatedSprite textures when animation state changes.
+   * Uses palette-swapped textures for unique agent colors.
    * Only swaps textures when the state actually changes to avoid unnecessary work.
    */
-  private setAnimation(state: 'idle' | 'walk' | 'work'): void {
+  private setAnimation(state: AnimState): void {
     if (this.currentAnimState === state) return; // Only switch when state changes
     this.currentAnimState = state;
-    const textures = getCharacterAnimation(this.characterClass, state);
-    this.sprite.textures = textures;
+    const baseTextures = getCharacterAnimation(this.characterClass, state);
+    const swappedTextures = createPaletteSwappedTextures(baseTextures, this.characterClass, this.paletteIndex);
+    this.sprite.textures = swappedTextures;
     this.sprite.play();
     // Preserve staggered offset -- don't reset to frame 0
   }
@@ -409,6 +446,7 @@ export class Agent extends Container {
 
   /**
    * Begin celebration: play golden level-up effect above agent, then transition to HQ.
+   * Uses class-specific celebrate animation (mage staff burst, warrior fist pump, etc.)
    * Called by World when a session completes successfully.
    */
   startCelebration(): void {
@@ -417,6 +455,7 @@ export class Agent extends Container {
     // Position level-up effect above agent head
     this.levelUpEffect = new LevelUpEffect(0, -40);
     this.addChild(this.levelUpEffect);
+    this.setAnimation('celebrate'); // Class-specific celebrate animation
   }
 
   // --- Public API (called by World) ---
