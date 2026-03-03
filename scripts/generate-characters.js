@@ -1,12 +1,12 @@
 /**
- * Generate the 128x384 character atlas PNG with 4 character classes x 3 states x 4 frames = 48 frames.
- * Layout: 4 columns (frames) x 12 rows (4 classes x 3 states) at 32x32 each.
+ * Generate the 128x512 character atlas PNG with 4 character classes x 4 states x 4 frames = 64 frames.
+ * Layout: 4 columns (frames) x 16 rows (4 classes x 4 states) at 32x32 each.
  *
  * Row order:
- *   0-2:  mage   (idle, walk, work)
- *   3-5:  warrior (idle, walk, work)
- *   6-8:  ranger  (idle, walk, work)
- *   9-11: rogue   (idle, walk, work)
+ *   0-3:   mage    (idle, walk, work, celebrate)
+ *   4-7:   warrior (idle, walk, work, celebrate)
+ *   8-11:  ranger  (idle, walk, work, celebrate)
+ *   12-15: rogue   (idle, walk, work, celebrate)
  *
  * Also generates assets/sprites/characters.json spritesheet descriptor with
  * frames and animations fields.
@@ -19,7 +19,7 @@ const fs = require('fs');
 const path = require('path');
 
 const WIDTH = 128;   // 4 frames x 32px
-const HEIGHT = 384;  // 12 rows x 32px
+const HEIGHT = 512;  // 16 rows x 32px
 const FRAME = 32;    // frame size
 
 const png = new PNG({ width: WIDTH, height: HEIGHT });
@@ -141,7 +141,7 @@ function drawMageStaffTip(ox, oy, yOff, staffXOff, alpha) {
 
 // Mage idle (row 0): subtle vertical bob, staff tip glow flicker
 function drawMageIdle(frame) {
-  const oy = 0;
+  const oy = FRAME * 0;
   const yOff = (frame === 1 || frame === 2) ? -1 : 0; // sinusoidal bob
   const ox = frame * FRAME;
   drawMageBase(ox, oy, yOff);
@@ -152,7 +152,7 @@ function drawMageIdle(frame) {
 
 // Mage walk (row 1): robe sways, alternating legs, staff bobs
 function drawMageWalk(frame) {
-  const oy = FRAME;
+  const oy = FRAME * 1;
   const ox = frame * FRAME;
   const yOff = 0;
 
@@ -204,6 +204,46 @@ function drawMageWork(frame) {
   sparklePositions[frame].forEach(([x, y]) => {
     setPixel(x, y, 200, 220, 255);
     setPixel(x + 1, y, 180, 200, 255, 150);
+  });
+}
+
+// Mage celebrate (row 3): staff raised high with magic burst, both hands casting
+function drawMageCelebrate(frame) {
+  const oy = FRAME * 3;
+  const ox = frame * FRAME;
+  const yOff = (frame === 1 || frame === 2) ? -1 : 0; // upward stretch on mid frames
+
+  drawMageBase(ox, oy, yOff);
+
+  // Staff raised high above head
+  const sx = ox + 22;
+  for (let y = oy + 0 + yOff; y < oy + 18 + yOff; y++) {
+    if (y >= 0 && y < HEIGHT) setPixel(sx, y, 100, 70, 40);
+  }
+
+  // Glowing staff tip -- bright cyan/white cycling
+  const tipBright = (frame % 2 === 0) ? 255 : 200;
+  setPixel(sx, oy + 0 + yOff, 150, 230, 255, tipBright);
+  setPixel(sx - 1, oy + 0 + yOff, 100, 200, 255, Math.floor(tipBright * 0.7));
+  setPixel(sx + 1, oy + 0 + yOff, 100, 200, 255, Math.floor(tipBright * 0.7));
+  setPixel(sx, oy + 1 + yOff, 200, 240, 255, tipBright);
+  setPixel(sx - 1, oy + 1 + yOff, 100, 200, 255, Math.floor(tipBright * 0.5));
+  setPixel(sx + 1, oy + 1 + yOff, 100, 200, 255, Math.floor(tipBright * 0.5));
+
+  // Free hand raised casting
+  setPixel(ox + 9, oy + 12 + yOff, ...SKIN);
+  setPixel(ox + 8, oy + 11 + yOff, ...SKIN);
+
+  // Sparkle particles around staff tip -- cycle positions per frame
+  const sparklePositions = [
+    [[sx - 3, oy + 2 + yOff], [sx + 2, oy + 3 + yOff], [sx - 2, oy + 5 + yOff], [sx + 3, oy + 1 + yOff]],
+    [[sx - 2, oy + 3 + yOff], [sx + 3, oy + 1 + yOff], [sx - 1, oy + 4 + yOff], [sx + 2, oy + 5 + yOff]],
+    [[sx - 3, oy + 1 + yOff], [sx + 2, oy + 4 + yOff], [sx - 1, oy + 6 + yOff], [sx + 3, oy + 2 + yOff]],
+    [[sx - 2, oy + 4 + yOff], [sx + 3, oy + 2 + yOff], [sx - 3, oy + 3 + yOff], [sx + 1, oy + 6 + yOff]],
+  ];
+  sparklePositions[frame].forEach(([x, y]) => {
+    setPixel(x, y, 220, 240, 255);
+    setPixel(x + 1, y, 200, 220, 255, 160);
   });
 }
 
@@ -279,9 +319,9 @@ function drawWarriorSword(ox, oy, yOff, swordXOff, swordAngle) {
   }
 }
 
-// Warrior idle (row 3): subtle breathing sway, sword position shift
+// Warrior idle (row 4): subtle breathing sway, sword position shift
 function drawWarriorIdle(frame) {
-  const oy = FRAME * 3;
+  const oy = FRAME * 4;
   const ox = frame * FRAME;
   const yOff = (frame === 1 || frame === 2) ? -1 : 0;
   drawWarriorBase(ox, oy, yOff);
@@ -289,9 +329,9 @@ function drawWarriorIdle(frame) {
   drawWarriorSword(ox, oy, yOff, swordXOff, 0);
 }
 
-// Warrior walk (row 4): heavy stride, wider leg alternation
+// Warrior walk (row 5): heavy stride, wider leg alternation
 function drawWarriorWalk(frame) {
-  const oy = FRAME * 4;
+  const oy = FRAME * 5;
   const ox = frame * FRAME;
   const yOff = 0;
   drawWarriorBase(ox, oy, yOff);
@@ -304,9 +344,9 @@ function drawWarriorWalk(frame) {
   drawWarriorSword(ox, oy, yOff, (frame % 2 === 0) ? 0 : -1, 0);
 }
 
-// Warrior work (row 5): sword practice, alternating guard and strike
+// Warrior work (row 6): sword practice, alternating guard and strike
 function drawWarriorWork(frame) {
-  const oy = FRAME * 5;
+  const oy = FRAME * 6;
   const ox = frame * FRAME;
   const yOff = 0;
   drawWarriorBase(ox, oy, yOff);
@@ -314,6 +354,33 @@ function drawWarriorWork(frame) {
   // Alternate between guard (1) and strike (2) poses
   const angle = (frame % 2 === 0) ? 1 : 2;
   drawWarriorSword(ox, oy, yOff, 0, angle);
+}
+
+// Warrior celebrate (row 7): fist pump with sword raised high
+function drawWarriorCelebrate(frame) {
+  const oy = FRAME * 7;
+  const ox = frame * FRAME;
+  const yOff = (frame === 1 || frame === 2) ? -1 : 0; // pronounced upward bob
+
+  drawWarriorBase(ox, oy, yOff);
+
+  // Sword held high at angle
+  const sx = ox + 23;
+  // Hilt in raised hand
+  fillRect(sx - 1, oy + 8 + yOff, 3, 2, 200, 180, 80);
+  // Blade angled upward
+  drawLine(sx, oy + 8 + yOff, sx + 3, oy + 2 + yOff, 200, 200, 210);
+  setPixel(sx + 3, oy + 1 + yOff, 220, 220, 230); // tip glint
+
+  // Free arm fist pump -- alternating heights
+  const fistY = (frame === 0 || frame === 2) ? oy + 10 + yOff : oy + 12 + yOff;
+  setPixel(ox + 9, fistY, 160, 160, 175); // gauntlet fist
+  setPixel(ox + 8, fistY, 160, 160, 175);
+  setPixel(ox + 9, fistY - 1, 160, 160, 175); // fist above
+
+  // Extra plume emphasis
+  fillRect(ox + 13, oy + 1 + yOff, 6, 2, 200, 50, 50);
+  setPixel(ox + 15, oy + 0 + yOff, 180, 40, 40);
 }
 
 // =====================================================================
@@ -384,9 +451,9 @@ function drawRangerBow(ox, oy, yOff, bowXOff) {
   drawLine(bx, oy + 8 + yOff, bx + 1, oy + 17 + yOff, 180, 170, 150);
 }
 
-// Ranger idle (row 6): slight cloak flutter, relaxed stance
+// Ranger idle (row 8): slight cloak flutter, relaxed stance
 function drawRangerIdle(frame) {
-  const oy = FRAME * 6;
+  const oy = FRAME * 8;
   const ox = frame * FRAME;
   const yOff = 0;
   const cloakOff = (frame === 0 || frame === 3) ? 0 : 1; // subtle flutter
@@ -394,9 +461,9 @@ function drawRangerIdle(frame) {
   drawRangerBow(ox, oy, yOff, 0);
 }
 
-// Ranger walk (row 7): light stride, cloak flutter more, bow bobs
+// Ranger walk (row 9): light stride, cloak flutter more, bow bobs
 function drawRangerWalk(frame) {
-  const oy = FRAME * 7;
+  const oy = FRAME * 9;
   const ox = frame * FRAME;
   const yOff = 0;
   const cloakOff = [-1, 0, 1, 0][frame]; // more pronounced flutter
@@ -411,9 +478,9 @@ function drawRangerWalk(frame) {
   drawRangerBow(ox, oy, yOff + bowBob, 0);
 }
 
-// Ranger work (row 8): bow drawn/aiming, arrow nocked
+// Ranger work (row 10): bow drawn/aiming, arrow nocked
 function drawRangerWork(frame) {
-  const oy = FRAME * 8;
+  const oy = FRAME * 10;
   const ox = frame * FRAME;
   const yOff = 0;
   drawRangerBase(ox, oy, yOff, 0);
@@ -438,6 +505,31 @@ function drawRangerWork(frame) {
 
   // Aiming hand
   setPixel(ox + 10, oy + 12 + yOff, ...SKIN);
+}
+
+// Ranger celebrate (row 11): salute pose with bow on back, dramatic cloak flutter
+function drawRangerCelebrate(frame) {
+  const oy = FRAME * 11;
+  const ox = frame * FRAME;
+  const yOff = 0;
+  const cloakOff = [-1, 0, 1, 0][frame]; // dramatic cloak flutter
+
+  drawRangerBase(ox, oy, yOff, cloakOff);
+
+  // Bow slung on back (not aiming)
+  drawRangerBow(ox, oy, yOff, 1); // shifted right to suggest slung position
+
+  // Salute -- hand to forehead
+  setPixel(ox + 12, oy + 8 + yOff, ...SKIN); // hand at forehead
+  setPixel(ox + 11, oy + 8 + yOff, ...SKIN); // hand extended
+  setPixel(ox + 11, oy + 9 + yOff, ...SKIN); // forearm
+
+  // Slight lean variation per frame
+  const leanOff = [0, 0, 1, 0][frame];
+  if (leanOff) {
+    // Slight body lean on frame 2
+    setPixel(ox + 22 + leanOff, oy + 14 + yOff, 60, 100, 50);
+  }
 }
 
 // =====================================================================
@@ -506,9 +598,9 @@ function drawRogueDaggers(ox, oy, yOff, crouchOff, glintAlpha) {
   setPixel(ox + 22, ly + 3, 200, 200, 215, glintAlpha);
 }
 
-// Rogue idle (row 9): subtle weight-shift, dagger glint flicker
+// Rogue idle (row 12): subtle weight-shift, dagger glint flicker
 function drawRogueIdle(frame) {
-  const oy = FRAME * 9;
+  const oy = FRAME * 12;
   const ox = frame * FRAME;
   const yOff = 0;
   const weightShift = (frame === 0 || frame === 3) ? 0 : 0;
@@ -517,9 +609,9 @@ function drawRogueIdle(frame) {
   drawRogueDaggers(ox, oy, yOff, weightShift, glintAlpha);
 }
 
-// Rogue walk (row 10): sneaky crouch-walk (lower stance), light on feet
+// Rogue walk (row 13): sneaky crouch-walk (lower stance), light on feet
 function drawRogueWalk(frame) {
-  const oy = FRAME * 10;
+  const oy = FRAME * 13;
   const ox = frame * FRAME;
   const yOff = 0;
   const crouchOff = 1; // slightly lower stance
@@ -532,9 +624,9 @@ function drawRogueWalk(frame) {
   fillRect(ox + 17 - legOff, oy + 29 + crouchOff, 4, 1, 40, 35, 30);
 }
 
-// Rogue work (row 11): lockpicking/examining, hands forward with tool
+// Rogue work (row 14): lockpicking/examining, hands forward with tool
 function drawRogueWork(frame) {
-  const oy = FRAME * 11;
+  const oy = FRAME * 14;
   const ox = frame * FRAME;
   const yOff = 0;
   drawRogueBase(ox, oy, yOff, 0);
@@ -553,29 +645,67 @@ function drawRogueWork(frame) {
   setPixel(ox + 8, handY + 1, ...SKIN);
 }
 
+// Rogue celebrate (row 15): dagger flip/juggle with crouch-and-rise
+function drawRogueCelebrate(frame) {
+  const oy = FRAME * 15;
+  const ox = frame * FRAME;
+  const yOff = 0;
+  const crouchOff = (frame === 1 || frame === 3) ? 1 : 0; // crouch-and-rise motion
+
+  drawRogueBase(ox, oy, yOff, crouchOff);
+
+  // Right dagger held normally at belt
+  const ly = oy + 20 + yOff + crouchOff;
+  setPixel(ox + 22, ly, 100, 80, 50);
+  setPixel(ox + 22, ly + 1, 100, 80, 50);
+  setPixel(ox + 22, ly + 2, 200, 200, 215, 255);
+  setPixel(ox + 22, ly + 3, 200, 200, 215, 255);
+
+  // Left dagger tossed up -- varying heights per frame
+  const airDaggerY = (frame === 0 || frame === 2)
+    ? oy + 4 + yOff   // high position
+    : oy + 8 + yOff;  // mid position
+  // Dagger blade (airborne) -- full alpha glint
+  setPixel(ox + 12, airDaggerY, 200, 200, 215, 255);
+  setPixel(ox + 12, airDaggerY + 1, 200, 200, 215, 255);
+  // Dagger hilt
+  setPixel(ox + 12, airDaggerY + 2, 100, 80, 50);
+  // Rotation hint -- slight horizontal offset per frame
+  const rotOff = (frame % 2 === 0) ? -1 : 1;
+  setPixel(ox + 12 + rotOff, airDaggerY, 200, 200, 215, 200);
+
+  // Tossing hand reaching up
+  setPixel(ox + 11, oy + 13 + yOff + crouchOff, ...SKIN);
+  setPixel(ox + 11, oy + 12 + yOff + crouchOff, ...SKIN);
+}
+
 // =====================================================================
-// Draw all 48 frames
+// Draw all 64 frames
 // =====================================================================
 
-// Mage (rows 0-2)
+// Mage (rows 0-3)
 for (let f = 0; f < 4; f++) drawMageIdle(f);
 for (let f = 0; f < 4; f++) drawMageWalk(f);
 for (let f = 0; f < 4; f++) drawMageWork(f);
+for (let f = 0; f < 4; f++) drawMageCelebrate(f);
 
-// Warrior (rows 3-5)
+// Warrior (rows 4-7)
 for (let f = 0; f < 4; f++) drawWarriorIdle(f);
 for (let f = 0; f < 4; f++) drawWarriorWalk(f);
 for (let f = 0; f < 4; f++) drawWarriorWork(f);
+for (let f = 0; f < 4; f++) drawWarriorCelebrate(f);
 
-// Ranger (rows 6-8)
+// Ranger (rows 8-11)
 for (let f = 0; f < 4; f++) drawRangerIdle(f);
 for (let f = 0; f < 4; f++) drawRangerWalk(f);
 for (let f = 0; f < 4; f++) drawRangerWork(f);
+for (let f = 0; f < 4; f++) drawRangerCelebrate(f);
 
-// Rogue (rows 9-11)
+// Rogue (rows 12-15)
 for (let f = 0; f < 4; f++) drawRogueIdle(f);
 for (let f = 0; f < 4; f++) drawRogueWalk(f);
 for (let f = 0; f < 4; f++) drawRogueWork(f);
+for (let f = 0; f < 4; f++) drawRogueCelebrate(f);
 
 // =====================================================================
 // Write PNG
@@ -590,7 +720,7 @@ console.log(`Generated ${pngPath} (${buffer.length} bytes)`);
 // Generate characters.json spritesheet descriptor
 // =====================================================================
 const classes = ['mage', 'warrior', 'ranger', 'rogue'];
-const states = ['idle', 'walk', 'work'];
+const states = ['idle', 'walk', 'work', 'celebrate'];
 
 const frames = {};
 const animations = {};
@@ -603,7 +733,7 @@ for (let classIndex = 0; classIndex < classes.length; classIndex++) {
     for (let frameIndex = 0; frameIndex < 4; frameIndex++) {
       const frameName = `${animName}_${frameIndex}`;
       const x = frameIndex * FRAME;
-      const y = (classIndex * 3 + stateIndex) * FRAME;
+      const y = (classIndex * 4 + stateIndex) * FRAME;
 
       frames[frameName] = {
         frame: { x, y, w: FRAME, h: FRAME },
