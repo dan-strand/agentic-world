@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 
 Phase: 19 of 19 (Historical Persistence)
 Status: Milestone v1.5 complete — all 3 phases shipped
-Last activity: 2026-03-03 - Completed quick task 6: there are jobs being done in the top left section but the avatar is working in the wrong area and is disappearing behind the bottom left section
+Last activity: 2026-03-03 - Completed quick task 7: add ambient idle agents at campfire
 
 Progress: [██████████] 100% (Milestone complete)
 
@@ -75,9 +75,10 @@ None — all resolved.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 6 | Fix avatar working in wrong area and disappearing behind bottom-left section | 2026-03-03 | 074b9e8 | [6-there-are-jobs-being-done-in-the-top-lef](./quick/6-there-are-jobs-being-done-in-the-top-lef/) |
+| 7 | Add ambient idle agents at campfire | 2026-03-03 | 37f9087 | [7-can-we-have-a-couple-of-idle-agents-arou](./quick/7-can-we-have-a-couple-of-idle-agents-arou/) |
 
 ## Session Continuity
 
-Last session: 2026-03-01
-Stopped at: Milestone v1.5 archived
+Last session: 2026-03-03
+Stopped at: Completed quick task 7 (ambient idle agents)
 Resume file: N/A
