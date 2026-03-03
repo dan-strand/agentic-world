@@ -25,6 +25,7 @@ import { Building } from './building';
 import { buildingTextures, campfireTexture } from './asset-loader';
 import { SpeechBubble } from './speech-bubble';
 import { buildWorldTilemap } from './tilemap-builder';
+import { buildSceneryLayer } from './scenery-layer';
 import { AmbientParticles } from './ambient-particles';
 import { SoundManager } from './sound-manager';
 
@@ -44,18 +45,20 @@ interface StatusDebounce {
  *
  * Scene hierarchy:
  *   app.stage [warm ColorMatrixFilter]
- *   +-- tilemapLayer (canvas-rendered grass + dirt star-pattern paths)
+ *   +-- tilemapLayer (canvas-rendered grass + dirt star-pattern paths + pond)
  *   +-- buildingsContainer (campfire waypoint + 4 quest zone buildings in 2x2 grid)
+ *   +-- sceneryLayer (trees, bushes, flowers, village props, fences, lanterns, torches)
  *   +-- ambientParticles (floating firefly particles)
  *   +-- agentsContainer (dynamic Agent children)
  */
 export class World {
   private app!: Application;
 
-  // Scene containers (z-order: tilemap, buildings, ambient particles, agents)
+  // Scene containers (z-order: tilemap, buildings, scenery, ambient particles, agents)
   private tilemapLayer!: Container;
   private campfire!: Sprite;
   private buildingsContainer!: Container;
+  private sceneryLayer!: Container;
   private ambientParticles!: AmbientParticles;
   private agentsContainer!: Container;
 
@@ -179,7 +182,11 @@ export class World {
       if (slotBuilding) this.buildingSlots.push(slotBuilding);
     }
 
-    // Ambient floating particles (between buildings and agents in z-order)
+    // Scenery layer: trees, props, lanterns placed between buildings (Phase 20)
+    this.sceneryLayer = buildSceneryLayer();
+    this.app.stage.addChild(this.sceneryLayer);
+
+    // Ambient floating particles (between scenery and agents in z-order)
     this.ambientParticles = new AmbientParticles();
     this.app.stage.addChild(this.ambientParticles);
 
@@ -344,6 +351,11 @@ export class World {
     }
     for (const sessionId of toRemove) {
       this.removeAgent(sessionId);
+    }
+
+    // Tick building smoke particles (Phase 20)
+    for (const building of this.questZones.values()) {
+      building.tick(deltaMs);
     }
 
     // Tick ambient particles
