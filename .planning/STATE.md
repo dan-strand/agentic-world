@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: World & Character Detail
-status: ready_to_plan
-last_updated: "2026-03-02"
+status: executing
+last_updated: "2026-03-03"
 progress:
   total_phases: 3
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 3
+  completed_plans: 2
 ---
 
 # Project State
@@ -18,21 +18,21 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-03)
 
 **Core value:** Instantly see the status of all Claude Code sessions so you know which one needs attention next.
-**Current focus:** v2.0 World & Character Detail -- Phase 20 ready to plan
+**Current focus:** v2.0 World & Character Detail -- Phase 20 executing
 
 ## Current Position
 
 Phase: 20 of 22 (World & Building Art)
-Plan: 0 of ? in current phase
-Status: Ready to plan
-Last activity: 2026-03-02 -- Roadmap created for v2.0
+Plan: 2 of 3 in current phase
+Status: Executing
+Last activity: 2026-03-03 -- Completed 20-02 (Building Exterior Details & Chimney Smoke)
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [######░░░░] 67%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 38 (v1.0: 9, v1.1: 9, v1.2: 4, v1.3: 4, v1.4: 6, v1.5: 6)
+- Total plans completed: 40 (v1.0: 9, v1.1: 9, v1.2: 4, v1.3: 4, v1.4: 6, v1.5: 6, v2.0: 2)
 - Total execution time: ~5 days
 
 **By Phase:**
@@ -50,6 +50,7 @@ Progress: [░░░░░░░░░░] 0%
 | v1.5 Phase 17 | 2 | ~8 min | ~4 min |
 | v1.5 Phase 18 | 2 | ~5 min | ~2.5 min |
 | v1.5 Phase 19 | 2 | ~3 min | ~1.5 min |
+| v2.0 Phase 20 | 2 | ~9 min | ~4.5 min |
 
 ## Shipped Milestones
 
@@ -65,7 +66,13 @@ Progress: [░░░░░░░░░░] 0%
 ### Decisions
 
 Decisions are logged in PROJECT.md Key Decisions table.
-No active decisions pending -- roadmap just created.
+
+- 20-01: Pack 16 sprites in 3-row layout (144x112) to minimize atlas size
+- 20-01: Place pond at bottom-center (512, 690) between bottom buildings
+- 20-01: Use semi-transparent border overlay for path transitions
+- 20-02: Exterior details drawn as overlay functions after interior art to preserve existing interiors
+- 20-02: Alpha-blend utility added for glow compositing on existing sprite pixels
+- 20-02: Chimney positions derived from atlas coordinates and building anchor offset
 
 ### Blockers/Concerns
 
@@ -80,6 +87,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-02
-Stopped at: v2.0 roadmap created -- ready to plan Phase 20
+Last session: 2026-03-03
+Stopped at: Completed 20-02-PLAN.md (Building Exterior Details & Chimney Smoke)
 Resume file: None

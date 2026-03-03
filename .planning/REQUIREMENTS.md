@@ -23,10 +23,10 @@ Requirements for World & Character Detail milestone. Each maps to roadmap phases
 
 ### Building Exteriors
 
-- [ ] **BLDG-01**: Roof details and chimneys with visible smoke particles
-- [ ] **BLDG-02**: Hanging signs and guild banners on building facades
-- [ ] **BLDG-03**: Windows that glow from within, especially visible at night
-- [ ] **BLDG-04**: Building-specific surrounding details (garden plots, doorsteps, awnings)
+- [x] **BLDG-01**: Roof details and chimneys with visible smoke particles
+- [x] **BLDG-02**: Hanging signs and guild banners on building facades
+- [x] **BLDG-03**: Windows that glow from within, especially visible at night
+- [x] **BLDG-04**: Building-specific surrounding details (garden plots, doorsteps, awnings)
 
 ### Day/Night Cycle
 
@@ -81,10 +81,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SCEN-02 | Phase 20 | Pending |
 | SCEN-03 | Phase 20 | Pending |
 | SCEN-04 | Phase 20 | Pending |
-| BLDG-01 | Phase 20 | Pending |
-| BLDG-02 | Phase 20 | Pending |
-| BLDG-03 | Phase 20 | Pending |
-| BLDG-04 | Phase 20 | Pending |
+| BLDG-01 | Phase 20 | Complete |
+| BLDG-02 | Phase 20 | Complete |
+| BLDG-03 | Phase 20 | Complete |
+| BLDG-04 | Phase 20 | Complete |
 | DNCL-01 | Phase 22 | Pending |
 | DNCL-02 | Phase 22 | Pending |
 | DNCL-03 | Phase 22 | Pending |
