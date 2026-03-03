@@ -386,6 +386,41 @@ export const GLOW_COLOR_WARM = 0xFFAA44;   // Warm orange glow for lanterns/torc
 export const GLOW_COLOR_WINDOW = 0xFFDD88; // Slightly cooler warm glow for windows
 export const GLOW_MAX_ALPHA = 0.6;         // Maximum glow alpha at full night
 
+// ── Enhanced Atmosphere Particles (Phase 22) ─────────────────────────────────
+
+// Sparks near Training Grounds (forge sparks)
+export const SPARK_COUNT = 8;                    // Max simultaneous spark particles
+export const SPARK_SPAWN_MS = 600;               // Time between spark spawns
+export const SPARK_COLOR = 0xFF8833;             // Orange-red spark color
+export const SPARK_RISE_SPEED = 30;              // Pixels per second upward
+export const SPARK_DRIFT_SPEED = 15;             // Pixels per second horizontal drift
+export const SPARK_LIFETIME_MS = 1500;           // Spark particle lifetime
+export const SPARK_SIZE = 1.5;                   // Spark particle radius
+export const SPARK_ORIGIN = { x: 776, y: 100 }; // Near Training Grounds chimney area
+
+// Dust motes (visible during daytime, fade at night)
+export const DUST_MOTE_COUNT = 15;               // Number of dust mote particles
+export const DUST_MOTE_SIZE_MIN = 1.0;           // Minimum mote radius
+export const DUST_MOTE_SIZE_MAX = 2.0;           // Maximum mote radius
+export const DUST_MOTE_COLOR = 0xFFEECC;         // Warm white/cream
+export const DUST_MOTE_DRIFT_MIN = 3;            // Minimum horizontal drift (px/s)
+export const DUST_MOTE_DRIFT_MAX = 8;            // Maximum horizontal drift (px/s)
+export const DUST_MOTE_BOB_AMP = 6;              // Vertical bob amplitude (px)
+
+// Drifting leaves
+export const LEAF_COUNT = 6;                     // Number of leaf particles
+export const LEAF_SIZE = 2.5;                    // Leaf size (small at pixel art scale)
+export const LEAF_COLORS = [0x88AA44, 0xAA8833, 0x996633] as const;  // Green, amber, brown
+export const LEAF_DRIFT_SPEED = 12;              // Horizontal drift speed (px/s)
+export const LEAF_FALL_SPEED = 8;                // Downward speed (px/s)
+export const LEAF_BOB_AMP = 10;                  // Horizontal bob amplitude for gentle sway
+
+// Night intensity modulation
+export const FIREFLY_NIGHT_ALPHA_BOOST = 0.3;   // Extra alpha added to fireflies at night
+export const SMOKE_NIGHT_COUNT_BONUS = 3;        // Extra max smoke particles at night (5 -> 8)
+export const SMOKE_NIGHT_OPACITY_MULT = 1.5;     // Smoke opacity multiplier at night
+export const SMOKE_NIGHT_SPAWN_MULT = 0.6;       // Spawn interval multiplier at night (faster)
+
 // ── Model Pricing ──────────────────────────────────────────────────────────────
 // Verified against platform.claude.com/docs/en/about-claude/pricing (2026-03-01)
 // Cache write = 1.25x input, cache read = 0.1x input

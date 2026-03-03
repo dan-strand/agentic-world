@@ -385,13 +385,13 @@ export class World {
       this.removeAgent(sessionId);
     }
 
-    // Tick building smoke particles (Phase 20)
+    // Tick building smoke particles (Phase 20, night-modulated Phase 22)
     for (const building of this.questZones.values()) {
-      building.tick(deltaMs);
+      building.tick(deltaMs, nightIntensity);
     }
 
-    // Tick ambient particles
-    this.ambientParticles.tick(deltaMs);
+    // Tick ambient particles (night-modulated Phase 22)
+    this.ambientParticles.tick(deltaMs, nightIntensity);
 
     // Tick speech bubbles (skip for fading agents)
     for (const [sessionId, bubble] of this.speechBubbles) {

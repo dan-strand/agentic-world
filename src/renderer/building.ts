@@ -6,6 +6,7 @@ import {
   CHIMNEY_SMOKE_DRIFT_SPEED, CHIMNEY_SMOKE_LIFETIME_MS,
   CHIMNEY_SMOKE_SIZE_MIN, CHIMNEY_SMOKE_SIZE_MAX, CHIMNEY_SMOKE_COLOR,
   CHIMNEY_POSITIONS,
+  SMOKE_NIGHT_COUNT_BONUS, SMOKE_NIGHT_OPACITY_MULT, SMOKE_NIGHT_SPAWN_MULT,
 } from '../shared/constants';
 import type { WorkSpot } from '../shared/constants';
 
@@ -325,29 +326,38 @@ export class Building extends Container {
 
   /**
    * Advance the chimney smoke particle system.
-   * Call this from world.ts tick loop (wiring deferred to Plan 20-03).
+   * Call this from world.ts tick loop.
    *
    * Emits small gray smoke puffs from the chimney position that rise upward,
    * drift horizontally, grow slightly, fade out, and self-remove after their lifetime.
    *
+   * At night (nightIntensity > 0), smoke is denser (more particles), more opaque,
+   * and spawns faster, creating a visible difference between day and night.
+   *
    * @param deltaMs - Milliseconds since last tick
+   * @param nightIntensity - 0 = day, 1 = full night (from DayNightCycle)
    */
-  tick(deltaMs: number): void {
+  tick(deltaMs: number, nightIntensity: number = 0): void {
     // Skip smoke for campfire (no chimney)
     if (this.buildingType === 'campfire') return;
 
     const dt = deltaMs / 1000;
     const chimneyPos = CHIMNEY_POSITIONS[this.buildingType];
 
+    // Night-modulated smoke parameters
+    const maxSmoke = CHIMNEY_SMOKE_COUNT + Math.round(SMOKE_NIGHT_COUNT_BONUS * nightIntensity);
+    const spawnInterval = CHIMNEY_SMOKE_SPAWN_MS * (1 - nightIntensity * (1 - SMOKE_NIGHT_SPAWN_MULT));
+    const baseAlpha = 0.6 * (1 + (SMOKE_NIGHT_OPACITY_MULT - 1) * nightIntensity);
+
     // Advance spawn timer
     this.smokeTimer += deltaMs;
-    if (this.smokeTimer >= CHIMNEY_SMOKE_SPAWN_MS && this.smokeParticles.length < CHIMNEY_SMOKE_COUNT) {
-      this.smokeTimer -= CHIMNEY_SMOKE_SPAWN_MS;
+    if (this.smokeTimer >= spawnInterval && this.smokeParticles.length < maxSmoke) {
+      this.smokeTimer -= spawnInterval;
 
       // Spawn a new smoke puff
       const gfx = new Graphics();
       gfx.circle(0, 0, CHIMNEY_SMOKE_SIZE_MIN);
-      gfx.fill({ color: CHIMNEY_SMOKE_COLOR, alpha: 0.6 });
+      gfx.fill({ color: CHIMNEY_SMOKE_COLOR, alpha: baseAlpha });
       gfx.position.set(chimneyPos.x, chimneyPos.y);
 
       // Random horizontal drift direction
@@ -382,8 +392,8 @@ export class Building extends Container {
       const scaleRatio = currentRadius / CHIMNEY_SMOKE_SIZE_MIN;
       p.gfx.scale.set(scaleRatio, scaleRatio);
 
-      // Fade alpha toward 0 as age approaches lifetime
-      p.gfx.alpha = 0.6 * (1 - lifeT);
+      // Fade alpha toward 0 as age approaches lifetime (using night-modulated base alpha)
+      p.gfx.alpha = baseAlpha * (1 - lifeT);
 
       // Remove particles that exceed lifetime
       if (p.age >= p.lifetime) {
