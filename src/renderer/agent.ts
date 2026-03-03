@@ -1,4 +1,4 @@
-import { Container, AnimatedSprite, Sprite, Text, TextStyle } from 'pixi.js';
+import { Container, AnimatedSprite, Sprite } from 'pixi.js';
 import type { AgentSlot, SessionStatus, CharacterClass } from '../shared/types';
 import {
   AGENT_WALK_SPEED,
@@ -62,9 +62,7 @@ export class Agent extends Container {
   // Character identity (palette swap, gear overlay, name label)
   private paletteIndex: number;
   private gearIndex: number;
-  private agentName: string;
   private gearSprite: Sprite | null = null;
-  private nameLabel: Text;
 
   // Movement
   private targetX = 0;
@@ -114,7 +112,6 @@ export class Agent extends Container {
     this.characterClass = slot.characterClass;
     this.paletteIndex = slot.paletteIndex;
     this.gearIndex = slot.gearIndex;
-    this.agentName = slot.agentName;
 
     // Create AnimatedSprite from palette-swapped idle animation
     const baseIdleTextures = getCharacterAnimation(this.characterClass, 'idle');
@@ -140,18 +137,6 @@ export class Agent extends Container {
       this.addChild(this.gearSprite);
     }
 
-    // Fantasy name label above agent (always visible per CONTEXT.md)
-    const nameStyle = new TextStyle({
-      fontFamily: 'Segoe UI, Arial, sans-serif',
-      fontSize: 9,
-      fill: '#ffffff',
-      stroke: { color: '#000000', width: 2 },
-      align: 'center',
-    });
-    this.nameLabel = new Text({ text: this.agentName, style: nameStyle });
-    this.nameLabel.anchor.set(0.5, 1.0);
-    this.nameLabel.position.set(0, -34); // Above the 32px sprite (sprite anchor is bottom-center)
-    this.addChild(this.nameLabel);
   }
 
   /**
