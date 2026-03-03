@@ -30,9 +30,9 @@ Requirements for World & Character Detail milestone. Each maps to roadmap phases
 
 ### Day/Night Cycle
 
-- [ ] **DNCL-01**: Accelerated day/night cycle (~10 min full cycle) with smooth lighting transitions
-- [ ] **DNCL-02**: Lanterns, torches, windows, and campfire glow at night
-- [ ] **DNCL-03**: Color temperature shifts (warm daylight to cool blue night)
+- [x] **DNCL-01**: Accelerated day/night cycle (~10 min full cycle) with smooth lighting transitions
+- [x] **DNCL-02**: Lanterns, torches, windows, and campfire glow at night
+- [x] **DNCL-03**: Color temperature shifts (warm daylight to cool blue night)
 
 ### Atmosphere
 
@@ -85,9 +85,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BLDG-02 | Phase 20 | Complete |
 | BLDG-03 | Phase 20 | Complete |
 | BLDG-04 | Phase 20 | Complete |
-| DNCL-01 | Phase 22 | Pending |
-| DNCL-02 | Phase 22 | Pending |
-| DNCL-03 | Phase 22 | Pending |
+| DNCL-01 | Phase 22 | Complete |
+| DNCL-02 | Phase 22 | Complete |
+| DNCL-03 | Phase 22 | Complete |
 | ATMO-01 | Phase 22 | Pending |
 | ATMO-02 | Phase 22 | Pending |
 

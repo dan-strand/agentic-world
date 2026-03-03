@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: World & Character Detail
 status: unknown
-last_updated: "2026-03-03T13:28:09.445Z"
+last_updated: "2026-03-03T14:46:22Z"
 progress:
   total_phases: 11
   completed_phases: 11
-  total_plans: 25
-  completed_plans: 25
+  total_plans: 26
+  completed_plans: 26
 ---
 
 # Project State
@@ -18,21 +18,21 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-03)
 
 **Core value:** Instantly see the status of all Claude Code sessions so you know which one needs attention next.
-**Current focus:** v2.0 World & Character Detail -- Phase 21 executing
+**Current focus:** v2.0 World & Character Detail -- Phase 22 executing
 
 ## Current Position
 
-Phase: 21 of 22 (Character Identity)
-Plan: 2 of 2 in current phase (COMPLETE)
-Status: Phase 21 Complete
-Last activity: 2026-03-03 -- Completed 21-02 (Character Identity Renderer Integration)
+Phase: 22 of 22 (Day/Night Cycle & Atmosphere)
+Plan: 1 of 2 in current phase
+Status: Plan 22-01 Complete
+Last activity: 2026-03-03 -- Completed 22-01 (Day/Night Cycle Core)
 
 Progress: [##########] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 43 (v1.0: 9, v1.1: 9, v1.2: 4, v1.3: 4, v1.4: 6, v1.5: 6, v2.0: 5)
+- Total plans completed: 44 (v1.0: 9, v1.1: 9, v1.2: 4, v1.3: 4, v1.4: 6, v1.5: 6, v2.0: 6)
 - Total execution time: ~5 days
 
 **By Phase:**
@@ -52,6 +52,7 @@ Progress: [##########] 100%
 | v1.5 Phase 19 | 2 | ~3 min | ~1.5 min |
 | v2.0 Phase 20 | 3 | ~14 min | ~4.7 min |
 | v2.0 Phase 21 | 2 | ~9 min | ~4.5 min |
+| v2.0 Phase 22-01 | 1 | ~8 min | ~8 min |
 
 ## Shipped Milestones
 
@@ -82,6 +83,10 @@ Decisions are logged in PROJECT.md Key Decisions table.
 - 21-01: Gear drawn as head overlays at character head region for compositing alignment
 - 21-02: Offscreen canvas palette swap with brightness delta preservation for natural shading
 - 21-02: Fantasy name labels removed per user preference during visual verification
+- 22-01: Sine wave with pow(1.5) sharpening for natural day-dominant cycle
+- 22-01: Concentric circles for glow sprites instead of PixiJS blur filters for performance
+- 22-01: Night glow layer placed between scenery and ambient particles in z-order
+- 22-01: Stage filter matrix set directly via 4x5 row-major array for per-channel RGB scaling
 
 ### Blockers/Concerns
 
@@ -97,5 +102,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-03
-Stopped at: Completed 21-02-PLAN.md (Character Identity Renderer Integration) -- Phase 21 complete
+Stopped at: Completed 22-01-PLAN.md (Day/Night Cycle Core) -- Plan 1 of 2 in Phase 22
 Resume file: None
