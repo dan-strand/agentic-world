@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 
 Phase: 19 of 19 (Historical Persistence)
 Status: Milestone v1.5 complete — all 3 phases shipped
-Last activity: 2026-03-01 — Milestone v1.5 archived
+Last activity: 2026-03-03 - Completed quick task 6: there are jobs being done in the top left section but the avatar is working in the wrong area and is disappearing behind the bottom left section
 
 Progress: [██████████] 100% (Milestone complete)
 
@@ -69,6 +69,12 @@ No active decisions pending — milestone complete.
 ### Blockers/Concerns
 
 None — all resolved.
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 6 | Fix avatar working in wrong area and disappearing behind bottom-left section | 2026-03-03 | 074b9e8 | [6-there-are-jobs-being-done-in-the-top-lef](./quick/6-there-are-jobs-being-done-in-the-top-lef/) |
 
 ## Session Continuity
 
