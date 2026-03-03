@@ -167,6 +167,6 @@ Phases execute in numeric order: 20 → 21 → 22
 | 17. Window Layout and Parsing Infrastructure | v1.5 | 2/2 | Complete | 2026-03-01 |
 | 18. Live Dashboard with Cost Estimation | v1.5 | 2/2 | Complete | 2026-03-01 |
 | 19. Historical Persistence | v1.5 | 2/2 | Complete | 2026-03-01 |
-| 20. World & Building Art | v2.0 | 3/3 | Complete | 2026-03-03 |
+| 20. World & Building Art | v2.0 | Complete    | 2026-03-03 | 2026-03-03 |
 | 21. Character Identity | v2.0 | 0/? | Not started | - |
 | 22. Day/Night Cycle & Atmosphere | v2.0 | 0/? | Not started | - |

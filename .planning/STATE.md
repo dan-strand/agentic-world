@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: World & Character Detail
-status: executing
-last_updated: "2026-03-03"
+status: unknown
+last_updated: "2026-03-03T13:28:09.445Z"
 progress:
-  total_phases: 3
-  completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
+  total_phases: 11
+  completed_phases: 11
+  total_plans: 25
+  completed_plans: 25
 ---
 
 # Project State
