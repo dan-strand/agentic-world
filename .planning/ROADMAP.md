@@ -88,7 +88,7 @@ See: [`.planning/milestones/v1.5-ROADMAP.md`](milestones/v1.5-ROADMAP.md) for fu
 **Milestone Goal:** Make the world feel alive and each agent visually unique -- richer outdoor scenery, building detail, day/night cycle, and distinct character identities.
 
 - [x] **Phase 20: World & Building Art** - Outdoor scenery, village props, building exterior enhancements across the entire world (completed 2026-03-03)
-- [ ] **Phase 21: Character Identity** - Unique agent appearances with color palettes, gear, names, and class-specific animations
+- [x] **Phase 21: Character Identity** - Unique agent appearances with color palettes, gear, and class-specific animations (completed 2026-03-03)
 - [ ] **Phase 22: Day/Night Cycle & Atmosphere** - Lighting cycle, night glow effects, color temperature shifts, enhanced particles
 
 ## Phase Details
@@ -122,8 +122,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 21-01-PLAN.md -- Identity data layer: character atlas celebrate frames, gear atlas, palette definitions, fantasy names, type system expansion
-- [ ] 21-02-PLAN.md -- Renderer integration: runtime palette swap, gear overlays, name labels, celebrate animation wiring, visual verification
+- [x] 21-01-PLAN.md -- Identity data layer: character atlas celebrate frames, gear atlas, palette definitions, fantasy names, type system expansion
+- [x] 21-02-PLAN.md -- Renderer integration: runtime palette swap, gear overlays, celebrate animation wiring, visual verification
 
 ### Phase 22: Day/Night Cycle & Atmosphere
 **Goal**: The world breathes with a day/night rhythm -- lighting shifts, fixtures glow at night, and enhanced particle effects create atmosphere
@@ -168,5 +168,5 @@ Phases execute in numeric order: 20 → 21 → 22
 | 18. Live Dashboard with Cost Estimation | v1.5 | 2/2 | Complete | 2026-03-01 |
 | 19. Historical Persistence | v1.5 | 2/2 | Complete | 2026-03-01 |
 | 20. World & Building Art | v2.0 | Complete    | 2026-03-03 | 2026-03-03 |
-| 21. Character Identity | 1/2 | In Progress|  | - |
+| 21. Character Identity | v2.0 | 2/2 | Complete | 2026-03-03 |
 | 22. Day/Night Cycle & Atmosphere | v2.0 | 0/? | Not started | - |
