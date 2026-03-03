@@ -61,7 +61,18 @@ Instantly see the status of all Claude Code sessions so you know which one needs
 
 ### Active
 
-(No active requirements — next milestone not yet planned)
+#### Current Milestone: v2.0 World & Character Detail
+
+**Goal:** Make the world feel alive and each agent visually unique — richer outdoor scenery, building detail, day/night cycle, and distinct character identities.
+
+**Target features:**
+- Unique agent appearances per session (color palettes, accessories, gear)
+- Richer animation sets (class-specific behaviors, idle variety, working animations)
+- Agent names and identity system
+- Outdoor scenery (trees, flowers, rocks, fences, lanterns, market stalls)
+- Building exterior enhancements (architectural detail, signs, windows)
+- Real-time day/night cycle with lighting shifts and glowing lanterns
+- Enhanced atmospheric effects (more particles, environmental effects)
 
 ### Out of Scope
 
@@ -69,7 +80,7 @@ Instantly see the status of all Claude Code sessions so you know which one needs
 - Click-to-interact or session control from the visualizer
 - 3D graphics — strictly 2D pixel art
 - Mobile support — desktop-only tool
-- Custom/hand-drawn pixel art — using pngjs-generated sprites
+- Custom/hand-drawn pixel art — pngjs-generated or best-fit approach per feature
 - Per-session sound selection — over-engineering for current use case
 - Global "all-waiting" sound — user prefers per-session sounds
 - Daily breakdown bar chart — deferred to future milestone (Chart.js)
@@ -147,4 +158,4 @@ Instantly see the status of all Claude Code sessions so you know which one needs
 | Non-blocking history load (v1.5) | .then()/.catch() so dashboard renders immediately without waiting | ✓ Good |
 
 ---
-*Last updated: 2026-03-01 after v1.5 milestone complete*
+*Last updated: 2026-03-03 after v2.0 milestone started*

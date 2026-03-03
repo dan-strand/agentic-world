@@ -1,32 +1,32 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.5
-milestone_name: Usage Dashboard
-status: complete
-last_updated: "2026-03-01"
+milestone: v2.0
+milestone_name: World & Character Detail
+status: defining_requirements
+last_updated: "2026-03-03"
 progress:
-  total_phases: 3
-  completed_phases: 3
-  total_plans: 6
-  completed_plans: 6
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-01)
+See: .planning/PROJECT.md (updated 2026-03-03)
 
 **Core value:** Instantly see the status of all Claude Code sessions so you know which one needs attention next.
-**Current focus:** v1.5 complete — planning next milestone
+**Current focus:** v2.0 World & Character Detail — defining requirements
 
 ## Current Position
 
-Phase: 19 of 19 (Historical Persistence)
-Status: Milestone v1.5 complete — all 3 phases shipped
-Last activity: 2026-03-03 - Completed quick task 7: add ambient idle agents at campfire
+Phase: Not started (defining requirements)
+Status: Defining requirements
+Last activity: 2026-03-03 — Milestone v2.0 started
 
-Progress: [██████████] 100% (Milestone complete)
+Progress: [░░░░░░░░░░] 0% (Defining requirements)
 
 ## Performance Metrics
 
