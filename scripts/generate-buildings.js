@@ -68,6 +68,20 @@ function drawCircle(cx, cy, radius, r, g, b, a = 255) {
   }
 }
 
+// Alpha-blend a pixel onto existing content (for glow effects)
+function blendPixel(x, y, r, g, b, a) {
+  if (x < 0 || x >= WIDTH || y < 0 || y >= HEIGHT) return;
+  const idx = (y * WIDTH + x) * 4;
+  const srcA = a / 255;
+  const dstA = png.data[idx + 3] / 255;
+  const outA = srcA + dstA * (1 - srcA);
+  if (outA === 0) return;
+  png.data[idx]     = Math.round((r * srcA + png.data[idx] * dstA * (1 - srcA)) / outA);
+  png.data[idx + 1] = Math.round((g * srcA + png.data[idx + 1] * dstA * (1 - srcA)) / outA);
+  png.data[idx + 2] = Math.round((b * srcA + png.data[idx + 2] * dstA * (1 - srcA)) / outA);
+  png.data[idx + 3] = Math.round(outA * 255);
+}
+
 // =====================================================================
 // Building 0 (offset 0): Wizard Tower Interior
 // Top-down arcane study: purple/blue theme, dark stone floor/walls
@@ -1785,12 +1799,464 @@ function drawTavern(ox) {
 }
 
 // =====================================================================
+// EXTERIOR DETAIL FUNCTIONS (Phase 20-02)
+// Added on top of existing interior art without modifying it.
+// Roof edges, chimneys, hanging signs, glowing windows, doorsteps,
+// and per-building unique surrounding elements.
+// =====================================================================
+
+/**
+ * Draw a roof edge along the top wall border.
+ * Creates 2-3 rows of shingle/slate visual on the outermost 8-12px strip.
+ * @param {number} ox - building X offset
+ * @param {number[]} baseColor - [r,g,b] theme color for roof edge
+ * @param {number[]} darkColor - [r,g,b] darker shade for shingle lines
+ */
+function drawRoofEdge(ox, baseColor, darkColor) {
+  const W = BLDG_W;
+  // Overwrite the top 10px with roof edge coloring
+  // Row 1: outermost strip (y=0..3) -- darkest edge
+  fillRect(ox, 0, W, 4, darkColor[0], darkColor[1], darkColor[2]);
+  // Row 2: shingle row (y=4..7) -- base color
+  fillRect(ox, 4, W, 4, baseColor[0], baseColor[1], baseColor[2]);
+  // Row 3: transition (y=8..10) -- slightly lighter shingle
+  fillRect(ox, 8, W, 3, baseColor[0] + 10, baseColor[1] + 10, baseColor[2] + 10);
+
+  // Shingle texture: alternating darker lines across
+  for (let x = ox; x < ox + W; x += 8) {
+    setPixel(x, 2, darkColor[0] - 10, darkColor[1] - 10, darkColor[2] - 10);
+    setPixel(x, 3, darkColor[0] - 10, darkColor[1] - 10, darkColor[2] - 10);
+    setPixel(x + 4, 5, darkColor[0], darkColor[1], darkColor[2]);
+    setPixel(x + 4, 6, darkColor[0], darkColor[1], darkColor[2]);
+    setPixel(x, 9, baseColor[0] - 5, baseColor[1] - 5, baseColor[2] - 5);
+  }
+}
+
+/**
+ * Draw a chimney protrusion on the top wall.
+ * @param {number} ox - building X offset
+ * @param {number} chimneyX - X position within building (relative to ox)
+ * @param {number[]} brickColor - [r,g,b] chimney brick color
+ * @param {number} extraH - extra height for larger chimneys (tavern)
+ */
+function drawChimney(ox, chimneyX, brickColor, extraH = 0) {
+  const cw = 10; // chimney width
+  const ch = 18 + extraH; // chimney height
+  const cx = ox + chimneyX - cw / 2;
+  const cy = 0; // starts at top of sprite, extending upward isn't possible so we draw at top
+
+  // Main chimney body
+  fillRect(cx, cy, cw, ch, brickColor[0], brickColor[1], brickColor[2]);
+
+  // Brick mortar lines (horizontal)
+  for (let row = 2; row < ch; row += 4) {
+    for (let x = cx; x < cx + cw; x++) {
+      setPixel(x, cy + row, brickColor[0] - 15, brickColor[1] - 15, brickColor[2] - 15);
+    }
+  }
+  // Brick mortar lines (vertical, offset every other row)
+  for (let row = 0; row < ch; row += 4) {
+    const vOff = (Math.floor(row / 4) % 2) * 4;
+    for (let col = vOff; col < cw; col += 8) {
+      for (let dy = 0; dy < 4 && row + dy < ch; dy++) {
+        setPixel(cx + col, cy + row + dy, brickColor[0] - 15, brickColor[1] - 15, brickColor[2] - 15);
+      }
+    }
+  }
+
+  // Chimney cap (darker stone top, 2px wider on each side)
+  fillRect(cx - 1, cy, cw + 2, 3, brickColor[0] - 20, brickColor[1] - 20, brickColor[2] - 20);
+
+  // Soot stain at opening (dark inner area at top)
+  fillRect(cx + 2, cy, cw - 4, 2, 20, 18, 15);
+}
+
+/**
+ * Draw a hanging sign bracket with sign near the entrance (bottom wall).
+ * @param {number} ox - building X offset
+ * @param {number[]} signColor - [r,g,b] sign background color
+ */
+function drawHangingSign(ox, signColor) {
+  const W = BLDG_W;
+  const H = BLDG_H;
+  // Position: near bottom-center entrance, slightly to the right
+  const sx = ox + W / 2 + 30;
+  const sy = H - 10; // bottom wall starts here
+
+  // Bracket post (extends down from wall)
+  fillRect(sx, sy, 3, 10, 90, 75, 55);
+  // Horizontal arm extending out
+  fillRect(sx - 6, sy + 3, 12, 2, 90, 75, 55);
+
+  // Sign body (rectangular, hanging from arm)
+  fillRect(sx - 5, sy + 5, 12, 8, signColor[0], signColor[1], signColor[2]);
+  // Sign border
+  fillRect(sx - 5, sy + 5, 12, 1, signColor[0] + 30, signColor[1] + 30, signColor[2] + 30);
+  fillRect(sx - 5, sy + 12, 12, 1, signColor[0] - 20, signColor[1] - 20, signColor[2] - 20);
+  // Chain links connecting to arm
+  setPixel(sx - 2, sy + 4, 150, 150, 155);
+  setPixel(sx + 4, sy + 4, 150, 150, 155);
+}
+
+/**
+ * Draw glowing windows along the left and right wall borders.
+ * @param {number} ox - building X offset
+ * @param {number} wallThick - wall thickness in pixels
+ */
+function drawGlowingWindows(ox, wallThick) {
+  const W = BLDG_W;
+  const H = BLDG_H;
+
+  // Window positions: 3 on left wall, 3 on right wall
+  // Placed at ~25%, 50%, 75% of wall height, inset 2px from outer edge
+  const windowPositions = [
+    // Left wall windows
+    { x: ox + 1, y: Math.floor(H * 0.2), side: 'left' },
+    { x: ox + 1, y: Math.floor(H * 0.45), side: 'left' },
+    { x: ox + 1, y: Math.floor(H * 0.7), side: 'left' },
+    // Right wall windows
+    { x: ox + W - 9, y: Math.floor(H * 0.2), side: 'right' },
+    { x: ox + W - 9, y: Math.floor(H * 0.45), side: 'right' },
+    { x: ox + W - 9, y: Math.floor(H * 0.7), side: 'right' },
+  ];
+
+  windowPositions.forEach(win => {
+    const ww = 8, wh = 6;
+    // Warm glow halo (semi-transparent, rendered first behind the window)
+    for (let dy = -2; dy <= wh + 1; dy++) {
+      for (let dx = -2; dx <= ww + 1; dx++) {
+        const distX = dx < 0 ? -dx : (dx >= ww ? dx - ww + 1 : 0);
+        const distY = dy < 0 ? -dy : (dy >= wh ? dy - wh + 1 : 0);
+        const dist = Math.sqrt(distX * distX + distY * distY);
+        if (dist > 0 && dist <= 2) {
+          blendPixel(win.x + dx, win.y + dy, 255, 220, 120, Math.floor(50 * (1 - dist / 2.5)));
+        }
+      }
+    }
+
+    // Window frame (dark wood/stone)
+    fillRect(win.x, win.y, ww, wh, 50, 40, 30);
+
+    // Window pane (warm yellow glow)
+    fillRect(win.x + 1, win.y + 1, ww - 2, wh - 2, 255, 220, 120);
+
+    // Bright center
+    fillRect(win.x + 2, win.y + 2, ww - 4, wh - 4, 255, 240, 180);
+
+    // Cross mullion (window frame cross)
+    fillRect(win.x + Math.floor(ww / 2) - 1, win.y, 1, wh, 50, 40, 30);
+    fillRect(win.x, win.y + Math.floor(wh / 2), ww, 1, 50, 40, 30);
+  });
+}
+
+/**
+ * Draw a doorstep with flanking torches at the entrance.
+ * @param {number} ox - building X offset
+ */
+function drawDoorstep(ox) {
+  const W = BLDG_W;
+  const H = BLDG_H;
+  const centerX = ox + W / 2;
+  const stepY = H - 6; // just inside the bottom edge
+
+  // Welcome mat / doorstep (warm brown stone)
+  fillRect(centerX - 8, stepY, 16, 6, 140, 110, 70);
+  fillRect(centerX - 7, stepY + 1, 14, 4, 150, 120, 80);
+  // Mat texture lines
+  for (let x = centerX - 6; x < centerX + 6; x += 2) {
+    setPixel(x, stepY + 2, 130, 100, 60);
+    setPixel(x, stepY + 4, 130, 100, 60);
+  }
+
+  // Left torch
+  const ltx = centerX - 18;
+  fillRect(ltx, stepY - 6, 2, 8, 100, 75, 40); // torch pole
+  // Flame
+  setPixel(ltx, stepY - 7, 255, 180, 50);
+  setPixel(ltx + 1, stepY - 7, 255, 180, 50);
+  setPixel(ltx, stepY - 8, 255, 140, 30);
+  setPixel(ltx + 1, stepY - 8, 255, 200, 80);
+
+  // Right torch
+  const rtx = centerX + 16;
+  fillRect(rtx, stepY - 6, 2, 8, 100, 75, 40); // torch pole
+  // Flame
+  setPixel(rtx, stepY - 7, 255, 180, 50);
+  setPixel(rtx + 1, stepY - 7, 255, 180, 50);
+  setPixel(rtx, stepY - 8, 255, 140, 30);
+  setPixel(rtx + 1, stepY - 8, 255, 200, 80);
+}
+
+// =====================================================================
+// Per-building exterior detail functions
+// =====================================================================
+
+/**
+ * Wizard Tower exterior details:
+ * - Purple/blue roof edge and chimney
+ * - Glowing rune circles outside walls
+ * - Small herb garden patch
+ */
+function drawWizardTowerExterior(ox) {
+  const W = BLDG_W;
+  const H = BLDG_H;
+
+  // Roof edge (dark purple/blue theme)
+  drawRoofEdge(ox, [35, 25, 60], [20, 15, 40]);
+
+  // Chimney at top-left area (~x=130 within building, which is roughly -100 from center)
+  drawChimney(ox, 130, [50, 35, 65]);
+
+  // Hanging sign (purple theme)
+  drawHangingSign(ox, [80, 50, 140]);
+
+  // Glowing windows
+  drawGlowingWindows(ox, 10);
+
+  // Doorstep with torches
+  drawDoorstep(ox);
+
+  // --- Unique surrounding elements ---
+
+  // Glowing rune circle 1 (outside left wall, lower area)
+  const rune1x = ox + 3, rune1y = H - 30;
+  for (let a = 0; a < 360; a += 6) {
+    const rad = a * Math.PI / 180;
+    const px = Math.round(rune1x + Math.cos(rad) * 3);
+    const py = Math.round(rune1y + Math.sin(rad) * 3);
+    blendPixel(px, py, 120, 80, 220, 180);
+  }
+  blendPixel(rune1x, rune1y, 140, 100, 240, 200);
+
+  // Glowing rune circle 2 (outside right wall, upper area)
+  const rune2x = ox + W - 4, rune2y = 30;
+  for (let a = 0; a < 360; a += 6) {
+    const rad = a * Math.PI / 180;
+    const px = Math.round(rune2x + Math.cos(rad) * 3);
+    const py = Math.round(rune2y + Math.sin(rad) * 3);
+    blendPixel(px, py, 80, 120, 240, 180);
+  }
+  blendPixel(rune2x, rune2y, 100, 140, 255, 200);
+
+  // Glowing rune circle 3 (outside right wall, lower area)
+  const rune3x = ox + W - 5, rune3y = H - 50;
+  for (let a = 0; a < 360; a += 6) {
+    const rad = a * Math.PI / 180;
+    const px = Math.round(rune3x + Math.cos(rad) * 3);
+    const py = Math.round(rune3y + Math.sin(rad) * 3);
+    blendPixel(px, py, 100, 60, 200, 160);
+  }
+  blendPixel(rune3x, rune3y, 120, 80, 220, 180);
+
+  // Herb garden patch (bottom-left corner, outside wall)
+  const hgx = ox + 2, hgy = H - 14;
+  // Small soil patch
+  fillRect(hgx, hgy, 8, 6, 70, 55, 30);
+  // Green sprouts
+  setPixel(hgx + 1, hgy + 1, 60, 140, 50);
+  setPixel(hgx + 3, hgy, 50, 130, 40);
+  setPixel(hgx + 5, hgy + 2, 70, 150, 55);
+  setPixel(hgx + 7, hgy + 1, 55, 135, 45);
+  // Colored flower dots
+  setPixel(hgx + 2, hgy, 180, 100, 200); // purple flower
+  setPixel(hgx + 6, hgy, 100, 180, 220); // blue flower
+  setPixel(hgx + 4, hgy + 1, 200, 180, 60); // yellow flower
+}
+
+/**
+ * Training Grounds exterior details:
+ * - Brown wooden roof edge and chimney
+ * - Weapon rack outside one wall
+ * - Training circle (sand/dirt patch)
+ */
+function drawTrainingGroundsExterior(ox) {
+  const W = BLDG_W;
+  const H = BLDG_H;
+
+  // Roof edge (brown/wooden theme)
+  drawRoofEdge(ox, [100, 70, 35], [75, 48, 20]);
+
+  // Chimney at top-right area (~x=350 within building, roughly +120 from center)
+  drawChimney(ox, 350, [80, 60, 40]);
+
+  // Hanging sign (brown theme)
+  drawHangingSign(ox, [120, 80, 40]);
+
+  // Glowing windows
+  drawGlowingWindows(ox, 12);
+
+  // Doorstep with torches
+  drawDoorstep(ox);
+
+  // --- Unique surrounding elements ---
+
+  // Weapon rack outside right wall (small vertical rack)
+  const wrx = ox + W - 8, wry = 60;
+  fillRect(wrx, wry, 6, 40, 80, 55, 30); // rack body
+  fillRect(wrx, wry, 6, 2, 70, 45, 20); // top bar
+  fillRect(wrx, wry + 38, 6, 2, 70, 45, 20); // bottom bar
+  // Sword shape
+  drawLine(wrx + 2, wry + 5, wrx + 2, wry + 18, 170, 175, 185);
+  fillRect(wrx + 1, wry + 5, 3, 1, 140, 120, 60);
+  // Axe shape
+  fillRect(wrx + 4, wry + 22, 2, 2, 165, 170, 180);
+  drawLine(wrx + 4, wry + 24, wrx + 4, wry + 34, 120, 90, 50);
+  // Staff
+  drawLine(wrx + 1, wry + 20, wrx + 1, wry + 36, 110, 80, 45);
+
+  // Training circle (tan/brown dirt patch outside bottom-left)
+  const tcx = ox + 4, tcy = H - 24;
+  for (let dy = -8; dy <= 8; dy++) {
+    for (let dx = -8; dx <= 8; dx++) {
+      if (dx * dx + dy * dy <= 64) {
+        const px = tcx + 8 + dx, py = tcy + dy;
+        if (px >= ox && px < ox + 12 && py > 0 && py < H) {
+          setPixel(px, py, 160, 130, 85);
+        }
+      }
+    }
+  }
+  // Ring outline on the patch
+  for (let a = 0; a < 360; a += 8) {
+    const rad = a * Math.PI / 180;
+    const px = Math.round(tcx + 8 + Math.cos(rad) * 5);
+    const py = Math.round(tcy + Math.sin(rad) * 5);
+    if (px >= ox && px < ox + 12 && py > 0 && py < H) {
+      setPixel(px, py, 130, 100, 55);
+    }
+  }
+}
+
+/**
+ * Ancient Library exterior details:
+ * - Teal/gold roof edge and chimney
+ * - Potted plants along one wall exterior
+ * - Stone sundial marker near entrance
+ */
+function drawAncientLibraryExterior(ox) {
+  const W = BLDG_W;
+  const H = BLDG_H;
+
+  // Roof edge (marble/teal theme)
+  drawRoofEdge(ox, [185, 180, 165], [160, 155, 140]);
+
+  // Chimney at top-left area (~x=150, roughly -80 from center)
+  drawChimney(ox, 150, [150, 145, 130]);
+
+  // Hanging sign (teal/gold theme)
+  drawHangingSign(ox, [40, 100, 95]);
+
+  // Glowing windows
+  drawGlowingWindows(ox, 10);
+
+  // Doorstep with torches
+  drawDoorstep(ox);
+
+  // --- Unique surrounding elements ---
+
+  // Potted plants along left wall exterior (3 pots)
+  for (let i = 0; i < 3; i++) {
+    const ppx = ox + 1, ppy = 60 + i * 70;
+    // Brown pot
+    fillRect(ppx, ppy, 6, 5, 140, 90, 50);
+    fillRect(ppx + 1, ppy + 4, 4, 2, 120, 75, 40); // pot base
+    // Green sprout/plant
+    setPixel(ppx + 2, ppy - 1, 60, 140, 50);
+    setPixel(ppx + 3, ppy - 1, 50, 130, 45);
+    setPixel(ppx + 2, ppy - 2, 70, 150, 60);
+    setPixel(ppx + 4, ppy - 2, 55, 135, 48);
+    setPixel(ppx + 3, ppy - 3, 65, 145, 55);
+  }
+
+  // Stone sundial / marker near entrance (bottom-right of building)
+  const sdx = ox + W / 2 - 30, sdy = H - 8;
+  // Circular stone base
+  drawCircle(sdx, sdy, 4, 165, 160, 150);
+  drawCircle(sdx, sdy, 3, 175, 170, 160);
+  // Sundial gnomon (vertical line casting shadow)
+  setPixel(sdx, sdy - 1, 140, 135, 125);
+  setPixel(sdx, sdy - 2, 140, 135, 125);
+  // Shadow line
+  setPixel(sdx + 1, sdy, 130, 125, 115);
+  setPixel(sdx + 2, sdy + 1, 130, 125, 115);
+}
+
+/**
+ * Tavern exterior details:
+ * - Amber/warm roof edge and LARGER chimney
+ * - Barrels and crates stacked near one wall
+ * - Wooden bench near entrance
+ */
+function drawTavernExterior(ox) {
+  const W = BLDG_W;
+  const H = BLDG_H;
+
+  // Roof edge (warm timber theme)
+  drawRoofEdge(ox, [180, 160, 120], [140, 110, 70]);
+
+  // Chimney near center, larger than other buildings (tavern is always cooking)
+  drawChimney(ox, 290, [120, 85, 50], 4);
+
+  // Hanging sign (amber/orange theme)
+  drawHangingSign(ox, [160, 120, 40]);
+
+  // Glowing windows
+  drawGlowingWindows(ox, 10);
+
+  // Doorstep with torches
+  drawDoorstep(ox);
+
+  // --- Unique surrounding elements ---
+
+  // Barrels and crates stacked near left wall exterior
+  // Barrel 1 (round, brown)
+  const b1x = ox + 2, b1y = 40;
+  drawCircle(b1x + 3, b1y + 3, 3, 110, 78, 40);
+  drawCircle(b1x + 3, b1y + 3, 2, 120, 88, 48);
+  // Barrel band
+  for (let a = 0; a < 360; a += 12) {
+    const rad = a * Math.PI / 180;
+    setPixel(Math.round(b1x + 3 + Math.cos(rad) * 3), Math.round(b1y + 3 + Math.sin(rad) * 3), 90, 90, 95);
+  }
+
+  // Barrel 2
+  const b2x = ox + 1, b2y = 52;
+  drawCircle(b2x + 3, b2y + 3, 3, 105, 75, 38);
+  drawCircle(b2x + 3, b2y + 3, 2, 115, 85, 46);
+
+  // Crate 1 (square, wooden)
+  fillRect(ox + 1, 64, 7, 7, 120, 90, 50);
+  fillRect(ox + 2, 65, 5, 5, 130, 100, 58);
+  // Cross brace on crate
+  drawLine(ox + 1, 64, ox + 7, 70, 100, 72, 38);
+  drawLine(ox + 7, 64, ox + 1, 70, 100, 72, 38);
+
+  // Crate 2 (smaller)
+  fillRect(ox + 2, 73, 5, 5, 115, 85, 48);
+  fillRect(ox + 3, 74, 3, 3, 125, 95, 55);
+
+  // Wooden bench near entrance (bottom-right outside wall)
+  const bnx = ox + W / 2 + 50, bny = H - 8;
+  fillRect(bnx, bny, 16, 4, 110, 78, 42);
+  fillRect(bnx + 1, bny + 1, 14, 2, 120, 88, 50);
+  // Bench legs
+  fillRect(bnx + 1, bny + 4, 2, 3, 90, 62, 32);
+  fillRect(bnx + 13, bny + 4, 2, 3, 90, 62, 32);
+}
+
+// =====================================================================
 // Draw all buildings
 // =====================================================================
 drawWizardTower(0);
 drawTrainingGrounds(BLDG_W);
 drawAncientLibrary(BLDG_W * 2);
 drawTavern(BLDG_W * 3);
+
+// Draw exterior details on top of interiors (Phase 20-02)
+drawWizardTowerExterior(0);
+drawTrainingGroundsExterior(BLDG_W);
+drawAncientLibraryExterior(BLDG_W * 2);
+drawTavernExterior(BLDG_W * 3);
 
 // Write PNG
 const outPath = path.resolve(__dirname, '..', 'assets', 'sprites', 'buildings.png');
