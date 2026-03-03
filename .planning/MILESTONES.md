@@ -1,5 +1,14 @@
 # Milestones
 
+## v2.0 World & Character Detail (Shipped: 2026-03-03)
+
+**Phases completed:** 3 phases, 7 plans, 0 tasks
+
+**Key accomplishments:**
+- (none recorded)
+
+---
+
 ## v1.5 Usage Dashboard (Shipped: 2026-03-01)
 
 **Phases:** 17-19 | **Plans:** 6 | **Tasks:** 12 | **Timeline:** 1 day (2026-03-01)

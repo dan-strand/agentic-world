@@ -82,6 +82,49 @@
 
 ---
 
+## Milestone: v2.0 — World & Character Detail
+
+**Shipped:** 2026-03-03
+**Phases:** 3 | **Plans:** 7 | **Tasks:** ~16
+
+### What Was Built
+- Lush fantasy village: 16-sprite scenery atlas, 96 placed objects (trees, bushes, props, fences, lanterns, torches), enhanced tilemap with wider paths and pond
+- Detailed building exteriors: roof shingles, chimney protrusions with smoke particles, hanging signs, glowing windows, per-building unique elements
+- Unique agent identity: 25 color palettes with runtime pixel-level swap, gear overlay sprites (hats/helms/hoods), class-specific celebrate animations
+- 10-minute day/night cycle: sine-wave color temperature transitions (warm golden → cool blue), 19+ night glow halos at light sources
+- Enhanced atmosphere: forge sparks, daytime dust motes, drifting leaves, night-boosted firefly brightness, intensified chimney smoke at night
+
+### What Worked
+- All 7 plans executed cleanly with zero rework across 3 phases
+- nightIntensity as a single central signal threaded through world.ts to all consuming systems (glow, particles, smoke) — clean architecture, no duplication
+- Checkpoint-based verification caught a user preference (name labels unwanted) before the feature solidified — quick removal during execution
+- Integration checker traced all 18 cross-phase connections to actual source lines — high confidence in wiring correctness
+- Atlas-first pipeline continued to work well: new scenery atlas and gear atlas followed the established generate→load→render pattern
+
+### What Was Inefficient
+- Verifier was disabled in config (verifier_enabled: false), so phases 21 and 22 had no automated VERIFICATION.md — the integration checker compensated but formal verification would have been more thorough
+- CHAR-03 (fantasy names) was fully built (data layer + renderer) before user decided to remove labels during verification — context gathering could have caught this preference earlier
+- Phase 22 plan checker found no issues at all — potentially the checker model (sonnet) is too lenient for visual/particle plans
+
+### Patterns Established
+- Scenery placement: seeded random with exclusion zones around buildings for reproducible, natural-looking layouts
+- Palette swap: offscreen canvas pixel replacement with brightness delta preservation — reusable for any atlas recoloring
+- Session hash bit-shifting: independent ranges for palette/gear/name from single hash (>>> 4/8/12) — deterministic identity
+- Central night intensity signal: single 0-1 float value drives all night-dependent systems through the tick loop
+- Concentric circle glow: lightweight alternative to PixiJS blur filters for soft radial light effects
+
+### Key Lessons
+1. User preferences for visual features (names, labels, UI elements) should be confirmed during discuss-phase, not discovered at checkpoint — the CHAR-03 removal was fast but the code was already written
+2. A single shared signal (nightIntensity) threading through tick() is cleaner than per-system polling — established a pattern for future shared state
+3. Generator scripts (pngjs) scale well: adding scenery and gear atlases followed the exact same pattern as characters and buildings
+
+### Cost Observations
+- Model mix: 100% quality profile (opus for all agents except plan checker and integration checker on sonnet)
+- Sessions: ~6 in milestone
+- Notable: 7 plans across 3 phases executed in a single session with no context resets needed — wave-based scheduling kept context lean
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -94,6 +137,7 @@
 | v1.3 Reliability | 2 | 4 | Quality pass — audit, fix, harden |
 | v1.4 Workspaces | 3 | 6 | Interior detail — buildings, stations, z-order |
 | v1.5 Dashboard | 3 | 6 | New subsystem — HTML dashboard, JSONL parsing, cost estimation |
+| v2.0 World Detail | 3 | 7 | Visual richness — scenery, identity, day/night cycle, atmosphere |
 
 ### Top Lessons (Verified Across Milestones)
 
@@ -102,3 +146,5 @@
 3. User preference questions (UX choices) should happen before technical planning
 4. Research-first catches data discrepancies before they become bugs — verified across v1.5 (pricing, model formats)
 5. Parallel plan execution in wave-based scheduling saves significant time for independent work
+6. Central shared signals (nightIntensity, session hash) thread cleanly through tick loops — prefer one source of truth over per-system polling
+7. Generator script patterns (pngjs atlas pipeline) scale well across multiple asset types with zero architectural changes

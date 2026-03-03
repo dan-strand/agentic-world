@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A locally-run animated 2D visualizer that shows your active Claude Code sessions as Fantasy RPG adventurers in a pixel-art world, with a usage dashboard tracking token consumption and costs. Each agent represents a running Claude session — mages, warriors, rangers, and rogues walk into detailed workspace interiors (Wizard Tower, Training Grounds, Ancient Library, Tavern) and work at themed stations. Below the RPG world, a live dashboard shows session details, token breakdowns, cost estimates, and 30-day historical trends. Buildings display current tool info, agents wander around their stations, and the world shows at a glance which sessions are active, idle, or waiting for input. When sessions complete, agents celebrate with a golden light column and return to the central campfire.
+A locally-run animated 2D visualizer that shows your active Claude Code sessions as Fantasy RPG adventurers in a living pixel-art world with a day/night cycle, usage dashboard, and distinct character identities. Each agent represents a running Claude session — mages, warriors, rangers, and rogues with unique color palettes and gear walk into detailed workspace interiors (Wizard Tower, Training Grounds, Ancient Library, Tavern) and work at themed stations. The world breathes with a 10-minute day/night cycle: warm golden daylight shifts to cool blue night, lanterns and torches glow, chimney smoke intensifies, and atmospheric particles (fireflies, sparks, dust motes, drifting leaves) create ambience. Below the RPG world, a live dashboard shows session details, token breakdowns, cost estimates, and 30-day historical trends. Buildings display current tool info, agents wander around their stations, and the world shows at a glance which sessions are active, idle, or waiting for input. When sessions complete, agents celebrate with class-specific animations and a golden light column before returning to the central campfire.
 
 ## Core Value
 
@@ -58,21 +58,20 @@ Instantly see the status of all Claude Code sessions so you know which one needs
 - ✓ Cost estimation with auto-detected model pricing (Opus, Sonnet, Haiku) — v1.5 Phase 18
 - ✓ Today's aggregate totals bar with cache savings display — v1.5 Phase 18
 - ✓ 30-day historical persistence with atomic JSON writes — v1.5 Phase 19
+- ✓ Outdoor scenery with 96 placed sprites (trees, bushes, flowers, props, fences, lanterns) — v2.0 Phase 20
+- ✓ Building exterior enhancements (roof shingles, chimneys with smoke, hanging signs, glowing windows) — v2.0 Phase 20
+- ✓ Enhanced tilemap with wider paths, border transitions, and pond — v2.0 Phase 20
+- ✓ Unique agent color palettes (25 palettes, session-hash-derived) — v2.0 Phase 21
+- ✓ Gear overlay sprites (hats, helms, hoods per class) — v2.0 Phase 21
+- ✓ Class-specific celebrate animations (mage staff burst, warrior fist pump, ranger salute, rogue dagger flip) — v2.0 Phase 21
+- ✓ 10-minute day/night cycle with smooth sine-wave color temperature transitions — v2.0 Phase 22
+- ✓ Night glow halos at lanterns, torches, windows, and campfire — v2.0 Phase 22
+- ✓ Enhanced atmospheric particles (forge sparks, dust motes, drifting leaves) — v2.0 Phase 22
+- ✓ Night-modulated chimney smoke and firefly brightness — v2.0 Phase 22
 
 ### Active
 
-#### Current Milestone: v2.0 World & Character Detail
-
-**Goal:** Make the world feel alive and each agent visually unique — richer outdoor scenery, building detail, day/night cycle, and distinct character identities.
-
-**Target features:**
-- Unique agent appearances per session (color palettes, accessories, gear)
-- Richer animation sets (class-specific behaviors, idle variety, working animations)
-- Agent names and identity system
-- Outdoor scenery (trees, flowers, rocks, fences, lanterns, market stalls)
-- Building exterior enhancements (architectural detail, signs, windows)
-- Real-time day/night cycle with lighting shifts and glowing lanterns
-- Enhanced atmospheric effects (more particles, environmental effects)
+(No active requirements — ready for next milestone planning)
 
 ### Out of Scope
 
@@ -91,14 +90,17 @@ Instantly see the status of all Claude Code sessions so you know which one needs
 ## Context
 
 - User runs multiple Claude Code sessions simultaneously in different bash terminals on Windows (MINGW64/Git Bash)
-- Shipped v1.0 through v1.5 in 5 days (2026-02-25 → 2026-03-01)
-- Codebase: 7,777 LOC TypeScript/JS, ~25 source files, 3 pngjs generator scripts, 14 tests
+- Shipped v1.0 through v2.0 in 7 days (2026-02-25 → 2026-03-03)
+- Codebase: 10,501 LOC TypeScript/JS (6,158 TS + 4,343 JS generators), ~30 source files, 4 pngjs generator scripts
 - JSONL logs at `~/.claude/projects/{encoded-path}/{session-uuid}.jsonl` contain `message.usage` with `input_tokens`, `output_tokens`, `cache_creation_input_tokens`, `cache_read_input_tokens`, and `message.model`
 - Tech stack: Electron 40.6.1, PixiJS 8.16.0, TypeScript 5.7, pixi-filters 6.1.5, Webpack (Electron Forge)
 - Atlas-first asset pipeline: pngjs generates PNG atlases, JSON descriptors, loadAllAssets() with Promise.all
 - 6-state agent machine: idle_at_hq, walking_to_building, walking_to_workspot, working, celebrating, fading_out
 - Agent interior mode: 1.5x scale inside buildings, wander behavior, z-ordered reparenting between containers
-- Canvas-rendered static tilemap ground, static Building instances with agentsLayer, AnimatedSprite agents
+- Canvas-rendered static tilemap ground, static Building instances with agentsLayer, AnimatedSprite agents with palette-swapped textures
+- Scenery layer with 96 placed sprites (trees, bushes, flowers, props, lanterns, torches) using seeded random placement
+- Night glow layer with 19+ concentric circle Graphics glows synced to day/night cycle
+- DayNightCycle manager: 10-min sine-wave cycle, ColorMatrixFilter for global color temperature
 - Buildings: 464x336 landscape in 2x2 grid, detailed top-down interiors, station tracking, tool name banners
 - SoundManager singleton with HTML5 Audio API for jobs-done and ready-to-work sounds
 - Status debounce (2.5s) prevents visual flickering; dual-gate completion detection (status transition + system entry)
@@ -156,6 +158,14 @@ Instantly see the status of all Claude Code sessions so you know which one needs
 | Atomic JSON writes with Windows fallback (v1.5) | tmp+rename with copyFile fallback for EPERM/EBUSY antivirus locks | ✓ Good |
 | Local date keys for history (v1.5) | en-CA format matches user's calendar day, not UTC | ✓ Good |
 | Non-blocking history load (v1.5) | .then()/.catch() so dashboard renders immediately without waiting | ✓ Good |
+| Seeded random scenery placement (v2.0) | Reproducible layout, exclusion zones around buildings | ✓ Good |
+| Overlay functions for building exteriors (v2.0) | Preserves existing interiors, adds detail without regenerating base art | ✓ Good |
+| Offscreen canvas palette swap (v2.0) | Pixel-level color replacement with brightness delta preservation; cached | ✓ Good |
+| Session hash bit-shifting for identity (v2.0) | Independent ranges for palette/gear/name from single hash; deterministic | ✓ Good |
+| Fantasy name labels removed (v2.0) | User preference during verification; data layer retained for future | ✓ Good |
+| Sine-wave day/night cycle (v2.0) | pow(1.5) sharpening for natural day-dominant feel; 10-min period | ✓ Good |
+| Concentric circles for glow (v2.0) | Avoids expensive PixiJS blur filters; adequate visual quality | ✓ Good |
+| nightIntensity as central signal (v2.0) | Single value threaded from cycle → glow, smoke, particles; no duplication | ✓ Good |
 
 ---
-*Last updated: 2026-03-03 after v2.0 milestone started*
+*Last updated: 2026-03-03 after v2.0 milestone*

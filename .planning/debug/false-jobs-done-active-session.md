@@ -1,8 +1,9 @@
 ---
-status: diagnosed
+status: resolved
 trigger: "Session 'forma' actively processing was reported as 'job's done' — showed completion while still running"
 created: 2026-02-26T00:00:00Z
-updated: 2026-02-26T00:00:00Z
+updated: 2026-02-28T00:00:00Z
+resolved: 2026-02-28T00:00:00Z
 ---
 
 ## Current Focus
@@ -87,6 +88,14 @@ root_cause: |
   runs, determineStatus sees assistant + >2s and returns 'waiting', debounce commits after
   2.5s, checkForCompletion detects active->waiting, celebration fires with sound + golden column.
 
-fix:
-verification:
-files_changed: []
+fix: |
+  Fixed in v1.3 Phase 11 (Status & Visibility Audit):
+  1. Added hasToolUseContent() method to session-detector.ts that inspects assistant entry content
+     for tool_use blocks
+  2. determineStatus() now accepts hasToolUse parameter — when true, assistant entries stay 'active'
+     instead of transitioning to 'waiting' after 2s
+  3. Added dual-gate completion detection requiring both status transition AND system entry confirmation
+verification: Verified fix in session-detector.ts:235-251 — tool_use content inspection prevents false active->waiting transition
+files_changed:
+  - src/main/session-detector.ts
+  - src/main/jsonl-reader.ts

@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: World & Character Detail
 status: unknown
-last_updated: "2026-03-03T14:55:00.769Z"
+last_updated: "2026-03-03T15:02:11.151Z"
 progress:
   total_phases: 13
   completed_phases: 13
@@ -18,14 +18,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-03)
 
 **Core value:** Instantly see the status of all Claude Code sessions so you know which one needs attention next.
-**Current focus:** v2.0 World & Character Detail -- Phase 22 executing
+**Current focus:** Planning next milestone
 
 ## Current Position
 
-Phase: 22 of 22 (Day/Night Cycle & Atmosphere)
-Plan: 2 of 2 in current phase
-Status: Phase 22 Complete -- All v2.0 phases done
-Last activity: 2026-03-03 -- Completed 22-02 (Enhanced Atmosphere & Night Effects)
+Phase: v2.0 complete
+Plan: All plans complete
+Status: Milestone v2.0 shipped
+Last activity: 2026-03-03 -- Completed v2.0 World & Character Detail milestone
 
 Progress: [##########] 100%
 
@@ -63,6 +63,7 @@ Progress: [##########] 100%
 - **v1.3 Audio & Status Reliability** (2026-02-27): Status pipeline hardening, tool_use detection, waiting reminders
 - **v1.4 Enhanced Session Workspaces** (2026-02-27): Detailed interiors, agent stations, tool overlays, campfire waypoint
 - **v1.5 Usage Dashboard** (2026-03-01): Token usage tracking, cost estimation, live dashboard, 30-day history
+- **v2.0 World & Character Detail** (2026-03-03): Outdoor scenery, building exteriors, unique agent identity, day/night cycle, atmospheric particles
 
 ## Accumulated Context
 
