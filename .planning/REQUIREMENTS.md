@@ -9,10 +9,10 @@ Requirements for World & Character Detail milestone. Each maps to roadmap phases
 
 ### Character Identity
 
-- [ ] **CHAR-01**: Each agent displays a unique color palette distinguishing it from other active agents
-- [ ] **CHAR-02**: Agents display visual accessories/gear (hats, capes, weapons, shields) for variety
-- [ ] **CHAR-03**: Agent fantasy names displayed above characters (auto-generated)
-- [ ] **CHAR-04**: Class-specific animations for idle, working, and celebrating states
+- [x] **CHAR-01**: Each agent displays a unique color palette distinguishing it from other active agents
+- [x] **CHAR-02**: Agents display visual accessories/gear (hats, capes, weapons, shields) for variety
+- [x] **CHAR-03**: Agent fantasy names displayed above characters (auto-generated)
+- [x] **CHAR-04**: Class-specific animations for idle, working, and celebrating states
 
 ### Outdoor Scenery
 
@@ -73,10 +73,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CHAR-01 | Phase 21 | Pending |
-| CHAR-02 | Phase 21 | Pending |
-| CHAR-03 | Phase 21 | Pending |
-| CHAR-04 | Phase 21 | Pending |
+| CHAR-01 | Phase 21 | Complete |
+| CHAR-02 | Phase 21 | Complete |
+| CHAR-03 | Phase 21 | Complete |
+| CHAR-04 | Phase 21 | Complete |
 | SCEN-01 | Phase 20 | Complete |
 | SCEN-02 | Phase 20 | Complete |
 | SCEN-03 | Phase 20 | Complete |

@@ -18,21 +18,21 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-03)
 
 **Core value:** Instantly see the status of all Claude Code sessions so you know which one needs attention next.
-**Current focus:** v2.0 World & Character Detail -- Phase 20 executing
+**Current focus:** v2.0 World & Character Detail -- Phase 21 executing
 
 ## Current Position
 
-Phase: 20 of 22 (World & Building Art)
-Plan: 3 of 3 in current phase (COMPLETE)
-Status: Phase 20 Complete
-Last activity: 2026-03-03 -- Completed 20-03 (Scenery & World Integration)
+Phase: 21 of 22 (Character Identity)
+Plan: 1 of 2 in current phase
+Status: Executing Phase 21
+Last activity: 2026-03-03 -- Completed 21-01 (Character Identity Data Layer)
 
 Progress: [##########] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 41 (v1.0: 9, v1.1: 9, v1.2: 4, v1.3: 4, v1.4: 6, v1.5: 6, v2.0: 3)
+- Total plans completed: 42 (v1.0: 9, v1.1: 9, v1.2: 4, v1.3: 4, v1.4: 6, v1.5: 6, v2.0: 4)
 - Total execution time: ~5 days
 
 **By Phase:**
@@ -51,6 +51,7 @@ Progress: [##########] 100%
 | v1.5 Phase 18 | 2 | ~5 min | ~2.5 min |
 | v1.5 Phase 19 | 2 | ~3 min | ~1.5 min |
 | v2.0 Phase 20 | 3 | ~14 min | ~4.7 min |
+| v2.0 Phase 21 | 1 | ~6 min | ~6 min |
 
 ## Shipped Milestones
 
@@ -76,6 +77,9 @@ Decisions are logged in PROJECT.md Key Decisions table.
 - 20-03: Used seed 7777 for scenery placement to avoid correlation with tilemap decoration
 - 20-03: Placed scenery layer between buildingsContainer and ambientParticles in scene hierarchy
 - 20-03: 96 sprites placed covering trees, bushes, flowers, props, fences, lanterns, and torches
+- 21-01: Bit-shifting (>>> 4/8/12) on session hash for independent palette/gear/name distribution
+- 21-01: 25 palettes across 5 categories (warm/cool/earth/jewel/neutral) for visual separation
+- 21-01: Gear drawn as head overlays at character head region for compositing alignment
 
 ### Blockers/Concerns
 
@@ -91,5 +95,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-03
-Stopped at: Completed 20-03-PLAN.md (Scenery & World Integration) -- Phase 20 complete
+Stopped at: Completed 21-01-PLAN.md (Character Identity Data Layer)
 Resume file: None
