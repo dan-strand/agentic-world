@@ -1,4 +1,4 @@
-import { Application, Container, Sprite, ColorMatrixFilter } from 'pixi.js';
+import { Application, Container, Graphics, Sprite, ColorMatrixFilter } from 'pixi.js';
 import type { SessionInfo, ActivityType, SessionStatus } from '../shared/types';
 import {
   BACKGROUND_COLOR,
@@ -28,6 +28,8 @@ import { buildWorldTilemap } from './tilemap-builder';
 import { buildSceneryLayer } from './scenery-layer';
 import { AmbientParticles } from './ambient-particles';
 import { SoundManager } from './sound-manager';
+import { DayNightCycle } from './day-night-cycle';
+import { buildNightGlowLayer, updateNightGlowLayer } from './night-glow-layer';
 
 /** Per-agent status debounce tracking to prevent jittery visual flickering. */
 interface StatusDebounce {
@@ -44,23 +46,30 @@ interface StatusDebounce {
  * agents, vehicles, speech bubbles into a living fantasy RPG world.
  *
  * Scene hierarchy:
- *   app.stage [warm ColorMatrixFilter]
+ *   app.stage [dynamic ColorMatrixFilter -- day/night color temperature]
  *   +-- tilemapLayer (canvas-rendered grass + dirt star-pattern paths + pond)
  *   +-- buildingsContainer (campfire waypoint + 4 quest zone buildings in 2x2 grid)
  *   +-- sceneryLayer (trees, bushes, flowers, village props, fences, lanterns, torches)
+ *   +-- nightGlowLayer (soft glow halos at lanterns, torches, windows, campfire)
  *   +-- ambientParticles (floating firefly particles)
  *   +-- agentsContainer (dynamic Agent children)
  */
 export class World {
   private app!: Application;
 
-  // Scene containers (z-order: tilemap, buildings, scenery, ambient particles, agents)
+  // Scene containers (z-order: tilemap, buildings, scenery, night glow, ambient particles, agents)
   private tilemapLayer!: Container;
   private campfire!: Sprite;
   private buildingsContainer!: Container;
   private sceneryLayer!: Container;
+  private nightGlowLayer!: Container;
+  private nightGlows: { gfx: Graphics; maxAlpha: number }[] = [];
   private ambientParticles!: AmbientParticles;
   private agentsContainer!: Container;
+
+  // Day/night cycle (Phase 22)
+  private dayNightCycle: DayNightCycle = new DayNightCycle();
+  private stageFilter!: ColorMatrixFilter;
 
   // Ambient idle agents (always at campfire, decorative)
   private ambientAgents: Agent[] = [];
@@ -186,7 +195,13 @@ export class World {
     this.sceneryLayer = buildSceneryLayer();
     this.app.stage.addChild(this.sceneryLayer);
 
-    // Ambient floating particles (between scenery and agents in z-order)
+    // Night glow layer: soft halos at light sources, visible at night (Phase 22)
+    const glowResult = buildNightGlowLayer();
+    this.nightGlowLayer = glowResult.container;
+    this.nightGlows = glowResult.glows;
+    this.app.stage.addChild(this.nightGlowLayer);
+
+    // Ambient floating particles (between night glow and agents in z-order)
     this.ambientParticles = new AmbientParticles();
     this.app.stage.addChild(this.ambientParticles);
 
@@ -209,10 +224,9 @@ export class World {
       this.ambientAgents.push(agent);
     }
 
-    // Warm ambient lighting tint (FX-03)
-    const warmFilter = new ColorMatrixFilter();
-    warmFilter.tint(0xFFE8C0, false); // Warm golden tone for RPG atmosphere
-    this.app.stage.filters = [warmFilter];
+    // Day/night cycle dynamic color temperature filter (replaces static warm tint)
+    this.stageFilter = new ColorMatrixFilter();
+    this.app.stage.filters = [this.stageFilter];
   }
 
   /**
@@ -238,6 +252,24 @@ export class World {
    * Buildings are always visible at alpha 1.0 -- no fade transitions needed.
    */
   tick(deltaMs: number): void {
+    // Advance day/night cycle and update lighting
+    this.dayNightCycle.tick(deltaMs);
+    const nightIntensity = this.dayNightCycle.getNightIntensity();
+
+    // Update stage color temperature filter
+    const [r, g, b] = this.dayNightCycle.getTintRGB();
+    // Apply RGB multipliers using ColorMatrixFilter matrix
+    // The matrix multiplies each channel: [r,0,0,0,0, 0,g,0,0,0, 0,0,b,0,0, 0,0,0,1,0]
+    this.stageFilter.matrix = [
+      r, 0, 0, 0, 0,
+      0, g, 0, 0, 0,
+      0, 0, b, 0, 0,
+      0, 0, 0, 1, 0,
+    ];
+
+    // Update night glow sprites
+    updateNightGlowLayer(this.nightGlows, nightIntensity);
+
     // Tick ambient agents (idle animation at campfire)
     for (const ambient of this.ambientAgents) {
       if (ambient.visible) {

@@ -5,6 +5,44 @@ import {
   CAMPFIRE_POS, QUEST_ZONE_POSITIONS,
 } from '../shared/constants';
 
+/** Light source positions for night glow placement (used by night-glow-layer.ts). */
+export interface LightSourceDef {
+  x: number;
+  y: number;
+  type: 'lantern' | 'torch' | 'campfire' | 'window';
+}
+
+export const LIGHT_SOURCE_POSITIONS: LightSourceDef[] = [
+  // Lanterns at path intersections
+  { x: 482, y: 354, type: 'lantern' },
+  { x: 542, y: 354, type: 'lantern' },
+  { x: 482, y: 414, type: 'lantern' },
+  { x: 542, y: 414, type: 'lantern' },
+  // Lanterns along center cross paths
+  { x: 512, y: 300, type: 'lantern' },
+  { x: 512, y: 468, type: 'lantern' },
+  // Torches near building entrances (2 per building)
+  // Wizard Tower (coding) at (248, 184): entrance at y=184+168+12=364
+  { x: 248 - 16, y: 364, type: 'torch' },
+  { x: 248 + 16, y: 364, type: 'torch' },
+  // Training Grounds (testing) at (776, 184): entrance at y=364
+  { x: 776 - 16, y: 364, type: 'torch' },
+  { x: 776 + 16, y: 364, type: 'torch' },
+  // Ancient Library (reading) at (248, 584): entrance at y=584+168+12=764
+  { x: 248 - 16, y: 764, type: 'torch' },
+  { x: 248 + 16, y: 764, type: 'torch' },
+  // Tavern (comms) at (776, 584): entrance at y=764
+  { x: 776 - 16, y: 764, type: 'torch' },
+  { x: 776 + 16, y: 764, type: 'torch' },
+  // Campfire
+  { x: 512, y: 384, type: 'campfire' },
+  // Building windows (center of each building, offset upward into the structure)
+  { x: 248, y: 100, type: 'window' },   // Wizard Tower window area
+  { x: 776, y: 100, type: 'window' },   // Training Grounds window area
+  { x: 248, y: 500, type: 'window' },   // Ancient Library window area
+  { x: 776, y: 500, type: 'window' },   // Tavern window area
+];
+
 /**
  * Seeded random number generator (same algorithm as tilemap-builder.ts).
  * Returns a value in [0, 1) that is deterministic for a given (seed, x, y).
