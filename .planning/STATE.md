@@ -2,13 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Hardening and Bug Fixes
-status: ready_to_plan
-last_updated: "2026-03-16T00:00:00.000Z"
+status: planning
+stopped_at: Phase 23 context gathered
+last_updated: "2026-03-16T18:36:41.387Z"
+last_activity: 2026-03-16 -- Roadmap created for v2.1
 progress:
   total_phases: 3
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -70,6 +73,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-03-16
-Stopped at: Roadmap created for v2.1 Hardening and Bug Fixes
-Resume file: None
+Last session: 2026-03-16T18:36:41.385Z
+Stopped at: Phase 23 context gathered
+Resume file: .planning/phases/23-crash-diagnosis-infrastructure/23-CONTEXT.md
