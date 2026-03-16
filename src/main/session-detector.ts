@@ -11,6 +11,8 @@ import { readLastJsonlLine, readLastToolUse, JsonlEntry } from './jsonl-reader';
  */
 export interface SessionDetector {
   discoverSessions(): SessionInfo[];
+  /** Prune cached entries for sessions no longer in the active set. Optional. */
+  pruneStaleEntries?(activeSessionIds: Set<string>): void;
 }
 
 // UUID pattern for session JSONL files
@@ -268,6 +270,24 @@ export class FilesystemSessionDetector implements SessionDetector {
       default:
         // Optimistic default per user decision
         return 'active';
+    }
+  }
+
+  /**
+   * Prune cached entries for sessions no longer returned by discovery.
+   * Prevents mtimeCache and cwdCache from growing without bound as sessions come and go.
+   * Called by SessionStore after each poll cycle.
+   */
+  pruneStaleEntries(activeSessionIds: Set<string>): void {
+    for (const key of this.mtimeCache.keys()) {
+      if (!activeSessionIds.has(key)) {
+        this.mtimeCache.delete(key);
+      }
+    }
+    for (const key of this.cwdCache.keys()) {
+      if (!activeSessionIds.has(key)) {
+        this.cwdCache.delete(key);
+      }
     }
   }
 }

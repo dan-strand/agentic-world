@@ -32,6 +32,23 @@ import { DayNightCycle } from './day-night-cycle';
 import { buildNightGlowLayer, updateNightGlowLayer } from './night-glow-layer';
 import { destroyCachedTextures } from './palette-swap';
 
+/**
+ * Prune entries from a Map<string, number> where the value (timestamp)
+ * is older than maxAgeMs relative to `now`.
+ * Returns the count of pruned entries.
+ * Exported for unit testing (collection-pruning.test.ts).
+ */
+export function pruneByAge(map: Map<string, number>, maxAgeMs: number, now: number): number {
+  let pruned = 0;
+  for (const [key, timestamp] of map) {
+    if (now - timestamp > maxAgeMs) {
+      map.delete(key);
+      pruned++;
+    }
+  }
+  return pruned;
+}
+
 /** Per-agent status debounce tracking to prevent jittery visual flickering. */
 interface StatusDebounce {
   /** The raw status we're waiting to commit. */
@@ -104,7 +121,13 @@ export class World {
   private agentBuilding: Map<string, Building> = new Map();
 
   // Dismissed sessions -- prevents resurrection from stale IPC data after fade-out removal
-  private dismissedSessions: Set<string> = new Set();
+  // Map<sessionId, dismissalTimestamp> for age-based pruning
+  private dismissedSessions: Map<string, number> = new Map();
+
+  // Periodic pruning timer for dismissedSessions
+  private pruneTimer = 0;
+  private static readonly PRUNE_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+  private static readonly DISMISS_MAX_AGE_MS = 30 * 60 * 1000; // 30 minutes
 
   // Idle timeout tracking (ms of continuous committed-idle time per agent)
   private idleTimers: Map<string, number> = new Map();
@@ -404,6 +427,9 @@ export class World {
       bubble.tick(deltaMs);
     }
 
+    // Periodically prune stale dismissed session entries
+    this.pruneDismissedSessions(deltaMs);
+
     // Quest zone active highlights (ENV-04) -- based on project-to-building assignment
     const activeBuildings = new Set<Building>();
     for (const agent of this.agents.values()) {
@@ -449,6 +475,19 @@ export class World {
 
   destroy(): void {
     this.app.destroy(true);
+  }
+
+  // --- Private: Collection Pruning ---
+
+  /**
+   * Periodically prune stale entries from dismissedSessions.
+   * Entries older than 30 minutes are removed to prevent unbounded growth.
+   */
+  private pruneDismissedSessions(deltaMs: number): void {
+    this.pruneTimer += deltaMs;
+    if (this.pruneTimer < World.PRUNE_INTERVAL_MS) return;
+    this.pruneTimer = 0;
+    pruneByAge(this.dismissedSessions, World.DISMISS_MAX_AGE_MS, Date.now());
   }
 
   // --- Private: Agent Removal ---
@@ -508,8 +547,8 @@ export class World {
     // Release factory slot
     this.agentFactory.releaseSlot(sessionId);
 
-    // Prevent resurrection from stale IPC data
-    this.dismissedSessions.add(sessionId);
+    // Prevent resurrection from stale IPC data (timestamp for age-based pruning)
+    this.dismissedSessions.set(sessionId, Date.now());
   }
 
   // --- Private: Agent Management ---

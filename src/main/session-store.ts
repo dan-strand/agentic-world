@@ -112,6 +112,10 @@ export class SessionStore {
         }
       }
 
+      // Prune stale entries from detector and usage caches
+      this.detector.pruneStaleEntries?.(discoveredIds);
+      this.usageAggregator.pruneStaleEntries(discoveredIds);
+
       if (hasChanges) {
         this.pushUpdate();
         await this.pushDashboardUpdate();

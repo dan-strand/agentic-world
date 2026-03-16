@@ -63,4 +63,17 @@ export class UsageAggregator {
   clearSession(sessionId: string): void {
     this.cache.delete(sessionId);
   }
+
+  /**
+   * Prune cached entries for sessions no longer in the active set.
+   * Prevents cache from growing without bound as sessions come and go.
+   * Called by SessionStore after each poll cycle.
+   */
+  pruneStaleEntries(activeSessionIds: Set<string>): void {
+    for (const key of this.cache.keys()) {
+      if (!activeSessionIds.has(key)) {
+        this.cache.delete(key);
+      }
+    }
+  }
 }
