@@ -142,7 +142,9 @@ Plans:
   1. The app runs continuously for 8 hours without crashing, freezing, or becoming unresponsive
   2. Total renderer process memory growth over the 8-hour run is less than 50MB
   3. Health monitor logs show no monotonically increasing metric -- all resource counters are stable or periodic
-**Plans**: TBD
+**Plans:** 1 plan
+Plans:
+- [ ] 25-01-PLAN.md -- Soak test harness, log analyzer, and 8-hour verification run
 
 ## Progress
 
@@ -175,4 +177,4 @@ Phases execute in numeric order: 23 → 24 → 25
 | 22. Day/Night Cycle & Atmosphere | v2.0 | 2/2 | Complete | 2026-03-03 |
 | 23. Crash Diagnosis Infrastructure | 2/2 | Complete    | 2026-03-16 | - |
 | 24. Resource Leak Fixes | 2/2 | Complete    | 2026-03-16 | - |
-| 25. Soak Testing and Verification | v2.1 | 0/? | Not started | - |
+| 25. Soak Testing and Verification | v2.1 | 0/1 | Not started | - |
