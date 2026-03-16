@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Hardening and Bug Fixes
-status: planning
-stopped_at: Phase 23 context gathered
-last_updated: "2026-03-16T18:36:41.387Z"
-last_activity: 2026-03-16 -- Roadmap created for v2.1
+status: executing
+stopped_at: Completed 23-01-PLAN.md
+last_updated: "2026-03-16T19:04:57.810Z"
+last_activity: 2026-03-16 -- Completed Plan 23-01 crash logging infrastructure
 progress:
   total_phases: 3
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_plans: 2
+  completed_plans: 1
+  percent: 50
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-03-16)
 ## Current Position
 
 Phase: 23 of 25 (Crash Diagnosis Infrastructure) -- first phase of v2.1
-Plan: 0 of ? in current phase (not yet planned)
-Status: Ready to plan
-Last activity: 2026-03-16 -- Roadmap created for v2.1
+Plan: 1 of 2 in current phase
+Status: Executing
+Last activity: 2026-03-16 -- Completed Plan 23-01 crash logging infrastructure
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [█████░░░░░] 50%
 
 ## Performance Metrics
 
@@ -58,6 +58,9 @@ Recent decisions affecting current work:
 - [v2.1]: Instrumentation before fixes -- cannot verify leak fixes without baseline health metrics (from research)
 - [v2.1]: Object pooling over create/destroy -- eliminates GPU allocation churn risk entirely rather than relying on PixiJS 8.16.0 fix completeness
 - [v2.1]: Soak test as definition of done -- 8 hours with <50MB growth proves stability
+- [Phase 23]: Used electron-log/main sub-path import for correct v5 module resolution
+- [Phase 23]: CrashLogger accepts userDataPath parameter for testability
+- [Phase 23]: IPC crash listeners at module level in index.ts for early availability
 
 ### Blockers/Concerns
 
@@ -70,9 +73,10 @@ Recent decisions affecting current work:
 |---|-------------|------|--------|-----------|
 | 6 | Fix avatar working in wrong area and disappearing behind bottom-left section | 2026-03-03 | 074b9e8 | [6-there-are-jobs-being-done-in-the-top-lef](./quick/6-there-are-jobs-being-done-in-the-top-lef/) |
 | 7 | Add ambient idle agents at campfire | 2026-03-03 | 37f9087 | [7-can-we-have-a-couple-of-idle-agents-arou](./quick/7-can-we-have-a-couple-of-idle-agents-arou/) |
+| Phase 23 P01 | 3min | 2 tasks | 7 files |
 
 ## Session Continuity
 
-Last session: 2026-03-16T18:36:41.385Z
-Stopped at: Phase 23 context gathered
-Resume file: .planning/phases/23-crash-diagnosis-infrastructure/23-CONTEXT.md
+Last session: 2026-03-16T19:04:57.808Z
+Stopped at: Completed 23-01-PLAN.md
+Resume file: None

@@ -114,7 +114,7 @@ See: [`.planning/milestones/v2.0-ROADMAP.md`](milestones/v2.0-ROADMAP.md) for fu
   2. When a single exception occurs inside the game loop tick, the world continues running (the error is logged, not propagated)
   3. Crash log file at a known location contains timestamped entries with stack traces that can be read after a restart
   4. Memory health stats (heap size, RSS, process memory) are periodically logged, and a sustained upward trend triggers a warning entry in the log
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 Plans:
 - [ ] 23-01-PLAN.md -- Crash logging infrastructure: electron-log, CrashLogger class, IPC channels, preload bridge, crash event handlers
 - [ ] 23-02-PLAN.md -- Error boundary and memory monitor: game loop try/catch, MemoryMonitor, renderer global error handlers
@@ -170,6 +170,6 @@ Phases execute in numeric order: 23 → 24 → 25
 | 20. World & Building Art | v2.0 | 3/3 | Complete | 2026-03-03 |
 | 21. Character Identity | v2.0 | 2/2 | Complete | 2026-03-03 |
 | 22. Day/Night Cycle & Atmosphere | v2.0 | 2/2 | Complete | 2026-03-03 |
-| 23. Crash Diagnosis Infrastructure | v2.1 | 0/2 | Not started | - |
+| 23. Crash Diagnosis Infrastructure | 1/2 | In Progress|  | - |
 | 24. Resource Leak Fixes | v2.1 | 0/? | Not started | - |
 | 25. Soak Testing and Verification | v2.1 | 0/? | Not started | - |
