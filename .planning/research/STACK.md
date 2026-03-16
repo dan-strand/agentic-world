@@ -1,285 +1,270 @@
-# Stack Research
+# Stack Research: v2.1 Hardening & Crash Diagnosis
 
-**Domain:** Animated 2D pixel-art desktop process visualizer (always-on, Windows)
-**Researched:** 2026-03-01
-**Confidence:** HIGH
-
----
-
-## v1.5 Usage Dashboard -- Stack Additions Only
-
-This document covers stack needs for the v1.5 usage dashboard: a panel below the RPG world showing live session details, token usage, cost estimates, and 30-day historical trends.
-
-**Validated core (do not re-research):** Electron 40.6.1, PixiJS 8.16.0, TypeScript 5.7, pixi-filters 6.1.5, Webpack (Electron Forge), pngjs, chokidar. JSONL tail-read pattern already implemented in `src/main/jsonl-reader.ts`.
-
-**Bottom line:** One new npm dependency (Chart.js). Data persistence uses Node.js `fs` with a JSON file. JSONL batch parsing uses the Node.js built-in `readline` module. The dashboard itself is plain HTML/CSS in the existing renderer process.
+**Domain:** Electron app stability, memory leak detection, crash diagnosis
+**Researched:** 2026-03-16
+**Confidence:** HIGH (Electron built-in APIs) / MEDIUM (PixiJS GC specifics)
 
 ---
 
-## Recommended Stack
+## Context
 
-### Core Technologies (New Additions Only)
+Agent World is a long-running Electron 40.6.1 + PixiJS 8.16.0 app that experiences silent crashes after hours of operation. This research covers ONLY the stack additions needed for crash diagnosis, memory leak detection, and stability hardening. The existing validated stack (Electron, PixiJS, TypeScript, Webpack, etc.) is not re-evaluated.
+
+**Bottom line:** Two new npm dependencies (`electron-log`, `electron-unhandled`). Everything else uses built-in Electron/Node.js APIs and existing PixiJS features that are already available in the installed version.
+
+---
+
+## Recommended Stack Additions
+
+### New Dependencies (Runtime)
 
 | Technology | Version | Purpose | Why Recommended |
 |------------|---------|---------|-----------------|
-| Chart.js | ^4.5.1 | 30-day trend bar chart in renderer | Lightest canvas-based charting library (11KB gzipped). Renders on HTML `<canvas>` — no WebGL context needed, no Electron-specific issues. Already in every developer's mental model. Tree-shakeable so only the Bar chart registers. No React or framework dependency. |
+| `electron-log` | ^5.4 | Persistent file logging across main + renderer processes | No dependencies, 540K weekly downloads. Auto-catches `did-fail-load`, `plugin-crashed`, `preload-error` events. File transport with rotation (log + log.old) so crash context survives process death. Built specifically for Electron's dual-process model with IPC-based renderer-to-main log transport. |
+| `electron-unhandled` | ^5.0.0 | Catch uncaughtException + unhandledRejection in both processes | Requires Electron 30+ (we have 40.6.1). Prevents silent exits from unhandled promise rejections -- the most common cause of "silent crashes" in Node.js. Sindre Sorhus maintained, minimal footprint. |
 
-### Supporting Libraries (Node.js Built-ins — No Install Needed)
+### Memory Monitoring (Built-in -- No New Dependencies)
 
-| Module | Purpose | When to Use |
-|--------|---------|-------------|
-| `node:readline` | Batch JSONL parsing line-by-line for token aggregation | Historical stats scan: read entire JSONL files from start, accumulate `message.usage` totals per day |
-| `node:fs` (already used) | Read/write the persistent stats JSON file | `fs.readFileSync` / `fs.writeFileSync` for the small (< 50KB) daily-rollup file |
-| `node:path` (already used) | Resolve JSONL file paths | Already used in `session-detector.ts` |
+| API | Process | Purpose | Notes |
+|-----|---------|---------|-------|
+| `process.getHeapStatistics()` | Both | V8 heap stats (totalHeapSize, usedHeapSize, heapSizeLimit) in KB | Primary signal for detecting JS-side memory leaks. Call on an interval, log growth trends. |
+| `process.getProcessMemoryInfo()` | Both | Process-level memory (residentSet, private, shared) in KB | Captures native/C++ memory that heap stats miss. Returns a Promise. Useful because PixiJS GPU buffers won't appear in V8 heap stats. |
+| `process.getBlinkMemoryInfo()` | Renderer | Blink/DOM allocated + total memory | Catches DOM-related leaks (detached DOM nodes, orphaned event listeners in dashboard panel). |
+| `app.getAppMetrics()` | Main | Per-process CPU + memory for all Electron processes | Returns workingSetSize, peakWorkingSetSize, privateBytes, percentCPUUsage per process. Distinguishes main vs renderer vs GPU process resource usage. |
 
-### No Additional Libraries Required
+### Crash Detection & Recovery (Built-in -- No New Dependencies)
 
-| Feature | Approach | Reason |
-|---------|----------|--------|
-| Dashboard panel layout | Plain HTML `<div>` below the PixiJS `<canvas>` | Renderer process already runs in Chromium — full CSS flexbox/grid available. Adding a CSS framework (Tailwind, Bootstrap) is over-engineering for a fixed-width panel. |
-| Dashboard data updates | IPC message from main to renderer | Existing IPC pattern (`ipc-handlers.ts`) already pushes `sessions-update`. Reuse same channel pattern for `dashboard-update`. |
-| Historical stats storage | JSON file in `app.getPath('userData')` | 30 days of daily rollups is < 10KB. SQLite (better-sqlite3) is native module requiring `@electron/rebuild` — adds build complexity for no benefit at this data scale. A single JSON file with `fs.readFileSync`/`fs.writeFileSync` is sufficient and zero-friction. |
-| Cost calculation | Hardcoded rate table in TypeScript | Claude API pricing is stable within a model generation. A runtime pricing fetch adds network dependency to an always-offline app. Rates are O(10) values stored as a typed constant. Updating rates means a code edit, not a config file. |
-| Session list rows | HTML/CSS in the renderer | Click-to-expand details are standard `<details>`/`<summary>` or a toggled class. No virtual list library needed for max ~8 rows. |
+| API | Purpose | Notes |
+|-----|---------|-------|
+| `crashReporter.start({ uploadToServer: false })` | Local crash dump collection via Crashpad | Generates minidump files in `app.getPath('crashDumps')` without needing a remote server. Captures native crashes that JS error handlers miss entirely. Must be called before `app.on('ready')`. |
+| `webContents.on('render-process-gone')` | Detect renderer crashes with reason codes | Provides structured `details.reason`: `crashed`, `oom`, `killed`, `abnormal-exit`, `clean-exit`, `memory-eviction`. Critical for distinguishing OOM from other crash types. Replaces deprecated `crashed` event. |
+| `webContents.on('unresponsive')` | Detect renderer hangs | Fires when the renderer event loop stops responding. Paired with `responsive` event for recovery detection. Log both for post-mortem analysis. |
 
----
+### PixiJS Resource Management (Already Available in 8.16.0)
 
-## Architecture Decision: Dashboard Rendering Approach
-
-**Use HTML in the existing renderer process, not a second BrowserWindow.**
-
-The existing `index.html` contains a full-height `<div id="app">` that PixiJS attaches to. The PixiJS canvas fills it entirely. For the dashboard:
-
-1. Change the window height in `main/index.ts` (e.g., from 768 to ~1000px).
-2. Add a `<div id="dashboard">` below `<div id="app">` in `index.html`.
-3. The PixiJS canvas stays at fixed 1024x768 (unchanged). The dashboard panel occupies the new space below.
-
-**Why not a second BrowserWindow:** Two windows means two renderer processes, IPC routing to both, and session management complexity. The existing single-window layout handles HTML + canvas side-by-side without issue — the audio controls and drag region are already plain HTML elements overlapping the PixiJS canvas. A below-canvas dashboard is simpler.
-
-**Why not PixiJS for the dashboard:** Token counts, session names, cost estimates, and a bar chart are fundamentally HTML UI problems. PixiJS text rendering (BitmapText, canvas drawText) is not designed for data table layouts, click interactions, or text selection. HTML/CSS is the correct tool.
-
----
-
-## Chart.js Integration Pattern
-
-Chart.js renders to an HTML `<canvas>` element. In the renderer process, it works exactly as in any web page. No `electron-chartjs` wrapper needed — that package is a legacy compatibility shim for old Chart.js v2 + Electron combinations.
-
-```typescript
-// In renderer/dashboard.ts
-import { Chart, BarController, BarElement, CategoryScale, LinearScale, Tooltip } from 'chart.js';
-
-// Register only what's needed (tree-shaking via explicit registration)
-Chart.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip);
-
-const ctx = document.getElementById('trend-chart') as HTMLCanvasElement;
-const chart = new Chart(ctx, {
-  type: 'bar',
-  data: {
-    labels: last30DayLabels,    // ['Feb 01', 'Feb 02', ...]
-    datasets: [{
-      label: 'Daily Cost (USD)',
-      data: last30DayCosts,
-      backgroundColor: '#c9a96e',  // matches existing RPG gold palette
-    }]
-  },
-  options: {
-    responsive: false,            // fixed-size canvas, no resize listener needed
-    animation: false,             // dashboard updates are frequent, skip animation
-    plugins: { legend: { display: false } }
-  }
-});
-
-// Update on new data
-chart.data.datasets[0].data = newCosts;
-chart.update('none');  // 'none' = no animation on update
-```
-
-**Webpack note:** Chart.js is an ESM package. Electron Forge's webpack config handles ESM imports from `node_modules` correctly via `@electron-forge/plugin-webpack`. No special config needed.
-
----
-
-## JSONL Batch Parsing for Historical Stats
-
-The existing `jsonl-reader.ts` tail-reads (last 4096 bytes) for status detection. Historical token aggregation requires full-file reads — a different code path, not a modification of the existing tail-reader.
-
-**Pattern: Node.js readline (no new library)**
-
-```typescript
-// In main/token-aggregator.ts (new file)
-import * as fs from 'node:fs';
-import * as readline from 'node:readline';
-import * as path from 'node:path';
-
-interface DailyStats {
-  date: string;          // 'YYYY-MM-DD'
-  inputTokens: number;
-  outputTokens: number;
-  cacheWriteTokens: number;
-  cacheReadTokens: number;
-  costUSD: number;
-  sessionCount: number;
-  completionCount: number;
-}
-
-async function aggregateSessionTokens(jsonlPath: string): Promise<Map<string, DailyStats>> {
-  const dailyMap = new Map<string, DailyStats>();
-
-  const rl = readline.createInterface({
-    input: fs.createReadStream(jsonlPath, { encoding: 'utf-8' }),
-    crlfDelay: Infinity,  // handles Windows \r\n line endings
-  });
-
-  for await (const line of rl) {
-    if (!line.trim()) continue;
-    try {
-      const entry = JSON.parse(line);
-      // Only process entries with message.usage (assistant turns with token counts)
-      const usage = entry?.message?.usage;
-      if (!usage) continue;
-
-      const date = entry.timestamp?.slice(0, 10) ?? new Date().toISOString().slice(0, 10);
-      const stats = dailyMap.get(date) ?? createEmptyDay(date);
-      stats.inputTokens += usage.input_tokens ?? 0;
-      stats.outputTokens += usage.output_tokens ?? 0;
-      stats.cacheWriteTokens += usage.cache_creation_input_tokens ?? 0;
-      stats.cacheReadTokens += usage.cache_read_input_tokens ?? 0;
-      // Cost calculation uses model from entry (see rate table below)
-      const model = entry?.message?.model ?? entry?.model ?? 'claude-sonnet-4-5';
-      stats.costUSD += calculateCost(usage, model);
-      dailyMap.set(date, stats);
-    } catch {
-      // Malformed line (mid-write race condition) — skip
-    }
-  }
-
-  return dailyMap;
-}
-```
-
-**Performance note:** JSONL files are 2–18 MB per the PROJECT.md. `readline` streams line-by-line without loading the full file into memory. For a 30-day scan of ~10 session files, this completes in < 500ms on any modern SSD. Run in the main process on a timer (e.g., once at startup + once per hour) and cache results.
-
----
-
-## Cost Calculation Rate Table
-
-Hard-code model rates in TypeScript as a typed constant. No network fetch required.
-
-```typescript
-// In shared/pricing.ts (new file)
-interface ModelPricing {
-  inputPerMillion: number;
-  outputPerMillion: number;
-  cacheWritePerMillion: number;
-  cacheReadPerMillion: number;
-}
-
-// Rates current as of 2026-03: per million tokens in USD
-// Source: https://platform.claude.com/docs/en/about-claude/pricing
-export const MODEL_PRICING: Record<string, ModelPricing> = {
-  'claude-opus-4-6':    { inputPerMillion: 5.00,  outputPerMillion: 25.00, cacheWritePerMillion: 6.25,  cacheReadPerMillion: 0.50 },
-  'claude-sonnet-4-6':  { inputPerMillion: 3.00,  outputPerMillion: 15.00, cacheWritePerMillion: 3.75,  cacheReadPerMillion: 0.30 },
-  'claude-sonnet-4-5':  { inputPerMillion: 3.00,  outputPerMillion: 15.00, cacheWritePerMillion: 3.75,  cacheReadPerMillion: 0.30 },
-  'claude-haiku-4-5':   { inputPerMillion: 1.00,  outputPerMillion: 5.00,  cacheWritePerMillion: 1.25,  cacheReadPerMillion: 0.10 },
-  // Fallback: assume Sonnet pricing if model not recognized
-  'default':            { inputPerMillion: 3.00,  outputPerMillion: 15.00, cacheWritePerMillion: 3.75,  cacheReadPerMillion: 0.30 },
-};
-
-export function calculateCost(usage: TokenUsage, model: string): number {
-  const rates = MODEL_PRICING[model] ?? MODEL_PRICING['default'];
-  return (
-    (usage.input_tokens ?? 0) * rates.inputPerMillion / 1_000_000 +
-    (usage.output_tokens ?? 0) * rates.outputPerMillion / 1_000_000 +
-    (usage.cache_creation_input_tokens ?? 0) * rates.cacheWritePerMillion / 1_000_000 +
-    (usage.cache_read_input_tokens ?? 0) * rates.cacheReadPerMillion / 1_000_000
-  );
-}
-```
-
-**Model name detection:** JSONL entries contain the model name in `message.model` or at the top-level `model` field. The exact field path should be verified against live JSONL files during implementation.
-
----
-
-## Historical Stats Persistence
-
-Store the 30-day daily rollup as a single JSON file in Electron's user data directory.
-
-```typescript
-// In main/stats-store.ts (new file)
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-import { app } from 'electron';
-
-const STATS_PATH = path.join(app.getPath('userData'), 'usage-stats.json');
-
-interface UsageStats {
-  version: 1;
-  days: DailyStats[];  // sorted ascending by date, max 30 entries
-}
-
-function loadStats(): UsageStats {
-  try {
-    const raw = fs.readFileSync(STATS_PATH, 'utf-8');
-    return JSON.parse(raw);
-  } catch {
-    return { version: 1, days: [] };
-  }
-}
-
-function saveStats(stats: UsageStats): void {
-  // Prune to 30 days before saving
-  stats.days = stats.days.slice(-30);
-  fs.writeFileSync(STATS_PATH, JSON.stringify(stats, null, 2), 'utf-8');
-}
-```
-
-**Why not SQLite (better-sqlite3):** better-sqlite3 is a native Node.js module. It requires `@electron/rebuild` to recompile against Electron's Node.js ABI on every Electron version upgrade. It has documented issues with ASAR packaging, Windows build toolchain requirements (Python, node-gyp, MSVC), and recent reports of build failures on Node.js 25 / Electron 40+ (issue #1401, #1411 on the WiseLibs/better-sqlite3 GitHub). A JSON file for < 50KB of data has none of these risks and is trivially readable/debuggable. Use SQLite only if query complexity or data volume requires it — 30 rows and 8 columns does not.
-
-**Why not electron-store:** electron-store v10+ is native ESM only and conflicts with Electron Forge's webpack CommonJS build. The documented workaround (dynamic import shims) adds friction. Direct `fs.readFileSync`/`fs.writeFileSync` is simpler and has no ESM/CJS boundary issue.
+| Feature | Purpose | Notes |
+|---------|---------|-------|
+| Unified `GCSystem` | Automatic GPU resource cleanup | PixiJS 8.15 deprecated `TextureGCSystem` and `RenderableGCSystem` in favor of unified `GCSystem`. Version 8.16.0 (installed) includes this. Configure via `gcActive`, `gcMaxUnusedTime`, `gcFrequency` at app init. Currently unconfigured in the codebase -- defaults are tuned for 60fps apps, not a 5-30fps long-running app. |
+| `texture.unload()` | Manual GPU memory release | For textures that should be freed immediately rather than waiting for GC cycle. |
+| `container.destroy({ children: true })` | Recursive GPU resource cleanup | Already used in agent removal (`world.ts:477`). Audit all other destroy calls to ensure `{ children: true }` is consistently passed. |
 
 ---
 
 ## Installation
 
 ```bash
-# New dependency: Chart.js for 30-day trend visualization
-npm install chart.js
+# New runtime dependencies (only 2 packages)
+npm install electron-log electron-unhandled
 
-# No other new dependencies needed:
-# - readline: Node.js built-in
-# - fs/path: Node.js built-ins (already used)
-# - Dashboard HTML/CSS: no framework needed
-# - Stats persistence: JSON file via fs
+# No new dev dependencies needed
 ```
+
+---
+
+## Integration Points
+
+### Main Process (src/main/index.ts)
+
+```typescript
+// === ADD BEFORE app.on('ready') ===
+import { crashReporter } from 'electron';
+import log from 'electron-log';
+import unhandled from 'electron-unhandled';
+
+// 1. Start local crash dump collection (must be before ready)
+crashReporter.start({ uploadToServer: false });
+
+// 2. Catch unhandled errors -- prevents silent exits
+unhandled({ logger: log.error, showDialog: false });
+
+// 3. Initialize electron-log IPC for renderer logging
+log.initialize();
+
+// 4. Configure log file
+log.transports.file.maxSize = 5 * 1024 * 1024; // 5MB, rotates to log.old
+log.transports.file.format = '[{y}-{m}-{d} {h}:{i}:{s}.{ms}] [{level}] {text}';
+
+// 5. Catch unhandled errors in main process
+log.errorHandler.startCatching();
+```
+
+```typescript
+// === ADD AFTER mainWindow creation ===
+
+// 6. Listen for renderer crashes
+mainWindow.webContents.on('render-process-gone', (_event, details) => {
+  log.error('[crash] Renderer process gone:', details.reason, 'exit:', details.exitCode);
+  // If OOM or crash, could attempt recovery by reloading
+});
+
+mainWindow.webContents.on('unresponsive', () => {
+  log.warn('[hang] Renderer became unresponsive');
+});
+
+mainWindow.webContents.on('responsive', () => {
+  log.info('[hang] Renderer recovered');
+});
+```
+
+### Renderer Process (src/renderer/index.ts)
+
+```typescript
+import log from 'electron-log/renderer';
+// All log.info(), log.warn(), log.error() calls now persist to file
+// via IPC to the main process file transport
+```
+
+### Preload Script (src/preload/preload.ts)
+
+```typescript
+// Add IPC channel for renderer health metrics
+contextBridge.exposeInMainWorld('electronAPI', {
+  // ... existing channels ...
+  reportHealth: (data: HealthMetrics) => ipcRenderer.send('health-report', data),
+});
+```
+
+### PixiJS GC Configuration (src/renderer/world.ts)
+
+```typescript
+await this.app.init({
+  // ... existing options (width, height, backgroundColor, etc.) ...
+
+  // GC configuration for long-running stability (PixiJS 8.15+ unified GC)
+  // Tighter than defaults because this app runs for hours at 5-30fps
+  gcActive: true,
+  gcMaxUnusedTime: 30_000,  // 30 seconds (default ~60s at 60fps)
+  gcFrequency: 15_000,      // Check every 15 seconds (default ~10s at 60fps)
+});
+```
+
+---
+
+## New Module: Health Monitor (src/main/health-monitor.ts)
+
+A lightweight service that periodically samples memory metrics and logs them. No external dependencies beyond `electron-log`.
+
+```typescript
+// Samples every 60 seconds
+// Logs every 5 minutes (or immediately when heap exceeds warning threshold)
+// Tracks:
+//   - Main process: V8 heap stats via getHeapStatistics()
+//   - All processes: CPU + memory via app.getAppMetrics()
+//   - Renderer: heap + blink memory via IPC health-report channel
+```
+
+Key design decisions:
+- 60-second sample interval is low overhead (< 1ms per sample)
+- Only logs every 5th sample (5 minutes) unless threshold exceeded -- keeps log files manageable
+- Warning threshold at 512MB heap, critical at 1024MB -- logged at error level for easy grep
+- Renderer metrics arrive via IPC, logged alongside main process metrics
+
+### New Module: Health Reporter (src/renderer/health-reporter.ts)
+
+```typescript
+// Runs in renderer, sends metrics to main via IPC every 60 seconds
+// Reports: V8 heap (getHeapStatistics), Blink memory (getBlinkMemoryInfo)
+// Main process logs these alongside its own metrics
+```
+
+---
+
+## Identified Memory Leak Risks in Current Codebase
+
+These are NOT stack additions but critical findings from codebase analysis that inform the hardening work. They explain the likely cause of the silent crash.
+
+### 1. Unbounded Cache Growth (HIGH risk -- probable crash cause)
+
+| Location | Cache | Growth Pattern | Severity |
+|----------|-------|----------------|----------|
+| `session-detector.ts:31` | `cwdCache: Map` | Entries added per session, never pruned | HIGH |
+| `session-detector.ts:33` | `mtimeCache: Map` | Entries added per session, never pruned | HIGH |
+| `usage-aggregator.ts:11` | `cache: Map` | `clearSession()` exists but is never called | HIGH |
+| `world.ts:106` | `dismissedSessions: Set` | Entries added on agent removal, only cleared on reactivation of same sessionId | MEDIUM |
+
+Over hours of use, as sessions come and go, these Maps/Sets grow unboundedly. Each entry is small (~1-2KB), but with ~10-20 sessions cycling per day over hours, this accumulates. More importantly, the `mtimeCache` holds references to `SessionInfo` objects which reference file paths and parsed data.
+
+**Fix pattern:** Prune entries for sessions not returned by the current poll cycle. Add a `pruneStale()` method called at the end of each poll that removes entries for sessionIds not in the current `discoveredIds` set. For `dismissedSessions`, cap at 100 entries with LRU eviction or time-based expiry.
+
+### 2. Graphics Object Churn (HIGH risk -- probable crash cause)
+
+| Location | Pattern | Objects/Hour (est.) |
+|----------|---------|---------------------|
+| `building.ts:354-404` chimney smoke | `new Graphics()` per particle, `destroy()` on expire | ~720/building x 4 buildings = ~2,880/hr |
+| `ambient-particles.ts:212-242` sparks | `new Graphics()` per spark, `destroy()` on expire | ~480/hr |
+| `building.ts:232` `setToolLabel()` | `toolBanner.clear()` + re-draw on each tool change | Variable, low frequency |
+
+PixiJS v8 had a documented memory leak in Graphics destruction (GitHub issue #10586, fixed August 2024). The fix was included in later 8.x releases, and 8.16.0 includes further GC improvements (PR #11581, September 2025). However, the original reporter noted residual leaks even after the fix. At ~3,360 Graphics create-destroy cycles per hour, even a small per-object leak compounds over hours.
+
+**Fix pattern:** Object pooling for smoke and spark particles. Pre-create a fixed pool of Graphics objects at initialization, reuse them by resetting position/alpha/scale, and return to pool instead of destroying. This eliminates the create-destroy cycle entirely.
+
+### 3. Palette-Swapped Texture Creation (LOW risk)
+
+`createPaletteSwappedTextures()` is called from `Agent.setAnimation()` every time animation state changes (`agent.ts:267-275`). If the palette swap cache is working correctly, textures are reused. If not, new Textures are created on every animation transition, accumulating GPU memory.
+
+**Fix pattern:** Verify the palette swap cache key includes (characterClass, paletteIndex, animState). Add a cache hit/miss counter to validate during testing.
+
+### 4. Event Listener Accumulation (LOW risk)
+
+The `console-message` listener on `webContents` (`index.ts:49`) and the window drag interval (`index.ts:85-96`) are properly managed. However, the `ipcMain.on()` handlers registered in `ipc-handlers.ts` are never cleaned up -- in theory this is fine since they persist for app lifetime, but worth auditing.
+
+---
+
+## electron-log Configuration Details
+
+```typescript
+import log from 'electron-log';
+import * as path from 'path';
+import { app } from 'electron';
+
+// File transport: auto-rotates at 5MB (current.log + current.old.log)
+log.transports.file.maxSize = 5 * 1024 * 1024;
+
+// Format: timestamp + level + message
+log.transports.file.format = '[{y}-{m}-{d} {h}:{i}:{s}.{ms}] [{level}] {text}';
+
+// Log location: default is platform-specific
+// Windows: C:\Users\{user}\AppData\Roaming\{app}\logs\main.log
+// Can override with resolvePathFn if needed
+
+// Catch unhandled errors automatically
+log.errorHandler.startCatching();
+
+// Optional: save critical Electron events
+log.eventLogger.startLogging(); // Logs did-fail-load, plugin-crashed, etc.
+```
+
+**Log file location:** By default, `electron-log` writes to `{userData}/logs/main.log`. For Agent World on Windows, this is `C:\Users\{user}\AppData\Roaming\agent-world\logs\main.log`. The log file is human-readable and grep-friendly.
 
 ---
 
 ## Alternatives Considered
 
-| Recommended | Alternative | Why Not |
-|-------------|-------------|---------|
-| Chart.js 4.5.1 | D3.js | D3 is a full data visualization toolkit, not a charting library. For a single bar chart of 30 data points, D3's API surface is dramatically oversized. Chart.js is 3-4x smaller and produces the same bar chart in 20 lines vs 80+. |
-| Chart.js 4.5.1 | Recharts / Victory / Nivo | All are React-based. The project has no React dependency and adding one for a single chart is irrational. |
-| Chart.js 4.5.1 | ApexCharts | 200KB+ bundle. Feature-rich but overkill. ApexCharts' main advantage is real-time streaming data — not needed for a 30-day historical view that updates once per hour. |
-| Chart.js 4.5.1 | Hand-coded canvas bar chart | Viable (PixiJS Graphics could draw bars), but puts chart code in the PixiJS rendering layer where it doesn't belong. Axes, labels, and tooltips would require significant custom code. Chart.js provides all of this for 11KB. |
-| JSON file persistence | better-sqlite3 | Native module build complexity on Windows, ASAR packaging issues, node-gyp toolchain requirements. Not justified for 30 rows of data. |
-| JSON file persistence | electron-store | ESM-only in v10+, conflicts with Electron Forge webpack CommonJS build. Direct fs is simpler. |
-| Node.js readline | stream-json / jsonlines npm | Both are 3rd-party packages for a task Node.js handles natively. The readline + async iterator pattern is idiomatic Node.js and requires zero new dependencies. |
-| Hardcoded rate table | Runtime API pricing fetch | The app is intentionally offline-only (PROJECT.md constraint). A network fetch for pricing would introduce a dependency on Anthropic's pricing API availability, add latency, and require caching anyway. Rates change at most a few times per year and can be updated in code. |
-| Single renderer process | Second BrowserWindow for dashboard | Two windows doubles IPC complexity, requires session routing to two renderers, adds OS window chrome. The existing renderer already handles mixed HTML + canvas (audio controls, drag region are plain HTML). |
+| Recommended | Alternative | When to Use Alternative |
+|-------------|-------------|-------------------------|
+| `electron-log` | `winston` | If you need multiple simultaneous transport targets (database, remote endpoint, etc.). Winston's transport plugin system is powerful but overkill for file + console logging. |
+| `electron-log` | `pino` | If you need structured JSON logging for machine parsing. `electron-log` outputs human-readable text which is better for manual diagnosis. |
+| `electron-unhandled` | Manual `process.on('uncaughtException')` | Only if you need custom error dialog behavior or want to avoid any dependency. `electron-unhandled` handles both processes and edge cases (serialization across IPC). |
+| Built-in `crashReporter` | Sentry (`@sentry/electron`) | If this were a distributed app with remote users who can't share logs. Sentry adds ~500KB, requires account/DSN, sends data remotely. Not appropriate for a local-only single-user tool. |
+| Built-in `crashReporter` | BugSplat | Same rationale as Sentry -- cloud crash reporting for a local desktop tool is overengineered. |
+| Periodic heap sampling | `heapdump` npm | If you need full heap snapshots for deep investigation. `heapdump` is a native addon with Electron build complications and generates 100MB+ files. Use Chrome DevTools manual profiling instead when sampling identifies growth. |
+| Periodic heap sampling | `node-memwatch` | Abandoned/unmaintained, native addon incompatible with Electron's V8 build. |
+| Object pooling for particles | PixiJS `ParticleContainer` | `ParticleContainer` is faster for large particle counts (1000+) but only supports Sprites, not Graphics. Smoke/spark particles use Graphics for circles. Pooling the existing Graphics approach fixes the leak without changing rendering behavior. |
+| PixiJS unified GC | Manual `texture.destroy()` everywhere | The unified GC handles most cases automatically. Manual destroy is only needed for known high-churn paths (particle systems). Don't litter the codebase with manual destroy calls when GC can handle steady-state cleanup. |
 
 ---
 
-## What NOT to Use
+## What NOT to Add
 
 | Avoid | Why | Use Instead |
 |-------|-----|-------------|
-| `electron-chartjs` (npm) | Legacy wrapper for Chart.js v2 + old Electron. Chart.js 4.x works natively in Electron's renderer without any wrapper. | `chart.js` directly |
-| `better-sqlite3` | Native module: requires `@electron/rebuild`, node-gyp, MSVC on Windows, ASAR unpack config. Documented build failures with recent Electron. No benefit for < 50KB of data. | Plain JSON file with `fs` |
-| `electron-store` v10+ | Native ESM only — incompatible with Electron Forge webpack's CommonJS bundling without workarounds. | Direct `fs.readFileSync`/`fs.writeFileSync` |
-| `rxdb` / `nedb` / `lowdb` | Embedded database abstractions with overhead not warranted for 30 daily stat records. | Direct JSON with `fs` |
-| D3.js | 500KB+ library for visualization primitives, not chart components. Massive overkill for one bar chart. | Chart.js |
-| WebGL-based charts (LightningChart, ECharts) | WebGL context complexity in Electron can cause context loss issues (documented for Electron v28+). Chart.js uses 2D canvas context — simpler and more stable. | Chart.js (2D canvas) |
-| `node-fetch` / `axios` for pricing | Violates the offline-only constraint. Pricing API availability not guaranteed. | Hardcoded rate table in `shared/pricing.ts` |
+| `@sentry/electron` | Cloud crash reporting for a local-only app. 500KB+ bundle, requires remote account, sends data externally. | `electron-log` + `crashReporter({ uploadToServer: false })` |
+| BugSplat | Same problem as Sentry -- cloud service for a local tool. | Local crash dumps via Crashpad |
+| `node-memwatch` / `memwatch-next` | Native addon, abandoned, compilation issues on Windows, incompatible with Electron's V8. | `process.getHeapStatistics()` (built-in, zero-friction) |
+| `heapdump` npm | Native addon with Electron rebuild requirements. 100MB+ snapshots unsuitable for continuous monitoring. | Periodic metric sampling to log file; manual DevTools profiling when needed |
+| `electron-local-crash-reporter` | Depends on deprecated breakpad-server. Modern Electron uses Crashpad natively. | `crashReporter.start({ uploadToServer: false })` |
+| Custom dashboard for metrics | Over-engineering. The goal is crash diagnosis, not a monitoring UI. | Log file + manual review. Add dashboard in a future milestone if needed. |
+| APM tools (New Relic, Datadog) | Enterprise monitoring for a personal desktop app. | Built-in APIs + `electron-log` |
 
 ---
 
@@ -287,42 +272,32 @@ npm install chart.js
 
 | Package | Version | Compatible With | Notes |
 |---------|---------|-----------------|-------|
-| chart.js | ^4.5.1 | Electron 40.6.1 (Chromium ~130) | Chart.js 4.x targets modern browsers. Electron 40's Chromium fully supports the Canvas 2D API used by Chart.js. No compatibility shims needed. |
-| chart.js | ^4.5.1 | TypeScript 5.7 | Chart.js 4.x ships with bundled TypeScript types (`@types/chart.js` not needed). Types are accurate and comprehensive. |
-| chart.js | ^4.5.1 | Webpack (Electron Forge) | Chart.js is ESM with CJS fallback. Webpack 5 resolves ESM from node_modules correctly. No special alias or externals config needed. |
-| node:readline | Built-in | Electron 40.6.1 (Node.js 22+) | `for await (const line of rl)` async iterator is stable since Node.js 11.4. Available in all current Electron versions. |
-
----
-
-## Integration Points (New Files Expected)
-
-| File | Purpose | Notes |
-|------|---------|-------|
-| `src/main/token-aggregator.ts` | Full JSONL scan for historical token data | New. Uses `node:readline` + `node:fs`. Called from `ipc-handlers.ts`. |
-| `src/main/stats-store.ts` | Read/write `usage-stats.json` in userData | New. Pure `node:fs` JSON. |
-| `src/shared/pricing.ts` | Claude model rate table + `calculateCost()` | New. Used by both `token-aggregator.ts` and renderer live-session display. |
-| `src/renderer/dashboard.ts` | Dashboard panel UI logic + Chart.js | New. HTML DOM manipulation + Chart.js instance management. |
-| `src/renderer/index.html` | Add `<div id="dashboard">` below `<div id="app">` | Modified. Also add `<canvas id="trend-chart">`. |
-| `src/renderer/index.ts` | Initialize dashboard module, wire IPC for `dashboard-update` | Modified. |
-| `src/main/ipc-handlers.ts` | Add `dashboard-update` IPC channel | Modified. Triggers on session scan completion. |
-| `src/main/index.ts` | Increase `BrowserWindow` height | Modified. Add dashboard panel height to existing 768px. |
+| `electron-log` | ^5.4 | Electron 13+ | We have 40.6.1. v5 uses IPC for renderer-to-main log transport. No native addons. |
+| `electron-unhandled` | ^5.0.0 | Electron 30+ | We have 40.6.1. Pure JS, no native dependencies. |
+| PixiJS GCSystem (unified) | Built into 8.15+ | PixiJS 8.16.0 | Already installed. Old `textureGCActive` config still works but is deprecated. Use new `gcActive`/`gcMaxUnusedTime`/`gcFrequency` options. |
+| `crashReporter` | Electron built-in | Electron 1.x+ | Stable API, available since early Electron. Crashpad backend on all platforms. |
+| `app.getAppMetrics()` | Electron built-in | Electron 7+ | Returns ProcessMetric objects with CPU and memory per process. |
+| `process.getHeapStatistics()` | Electron built-in | All versions | V8 heap stats in KB. Available in both main and sandboxed renderer. |
 
 ---
 
 ## Sources
 
-- [Chart.js npm (v4.5.1)](https://www.npmjs.com/package/chart.js) — version verified, 11KB gzipped confirmed (MEDIUM confidence — npm page returned 403, version from web search result confirming 4.5.1)
-- [Chart.js GitHub Releases](https://github.com/chartjs/Chart.js/releases) — v4.5.1 confirmed as latest release (MEDIUM confidence)
-- [Chart.js Installation Docs](https://www.chartjs.org/docs/latest/getting-started/installation.html) — ESM/CJS details, tree-shaking via explicit registration (HIGH confidence)
-- [Anthropic Pricing Docs](https://platform.claude.com/docs/en/about-claude/pricing) — Opus 4.6, Sonnet 4.6, Haiku 4.5 rates (HIGH confidence — current as of 2026-03)
-- [better-sqlite3 Issue #1401](https://github.com/WiseLibs/better-sqlite3/issues/1401) — Windows 11 + Electron build failures (HIGH confidence — direct issue reference)
-- [better-sqlite3 Issue #1411](https://github.com/WiseLibs/better-sqlite3/issues/1411) — Node.js 25 build failures (HIGH confidence — direct issue reference)
-- [electron-store ESM issue #259](https://github.com/sindresorhus/electron-store/issues/259) — electron-forge + ESM incompatibility (HIGH confidence)
-- [Electron Forge ESM issue #3780](https://github.com/electron/forge/issues/3780) — webpack-typescript ESM support status (HIGH confidence)
-- [Node.js readline docs](https://nodejs.org/api/readline.html) — async iterator pattern for JSONL parsing (HIGH confidence)
-- Codebase analysis: `jsonl-reader.ts`, `index.html`, `ipc-handlers.ts`, `package.json` — existing patterns verified (HIGH confidence)
+- [Electron crashReporter API docs](https://www.electronjs.org/docs/latest/api/crash-reporter) -- `uploadToServer: false` for local dumps, Crashpad storage path, HIGH confidence
+- [Electron process API docs](https://www.electronjs.org/docs/latest/api/process) -- getHeapStatistics, getProcessMemoryInfo, getBlinkMemoryInfo, HIGH confidence
+- [Electron webContents API docs](https://www.electronjs.org/docs/latest/api/web-contents) -- render-process-gone, unresponsive events, HIGH confidence
+- [Electron RenderProcessGoneDetails](https://www.electronjs.org/docs/latest/api/structures/render-process-gone-details) -- reason codes (crashed, oom, killed, abnormal-exit, clean-exit, memory-eviction), HIGH confidence
+- [Electron app.getAppMetrics() docs](https://www.electronjs.org/docs/latest/api/app) -- per-process CPU/memory metrics, HIGH confidence
+- [PixiJS 8.x Garbage Collection Guide](https://pixijs.com/8.x/guides/concepts/garbage-collection) -- TextureGCSystem/GCSystem config, HIGH confidence
+- [PixiJS v8 Graphics memory leak (issue #10586)](https://github.com/pixijs/pixijs/issues/10586) -- Graphics destroy leak in v8, fixed Aug 2024 but residual leaks reported, MEDIUM confidence
+- [PixiJS renderer memory leaks fix (PR #11581)](https://github.com/pixijs/pixijs/pull/11581) -- PoolCollector singleton for cleanup on destroy, merged Sep 2025, HIGH confidence
+- [PixiJS v8.16.0 release blog](https://pixijs.com/blog/8.16.0) -- GC marks renderGroups dirty, VAO cache preservation, HIGH confidence
+- [PixiJS 8.15 GCSystem migration](https://pixijs.download/dev/docs/rendering.GCSystemOptions.html) -- unified gcActive/gcMaxUnusedTime/gcFrequency replacing deprecated options, HIGH confidence
+- [electron-log on GitHub](https://github.com/megahertz/electron-log) -- v5 features, errorHandler.startCatching(), eventLogger, file transport rotation, HIGH confidence
+- [electron-unhandled on GitHub](https://github.com/sindresorhus/electron-unhandled) -- v5.0.0, Electron 30+ requirement, both process support, HIGH confidence
+- [Debugging Electron Memory Usage (Seena Burns)](https://seenaburns.com/debugging-electron-memory-usage/) -- process.memoryUsage RSS vs heap distinction, MEDIUM confidence
+- [Electron Performance docs](https://www.electronjs.org/docs/latest/tutorial/performance) -- official performance best practices, HIGH confidence
 
 ---
-
-*Stack research for: Agent World v1.5 — Usage Dashboard*
-*Researched: 2026-03-01*
+*Stack research for: Agent World v2.1 -- Hardening & Crash Diagnosis*
+*Researched: 2026-03-16*

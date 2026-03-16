@@ -1,411 +1,359 @@
 # Pitfalls Research
 
-**Domain:** Adding a usage/cost dashboard (token tracking, cost estimation, historical stats) to an existing Electron + PixiJS Fantasy RPG visualizer
-**Researched:** 2026-03-01
-**Confidence:** HIGH (verified via Electron docs, PixiJS GitHub issues, Node.js streaming patterns, Claude JSONL structure from ccusage community, Anthropic pricing history)
+**Domain:** Memory leak diagnosis, silent crash fixes, and codebase hardening for a long-running Electron + PixiJS always-on desktop app
+**Researched:** 2026-03-16
+**Confidence:** HIGH (verified via PixiJS v8 GitHub issues, Electron crash documentation, direct codebase analysis, PixiJS garbage collection docs)
 
 ---
 
 ## Critical Pitfalls
 
-### Pitfall 1: Synchronous JSONL Parsing Blocks the Electron Main Process
+### Pitfall 1: Palette-Swapped Textures Created on Every Animation State Change Are Never Destroyed
 
 **What goes wrong:**
-A session JSONL file can be 2-18MB. Reading it with `fs.readFileSync()` or even `fs.readFile()` followed by `content.split('\n').map(JSON.parse)` blocks the Node.js event loop for 100-800ms on a mid-range Windows machine. In Electron, the main process drives the entire application frame pipeline. Blocking the main process causes the PixiJS animation to visibly stutter or freeze — the RPG world hitches while parsing. Users experience this as the visualizer locking up every time the dashboard refreshes data.
+The `Agent.setAnimation()` method calls `createPaletteSwappedTextures()` every time an agent changes animation state (idle, walk, work, celebrate). While the palette swap function has a cache keyed by `${characterClass}_${paletteIndex}_${firstTextureUid}`, it creates new `Texture` and `ImageSource` objects backed by offscreen `<canvas>` elements each time a *new* combination is encountered. Crucially, when `this.sprite.textures = swappedTextures` is called in `setAnimation()`, the **old textures are silently replaced without being destroyed**. The old `Texture` objects become unreferenced by the sprite but still hold GPU-uploaded texture data and `<canvas>` element references. In PixiJS 8, `AnimatedSprite` does not destroy its previous textures when new ones are assigned (confirmed by [PixiJS issue #11407](https://github.com/pixijs/pixijs/issues/11407)).
+
+For a single agent cycling between idle/walk/work states, the cache prevents re-creation of *known* combinations. However, the swapCache is a module-level `Map` that is never pruned. Over hours, as agents are created and destroyed, the cache grows with entries for sessions that no longer exist. Each cached entry holds an array of `Texture` objects (with their backing `ImageSource` and `<canvas>`). If 20 agents pass through the system over 8 hours, each with 4 animation states, that is 80 cached entries of `Texture[]` that are never released.
+
+Additionally, the `new ImageSource({ resource: canvas })` call in `createPaletteSwappedTextures` creates an `<canvas>` element via `document.createElement('canvas')`. These canvases persist as long as the `ImageSource` exists. Hundreds of orphaned canvas elements will consume renderer memory.
 
 **Why it happens:**
-The straightforward approach to reading JSONL is `readFileSync` + split + parse. This works fine for small files but does not scale to 18MB. Developers reaching for "quick" implementations use the synchronous pattern because it is simpler. The problem is compounded by the fact that this app already has a 3-second session poll loop, and if the poll also triggers a full re-parse of all JSONL files (including historical ones), the main process is blocked on every tick.
+The palette swap cache was designed for correctness (avoid recreating the same swap), not for lifecycle management. It has no awareness of agent creation/destruction. The PixiJS 8 `AnimatedSprite` lacks a `destroyTextures` option that existed in earlier versions, so reassigning `.textures` silently leaks the old GPU resources.
 
 **How to avoid:**
-Use Node.js `readline` with `fs.createReadStream()` for line-by-line streaming. This reads and parses JSONL incrementally without loading the full file into memory or blocking the event loop:
+1. Track which cache keys belong to which session. When an agent is destroyed in `World.removeAgent()`, delete all associated cache entries and call `.destroy()` on each cached `Texture`.
+2. Add a `destroySwappedTextures(characterClass, paletteIndex)` function to `palette-swap.ts` that finds all cache entries matching the class+palette combo, calls `texture.destroy(true)` on each texture (the `true` flag destroys the source), and removes the entries from the cache.
+3. Call this cleanup function in `World.removeAgent()` after `agent.destroy({ children: true })`.
+
+**Warning signs:**
+- Task Manager shows the renderer process memory climbing by 5-20MB per hour
+- DevTools "Performance Monitor" shows increasing GPU memory usage
+- DevTools "Memory" tab heap snapshot shows growing counts of `HTMLCanvasElement` and `ImageSource` objects
+- The `swapCache` Map size (inspectable in DevTools console) grows monotonically and never decreases
+
+**Phase to address:**
+Phase 1 (crash diagnosis and resource audit). This is the most likely primary cause of the silent crash. Unbounded texture/canvas accumulation will eventually exhaust GPU memory or trigger Chromium's renderer process OOM killer, which terminates the renderer silently.
+
+---
+
+### Pitfall 2: Graphics Objects Created for Spark Particles Are Leaked on Container Destruction
+
+**What goes wrong:**
+The `AmbientParticles` class spawns spark particles dynamically (up to `SPARK_COUNT` at a time). Each spark creates a `new Graphics()` object, draws a circle, and adds it to the container. When the spark's lifetime expires, `s.gfx.destroy()` is called -- this is correct for individual spark lifecycle. However, if the entire `AmbientParticles` container is ever destroyed (app shutdown, error recovery), the in-flight spark particles' `Graphics` objects are destroyed via the `children: true` flag in `Container.destroy()`, which is correct.
+
+The actual problem is more subtle: the `Building` chimney smoke particles follow the same pattern. Each building creates `new Graphics()` for every smoke puff. Buildings tick continuously (4 buildings x smoke particles per building). At night, `SMOKE_NIGHT_COUNT_BONUS` increases the max particle count. Each smoke puff has a `CHIMNEY_SMOKE_LIFETIME_MS` lifecycle. The `Building.tick()` method correctly destroys expired particles with `p.gfx.destroy()`.
+
+BUT: in PixiJS v8, `Graphics.clear()` followed by redraw (used in `SpeechBubble.show()` and `Building.setToolLabel()`) had a known memory leak regression in versions prior to 8.12.0 ([PixiJS issue #11550](https://github.com/pixijs/pixijs/issues/11550)). Since Agent World uses PixiJS 8.16.0 (released Feb 2026), this specific regression should be fixed. However, the `SpeechBubble.show()` method calls `this.bubble.clear()` then redraws on every activity change, and `Building.setToolLabel()` calls `this.toolBanner.clear()` then redraws on every tool change. Over hours of running, these repeated clear+redraw cycles on long-lived Graphics objects could still accumulate internal WebGL buffer state if the fix was incomplete.
+
+**Why it happens:**
+PixiJS Graphics objects maintain internal geometry context that tracks WebGL buffer allocations. The `clear()` method resets the drawing commands but historically did not fully release the underlying GPU buffers. The fix in 8.12.0+ addressed the regression, but the pattern of clearing and redrawing the same Graphics object thousands of times over hours is still not a well-tested path in the PixiJS community.
+
+**How to avoid:**
+1. For `SpeechBubble`: instead of clearing and redrawing the same `Graphics` object, create a small pool of pre-drawn bubble backgrounds at common widths and swap visibility. Alternatively, create a new `Graphics`, destroy the old one, and swap the reference.
+2. For `Building.setToolLabel()`: same approach -- destroy the old banner Graphics and create a new one rather than calling `.clear()` on a long-lived instance.
+3. Add a periodic memory health check that logs `performance.memory` (if available) or `process.memoryUsage()` via IPC to detect slow growth patterns.
+
+**Warning signs:**
+- WebGL buffer count visible in DevTools "Application > Frames" grows monotonically
+- GPU process memory in Electron's `app.getAppMetrics()` increases over hours
+- Smoke/speech bubble rendering becomes slower over time (draw calls accumulate)
+
+**Phase to address:**
+Phase 1 (resource audit). Audit all `Graphics.clear()` call sites and evaluate whether destroy+recreate is safer than clear+redraw for long-running operation.
+
+---
+
+### Pitfall 3: The DayNightCycle Elapsed Timer Loses Float Precision After Days of Running
+
+**What goes wrong:**
+`DayNightCycle.elapsed` is a plain `number` that accumulates `deltaMs` on every tick. At 30fps with 33.3ms per frame, after 24 hours `elapsed` reaches ~86,400,000ms. After 72 hours it reaches ~259,200,000ms. JavaScript `number` is a 64-bit IEEE 754 double, which has 53 bits of mantissa precision. At 259 million, the precision is still fine (doubles can represent integers up to 2^53 exactly). However, the modulo operation `this.elapsed % DAY_NIGHT_CYCLE_MS` (where `DAY_NIGHT_CYCLE_MS` = 600,000ms for a 10-minute cycle) starts accumulating floating-point rounding errors from the repeated additions. After thousands of cycles, `getProgress()` may drift, causing the day/night transitions to subtly desync or produce unexpected values in the sine-wave calculation.
+
+More critically, `this.elapsed` grows without bound. While this will not overflow a JavaScript `number` in any reasonable timeframe, it does mean the modulo operation operates on increasingly large operands, which can cause subtle floating-point issues in the downstream `Math.sin(2 * Math.PI * p - Math.PI / 2)` calculation when `p` is computed from a very large `elapsed` value.
+
+**Why it happens:**
+Accumulating a timer indefinitely is the simplest implementation. It works perfectly for sessions under an hour. The issue only manifests after the timer accumulates enough that `elapsed % cycleMs` starts drifting from expected values due to floating-point arithmetic on large numbers.
+
+**How to avoid:**
+Wrap the elapsed timer using modulo on each tick:
+```typescript
+tick(deltaMs: number): void {
+  this.elapsed = (this.elapsed + deltaMs) % DAY_NIGHT_CYCLE_MS;
+}
+```
+This keeps `elapsed` bounded to [0, 600000) and eliminates precision drift. The `getProgress()` method already divides by `DAY_NIGHT_CYCLE_MS`, so this change is transparent.
+
+Apply the same pattern to the `AmbientParticle.phase` accumulators, which also grow without bound.
+
+**Warning signs:**
+- Day/night transitions appear to stutter or jump after 12+ hours of running
+- The sine-wave color temperature produces unexpected tint values
+- `getNightIntensity()` returns values outside [0, 1] (should never happen with correct math, but floating-point edge cases could produce values like 1.0000000001)
+
+**Phase to address:**
+Phase 2 (hardening pass). Low severity but easy fix. Apply bounded accumulation to all unbounded timers: `DayNightCycle.elapsed`, `AmbientParticle.phase`, agent `breathTimer`, agent `frameTimer`.
+
+---
+
+### Pitfall 4: The dismissedSessions Set Grows Without Bound
+
+**What goes wrong:**
+`World.dismissedSessions` is a `Set<string>` that collects session IDs of agents that have been removed after fade-out. Its purpose is to prevent "resurrection" from stale IPC data. Session IDs are added in `removeAgent()` and only deleted if the same session ID reappears with a non-idle status. For sessions that end permanently (Claude Code session closed), the session ID remains in the set forever. Over days of running, hundreds of session IDs accumulate. While each string is small (~36 bytes for a UUID), the set is checked on every `updateSessions()` call with `this.dismissedSessions.has(session.sessionId)`, creating a linear scan through discovered sessions that checks against an ever-growing set.
+
+This is a minor memory concern but a diagnostic red herring: when investigating memory leaks, this growing set looks suspicious and can waste investigation time.
+
+**Why it happens:**
+The set was added as a defensive fix to prevent a specific bug (agent resurrection) without considering the long-running cleanup case. There is no pruning mechanism.
+
+**How to avoid:**
+Replace the `Set<string>` with a `Map<string, number>` that records the dismissal timestamp. On each `updateSessions()` call, prune entries older than `STALE_SESSION_MS` (30 minutes). This bounds the set to at most the number of sessions that ended within the last 30 minutes.
 
 ```typescript
-import { createReadStream } from 'fs';
-import { createInterface } from 'readline';
+// In updateSessions(), before processing:
+const now = Date.now();
+for (const [sid, dismissedAt] of this.dismissedSessions) {
+  if (now - dismissedAt > STALE_SESSION_MS) {
+    this.dismissedSessions.delete(sid);
+  }
+}
+```
 
-async function parseJsonl(filePath: string): Promise<UsageEntry[]> {
-  const entries: UsageEntry[] = [];
-  const rl = createInterface({
-    input: createReadStream(filePath),
-    crlfDelay: Infinity
-  });
+**Warning signs:**
+- `this.dismissedSessions.size` in console shows hundreds of entries after a day of running
+- IPC-triggered `updateSessions()` takes longer over time (unlikely to be noticeable but conceptually wrong)
+
+**Phase to address:**
+Phase 2 (hardening pass). Quick fix, low risk.
+
+---
+
+### Pitfall 5: Readline Streams in readUsageTotals May Not Be Properly Cleaned Up on Error
+
+**What goes wrong:**
+The `readUsageTotals()` function in `jsonl-reader.ts` creates a `fs.createReadStream()` and a `readline.createInterface()`. If the function throws during iteration (e.g., from a filesystem error mid-read, or if the calling code's `Promise` is abandoned), the `readline` interface and the underlying file stream may not be properly closed. Node.js `readline` with `for await...of` is supposed to handle cleanup via the async iterator protocol, but there are documented edge cases ([Node.js issue #1834](https://github.com/nodejs/node/issues/1834)) where file descriptors leak when streams are interrupted.
+
+In Agent World, `readUsageTotals()` is called from `UsageAggregator.getUsage()`, which is called for *every session* on *every poll cycle* when the session's mtime changes. If there are JSONL files that are actively being written by Claude Code (creating race conditions), parsing errors could cause the async iterator to bail early. The outer `catch` block swallows errors silently, but the stream may still be open.
+
+Over hours, file descriptor leaks accumulate until the process hits the OS limit (typically 4096 on Windows via MSVCRT, or the Windows handle limit). When the limit is reached, all subsequent `fs.openSync()`, `fs.createReadStream()`, and `fs.statSync()` calls fail, causing the session detector to return empty results and the dashboard to stop updating. The app appears "frozen" but is actually running with no data.
+
+**Why it happens:**
+The `try/catch` in `readUsageTotals` catches errors to prevent crashes, but does not explicitly destroy the stream in a `finally` block. The `for await...of` protocol should close the stream on break/throw, but this behavior has had reliability issues across Node.js versions, especially in Electron's embedded Node.js.
+
+**How to avoid:**
+Explicitly destroy the stream in a `finally` block:
+```typescript
+const stream = fs.createReadStream(filePath, { encoding: 'utf-8' });
+try {
+  const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
   for await (const line of rl) {
-    if (!line.trim()) continue;
-    try {
-      entries.push(JSON.parse(line));
-    } catch {
-      // skip malformed lines
+    // ... parse
+  }
+} catch {
+  // swallow
+} finally {
+  stream.destroy();  // Ensure file descriptor is released
+}
+```
+
+Also add periodic logging of `process._getActiveHandles().length` in the main process to detect handle accumulation.
+
+**Warning signs:**
+- Console shows `EMFILE: too many open files` errors after hours of running
+- Session detector returns empty arrays despite active sessions existing
+- Dashboard stops updating while the PixiJS animation continues running normally
+- `process._getActiveHandles().length` grows monotonically when logged
+
+**Phase to address:**
+Phase 1 (crash diagnosis). File descriptor exhaustion is a known cause of "silent" failures where the app continues rendering but stops receiving data. The existing `readUsageTotals` code already captures `stream` in a variable but does not call `stream.destroy()` in the finally block -- this is a one-line fix.
+
+---
+
+### Pitfall 6: Silent Renderer Crash Has No Diagnostic Trail
+
+**What goes wrong:**
+The app crashes silently after hours. There is no crash log, no error dialog, no console output at the moment of death. The Electron window simply disappears. This happens because:
+
+1. **No `window.onerror` or `unhandledrejection` handler** in the renderer process. If a PixiJS operation throws (e.g., WebGL context lost, out of memory), the error propagates to the top of the call stack and may crash the renderer process without being caught.
+2. **No `crashReporter` initialization**. Electron's crashReporter must be started in both main and renderer processes to capture native crashes (GPU memory exhaustion, WebGL context loss). Without it, Chromium's renderer process OOM killer terminates the process silently.
+3. **No `process.on('uncaughtException')` in the main process** to catch and log main-process errors before exit.
+4. **No `webContents.on('render-process-gone')` handler** to detect when the renderer process dies and log the reason.
+
+The user sees the window vanish and has no information about why. This makes diagnosis impossible without instrumentation.
+
+**Why it happens:**
+Error handling infrastructure is typically added in a "hardening" phase after core features ship. The app went from v1.0 to v2.0 in 7 days -- there was no hardening pass. The `main().catch()` in renderer `index.ts` catches initialization errors but does not catch runtime errors in the ticker callback (which runs in `requestAnimationFrame` and is not wrapped in a try/catch).
+
+**How to avoid:**
+Add comprehensive crash telemetry before attempting to fix the leak:
+
+```typescript
+// In main process (index.ts):
+process.on('uncaughtException', (err) => {
+  fs.appendFileSync(path.join(app.getPath('userData'), 'crash.log'),
+    `[${new Date().toISOString()}] MAIN UNCAUGHT: ${err.stack}\n`);
+  app.quit();
+});
+
+mainWindow.webContents.on('render-process-gone', (event, details) => {
+  fs.appendFileSync(path.join(app.getPath('userData'), 'crash.log'),
+    `[${new Date().toISOString()}] RENDERER GONE: ${details.reason} exit=${details.exitCode}\n`);
+});
+
+// In renderer process:
+window.onerror = (msg, source, line, col, error) => {
+  console.error(`[CRASH] ${msg} at ${source}:${line}:${col}`, error?.stack);
+};
+window.onunhandledrejection = (event) => {
+  console.error(`[CRASH] Unhandled promise: ${event.reason}`);
+};
+```
+
+The `render-process-gone` event's `details.reason` field will be one of: `clean-exit`, `abnormal-exit`, `killed`, `crashed`, `oom`, or `launch-failed`. The `oom` reason confirms a memory exhaustion crash. The `crashed` reason indicates a native GPU/WebGL crash.
+
+**Warning signs:**
+- The app has been running for 2+ hours with no issues, then suddenly vanishes
+- No crash dialog appears (Electron's default crash dialog is disabled by the frameless window config)
+- The Windows Event Viewer shows the process terminated with exit code != 0
+- Task Manager shows renderer process memory climbing steadily before the crash
+
+**Phase to address:**
+Phase 1 (crash diagnosis). This must be the FIRST thing implemented -- before any leak fixes. Without crash telemetry, you cannot confirm whether the silent crash is caused by OOM, GPU context loss, an uncaught exception, or something else entirely. Fix instrumentation first, reproduce the crash, read the log, then fix the cause.
+
+---
+
+### Pitfall 7: LevelUpEffect Creates GlowFilter That Is Never Removed from GPU Pipeline
+
+**What goes wrong:**
+Each `LevelUpEffect` instance creates a `new GlowFilter()` and assigns it to `this.filters = [glowFilter]`. When the celebration ends, `agent.removeChild(this.levelUpEffect)` is called, followed by `this.levelUpEffect.destroy({ children: true })`. The `destroy({ children: true })` call destroys all children (sparkle Graphics, column Graphics) but does **not** automatically destroy the filters applied to the container. The `GlowFilter` shader program and its associated render textures remain in the PixiJS renderer's shader cache.
+
+In PixiJS 8, filters create GPU shader programs and intermediate render textures. These are cached by the renderer system and are NOT automatically cleaned up when the container is destroyed. For always-on operation where agents celebrate dozens of times per day, this means GlowFilter GPU resources accumulate.
+
+Additionally, the `FillGradient` used for the light column creates a texture resource that is also not explicitly destroyed.
+
+**Why it happens:**
+PixiJS's `Container.destroy()` with `children: true` destroys child display objects but does not call `destroy()` on the container's `filters` array elements. This is a PixiJS design decision (filters may be shared between containers), but it means filter cleanup is the application's responsibility.
+
+**How to avoid:**
+Explicitly destroy the GlowFilter before destroying the LevelUpEffect:
+```typescript
+// In Agent.ts, before destroying the level-up effect:
+if (this.levelUpEffect) {
+  // Destroy filters explicitly (PixiJS does not auto-destroy filters on container.destroy)
+  if (this.levelUpEffect.filters) {
+    for (const filter of this.levelUpEffect.filters) {
+      filter.destroy();
+    }
+    this.levelUpEffect.filters = [];
+  }
+  this.removeChild(this.levelUpEffect);
+  this.levelUpEffect.destroy({ children: true });
+  this.levelUpEffect = null;
+}
+```
+
+Apply the same pattern in `World.init()` for the stage-level `ColorMatrixFilter` if the app is ever destroyed and reinitialized.
+
+**Warning signs:**
+- GPU memory in Task Manager increases after each celebration event
+- WebGL "shader programs" count grows (visible in WebGL Inspector extensions)
+- After many celebrations, rendering performance degrades
+
+**Phase to address:**
+Phase 1 (resource audit). Every `new Filter()` must have a corresponding `filter.destroy()`. Audit all filter creation sites.
+
+---
+
+### Pitfall 8: Diagnosing the Wrong Leak -- Confusing JavaScript Heap Growth with GPU/Native Memory Growth
+
+**What goes wrong:**
+A developer takes a JavaScript heap snapshot in DevTools, sees heap is stable at 40MB, and concludes "no memory leak." But the silent crash is caused by GPU memory exhaustion (texture uploads, WebGL buffers, shader programs) or native memory growth (canvas elements, file descriptors), neither of which appear in the JavaScript heap snapshot. The developer wastes days adding `WeakRef` wrappers and optimizing JavaScript object allocation while the actual leak is in GPU-uploaded textures from the palette swap system.
+
+**Why it happens:**
+JavaScript heap snapshots are the most accessible debugging tool and the one developers reach for first. They show JavaScript object retention. But PixiJS operates primarily in GPU memory space (textures, buffers, shaders). GPU memory is managed by the WebGL/WebGPU backend, not the JavaScript garbage collector. A texture that has been uploaded to the GPU and then dereferenced in JavaScript will be collected by the JS GC, but its GPU memory remains allocated until `texture.destroy()` or `texture.unload()` is explicitly called (or until PixiJS's TextureGCSystem collects it after ~1 minute of non-use at 60fps -- but at 5fps idle, that is 12 minutes).
+
+Native memory (DOM elements like `<canvas>`, file handles, Node.js buffers) also does not appear in JavaScript heap snapshots.
+
+**How to avoid:**
+Use multiple diagnostic tools in parallel:
+1. **JavaScript Heap**: DevTools Memory > Heap snapshot (finds JS object leaks)
+2. **GPU Memory**: `performance.memory` (Chrome-specific) or `app.getAppMetrics()` (Electron) to track GPU process memory
+3. **Native Memory**: `process.memoryUsage().rss` via IPC from main process (total resident set including native allocations)
+4. **File Descriptors**: `process._getActiveHandles().length` and `process._getActiveRequests().length` in main process
+5. **DOM Elements**: `document.querySelectorAll('canvas').length` in renderer to detect orphaned canvas elements from palette swaps
+6. **PixiJS Internals**: Log `renderer.texture.managedTextures.length` (if accessible) to track PixiJS's texture count
+
+Create a periodic health reporter (every 60 seconds) that logs all of these values. Plot them over time. The metric that grows monotonically reveals which system is leaking.
+
+**Warning signs:**
+- Heap snapshot shows stable memory, but Task Manager shows process memory growing
+- GPU process memory in `app.getAppMetrics()` climbs while JS heap stays flat
+- `document.querySelectorAll('canvas').length` returns more canvases than expected
+
+**Phase to address:**
+Phase 1 (crash diagnosis). Build the health reporter BEFORE attempting any fixes. Without multi-dimensional diagnostics, you will fix the wrong thing.
+
+---
+
+### Pitfall 9: Fixing One Leak Can Mask Another -- The Whack-a-Mole Problem
+
+**What goes wrong:**
+The developer finds and fixes the palette swap texture leak (Pitfall 1). Memory growth slows from 20MB/hour to 5MB/hour. They declare victory. But the remaining 5MB/hour comes from a different source (Graphics.clear() accumulation, GlowFilter leaks, or file descriptor exhaustion). The app still crashes, just later -- after 16 hours instead of 4 hours. The developer is confused because they "already fixed the memory leak."
+
+**Why it happens:**
+Long-running apps often have multiple independent leak sources. Fixing the largest leak makes the smaller leaks harder to detect because the growth rate is slower. Each leak may have a different time-to-crash threshold.
+
+**How to avoid:**
+1. Establish a baseline: run the app for 1 hour and record memory metrics every 60 seconds. Plot the growth rate.
+2. After each fix, re-run the 1-hour baseline test. The growth rate must drop to near zero (< 1MB/hour for the renderer process).
+3. If growth rate is still positive, do not declare the fix complete. Continue investigating.
+4. Set a hard pass/fail criterion: the app must run for 8 hours continuously with < 50MB total memory growth in the renderer process.
+
+**Warning signs:**
+- Memory growth rate decreased but did not reach zero
+- The crash still happens, just later
+- Different memory metrics grow at different rates (GPU memory stable but RSS growing, or vice versa)
+
+**Phase to address:**
+Phase 3 (verification and soak testing). This is a testing discipline, not a code fix. The soak test must be part of the definition of done for this milestone.
+
+---
+
+### Pitfall 10: The Mtime Cache in UsageAggregator and SessionDetector Accumulates Entries for Deleted Sessions
+
+**What goes wrong:**
+Both `FilesystemSessionDetector.mtimeCache` and `UsageAggregator.cache` are `Map<string, ...>` instances that grow as new sessions are discovered. When a session's JSONL file is deleted (Claude Code cleanup), the session is no longer discovered by the detector, but the cache entry persists in the Map. Over days, hundreds of stale cache entries accumulate.
+
+Each `mtimeCache` entry in the session detector holds `{ mtimeMs, sessionInfo, hasToolUse }` -- the `sessionInfo` object includes the full file path string. Each `UsageAggregator.cache` entry holds `{ mtimeMs, totals }`. While individually small, these Maps are never pruned.
+
+Similarly, `FilesystemSessionDetector.cwdCache` maps sessionId to `{ projectPath, projectName }` and is never pruned.
+
+**Why it happens:**
+The caches were designed for performance (skip re-reading unchanged files) without considering the lifecycle of the cached data. There is no "session ended" signal that would trigger cache eviction.
+
+**How to avoid:**
+Add periodic cache pruning that removes entries for session IDs not seen in the last N poll cycles:
+
+```typescript
+// In SessionStore.poll() or as a separate cleanup timer:
+private pruneCaches(activeSessionIds: Set<string>): void {
+  for (const sessionId of this.detector.mtimeCache.keys()) {
+    if (!activeSessionIds.has(sessionId)) {
+      this.detector.mtimeCache.delete(sessionId);
+      this.detector.cwdCache.delete(sessionId);
+      this.usageAggregator.clearSession(sessionId);
     }
   }
-  return entries;
 }
 ```
 
-For historical aggregation (multiple files from previous days), process files sequentially with `await`, not `Promise.all()` — parallel streaming of 30 JSONL files simultaneously saturates I/O and provides no speedup while increasing memory pressure. Aggregate incrementally: accumulate totals per file, never hold all files in memory at once.
-
-For live sessions (the active JSONL file being written by Claude Code), track the last-read byte offset and use `fs.createReadStream({ start: offset })` to tail only new lines on each poll cycle. This avoids re-parsing the entire file every 3 seconds.
+Note: `UsageAggregator` already has a `clearSession()` method, but nothing calls it.
 
 **Warning signs:**
-- PixiJS animation visibly hitches or freezes every 3 seconds (aligned with the session poll interval)
-- `--inspect` profiling shows long tasks in the main process during the poll cycle
-- Node.js event loop lag exceeds 100ms during data refresh
+- Cache sizes grow monotonically (inspect via logging or debugger)
+- Main process RSS grows at 1-2MB/hour even when no sessions are active
+- Session detection poll time increases over days
 
 **Phase to address:**
-Phase 1 (JSONL parsing infrastructure). Establish the streaming pattern and tail-read approach before any dashboard UI is built. It is much harder to retrofit streaming after synchronous parsing is wired into multiple call sites.
-
----
-
-### Pitfall 2: Window Height Expansion Corrupts PixiJS Canvas Coordinates
-
-**What goes wrong:**
-The current window is a fixed 1024x768 with `resizable: false`. Expanding the window height to 1024x1068 (adding a 300px dashboard panel below the 768px world view) changes the window dimensions. If this resize is not handled carefully, the PixiJS canvas either stays at 768px height (leaving a gap), stretches to fill 1068px (distorting the pixel-art world), or misaligns its CSS position relative to the new window geometry. Building positions (computed relative to the 1024x768 canvas) remain hardcoded and correct, but the canvas `<canvas>` DOM element may report wrong `getBoundingClientRect()` values if its CSS height is recalculated incorrectly, breaking any future hit-testing.
-
-Additionally, if `app.renderer.resize()` is called without explicitly pinning the world canvas to its original 768px height, PixiJS may attempt to fill the new 1068px container, scaling all sprite coordinates by `1068/768 = 1.39x` and displacing agents, buildings, and the tilemap from their intended positions.
-
-**Why it happens:**
-The existing code assumes 1024x768 everywhere — building coordinates, agent positions, tilemap dimensions, campfire location, and station offsets are all computed against this fixed size. When the Electron window grows taller, the browser layout reflows. If the PixiJS `<canvas>` element has `width: 100%; height: 100%` CSS (a common default), it stretches to fill the new window height. PixiJS then calls its auto-resize logic and invalidates the coordinate system. The `resizeTo` option in `app.init()` compounds this: per PixiJS issue #11427 (May 2025), `resizeTo` only triggers on window resize events, not on DOM layout changes, so even a ResizeObserver approach has edge cases.
-
-**How to avoid:**
-Structure the HTML layout so the PixiJS canvas has a fixed, explicit pixel height that never changes:
-
-```html
-<body style="display: flex; flex-direction: column; height: 1068px; overflow: hidden;">
-  <canvas id="pixi-canvas" style="width: 1024px; height: 768px; flex-shrink: 0;"></canvas>
-  <div id="dashboard" style="width: 1024px; height: 300px; flex-shrink: 0; overflow-y: auto;"></div>
-</body>
-```
-
-Do NOT use `resizeTo` or `autoResize` on the PixiJS application — the canvas must be frozen at 1024x768. Initialize the PixiJS app with explicit `width: 1024, height: 768` and never call `app.renderer.resize()` after startup. The Electron `BrowserWindow` is resized programmatically via `mainWindow.setSize(1024, 1068)` (or `setContentSize`), but the PixiJS canvas within it remains unchanged.
-
-Keep `resizable: false` in Electron's `BrowserWindow` options — only the programmatic initial resize is needed. Verify using `mainWindow.getContentSize()` vs. `mainWindow.getSize()` — on Windows, the content size excludes the title bar, so use `setContentSize(1024, 1068)` to ensure the canvas + dashboard both fit.
-
-**Warning signs:**
-- Agents appear at wrong positions after window height is changed
-- Building interiors render outside the visible canvas area
-- Console shows PixiJS warnings about renderer resize
-- CSS `height: 100%` on the canvas element (audit for this immediately)
-
-**Phase to address:**
-Phase 1 (window layout). The HTML structure, CSS, and Electron `BrowserWindow` configuration must be locked before any dashboard HTML is added. Adding dashboard HTML before fixing the canvas CSS risks the canvas stretching silently.
-
----
-
-### Pitfall 3: Token Double-Counting from Re-Reading Already-Parsed JSONL Lines
-
-**What goes wrong:**
-The app reads active session JSONL files on each 3-second poll cycle. A naive implementation re-reads the entire JSONL file each poll and sums all `message.usage` entries. This works correctly for totals but inflates counts when the same entries are read multiple times. If the cache is not used and line counts are not tracked, the dashboard shows token counts climbing even when Claude has not generated new output — because the same 500 lines are being re-summed on every poll tick.
-
-**Why it happens:**
-"Parse the file and sum tokens" is the obvious implementation. The bug is invisible during development (a freshly-started session has few lines), but manifests in production where sessions run for hours and JSONL files grow to thousands of entries. Each 3-second re-parse re-adds all historical tokens from the session, multiplying real counts by `(elapsed_time / 3s)`.
-
-**How to avoid:**
-Track the last-read line count (or byte offset) per session file. On each poll cycle, only parse new lines appended since the last read. Accumulate a running total in memory per session rather than re-summing from scratch. Store `{ sessionId, byteOffset, runningTotal }` in a Map:
-
-```typescript
-const sessionOffsets = new Map<string, { offset: number; tokens: TokenTotals }>();
-
-async function updateSessionTokens(sessionId: string, filePath: string) {
-  const state = sessionOffsets.get(sessionId) ?? { offset: 0, tokens: emptyTokens() };
-  const newLines = await readLinesFrom(filePath, state.offset);
-  const newOffset = await getFileSize(filePath);
-
-  for (const line of newLines) {
-    const entry = JSON.parse(line);
-    if (entry.message?.usage) {
-      accumulate(state.tokens, entry.message.usage);
-    }
-  }
-
-  sessionOffsets.set(sessionId, { offset: newOffset, tokens: state.tokens });
-}
-```
-
-For historical data (previous days), parse once and store aggregated results — never re-parse historical JSONL files on each poll.
-
-**Warning signs:**
-- Token counts in the dashboard grow faster than expected relative to actual Claude activity
-- Restarting the app shows a different (lower) token count for completed sessions
-- Dashboard totals are not reproducible between app restarts
-
-**Phase to address:**
-Phase 1 (JSONL parsing infrastructure). The offset-tracking approach must be the implementation from the start. Retrofitting it after the UI is wired up requires auditing all call sites.
-
----
-
-### Pitfall 4: Cache Token Accounting is Non-Intuitive and Easily Mis-Totaled
-
-**What goes wrong:**
-The JSONL `message.usage` object contains four fields: `input_tokens`, `output_tokens`, `cache_creation_input_tokens`, and `cache_read_input_tokens`. A dashboard that shows "total tokens" by summing only `input_tokens + output_tokens` significantly undercounts because it ignores cache tokens. Conversely, a dashboard that sums all four fields for "total input" is also misleading — cache reads and cache writes have different pricing than regular input tokens, and showing them as undifferentiated "input" causes cost estimates to be wrong.
-
-Cache tokens are also structurally confusing: `cache_creation_input_tokens` appears on the first turn of a cached context block (high cost per token), while `cache_read_input_tokens` appears on all subsequent turns using that cache (low cost per token). A long session will show a spike in `cache_creation_input_tokens` at the start and high `cache_read_input_tokens` accumulation thereafter. Summing all turns naively gives a distorted picture of actual spending.
-
-**Why it happens:**
-The four-field structure is specific to Anthropic's API and not well-documented for tool authors. Most third-party token trackers initially got this wrong and had to correct their implementations. The Claude Code JSONL files accumulate cache tokens heavily because every turn re-sends the full conversation history as cached context — per GitHub issue #24147, `cache_read_input_tokens` can dominate 99.93% of quota usage as CLAUDE.md files grow.
-
-**How to avoid:**
-Track all four token types separately and display them separately in the UI:
-
-```typescript
-interface TokenBreakdown {
-  inputTokens: number;           // billed at standard input rate
-  outputTokens: number;          // billed at output rate (typically 5x input)
-  cacheCreationTokens: number;   // billed at 1.25x input rate (write)
-  cacheReadTokens: number;       // billed at 0.1x input rate (read)
-}
-```
-
-Cost calculation must use separate rates for each field:
-
-```typescript
-function calculateCost(tokens: TokenBreakdown, rates: ModelRates): number {
-  return (
-    tokens.inputTokens * rates.inputPerToken +
-    tokens.outputTokens * rates.outputPerToken +
-    tokens.cacheCreationTokens * rates.cacheWritePerToken +
-    tokens.cacheReadTokens * rates.cacheReadPerToken
-  );
-}
-```
-
-In the UI, show the breakdown so users can see why cache dominates. A single "total tokens" number without the breakdown is misleading for Claude Code sessions.
-
-**Warning signs:**
-- Cost estimates appear far lower than actual Anthropic invoices
-- "Total tokens" does not match what `ccusage` reports for the same sessions
-- Sessions with long CLAUDE.md files show suspiciously low token counts
-
-**Phase to address:**
-Phase 2 (token counting). Design the data model with all four token types from the start. Adding cache token fields later requires migrating stored historical data.
-
----
-
-### Pitfall 5: Hardcoded Token Pricing Rates Become Stale Within Months
-
-**What goes wrong:**
-The dashboard embeds pricing rates like `sonnet_input: 0.000003` (per token). Anthropic cut Claude Opus prices by 67% in 2025 (from $15 to $5 per million input tokens). The Claude 4 series introduced Opus 4.5 and Sonnet 4.6 with new pricing tiers. Model names in JSONL files also change (e.g., `claude-sonnet-4-5` becomes `claude-sonnet-4-6`). A hardcoded rate table that does not match the actual model names in the JSONL files defaults to $0 cost for unrecognized models, silently underreporting costs. A rate table that is not updated becomes increasingly inaccurate as Anthropic adjusts prices every few months.
-
-**Why it happens:**
-Hardcoding rates is the fastest implementation. It works for the current moment but requires manual code changes on every Anthropic pricing update. Given that Anthropic has released three major model updates in two months (Sonnet 4.5 → Haiku 4.5 → Opus 4.5) and made large price cuts, any hardcoded table has a short shelf life.
-
-**How to avoid:**
-Store pricing rates in a user-editable JSON config file, not in source code:
-
-```json
-// ~/.claude/agent-world-config.json or app userData path
-{
-  "pricingRates": {
-    "claude-opus-4-6": { "input": 5.00, "output": 25.00, "cacheWrite": 6.25, "cacheRead": 0.50 },
-    "claude-sonnet-4-6": { "input": 3.00, "output": 15.00, "cacheWrite": 3.75, "cacheRead": 0.30 },
-    "claude-haiku-4-5": { "input": 1.00, "output": 5.00, "cacheWrite": 1.25, "cacheRead": 0.10 },
-    "default": { "input": 3.00, "output": 15.00, "cacheWrite": 3.75, "cacheRead": 0.30 }
-  },
-  "pricingUnit": "per_million_tokens"
-}
-```
-
-Key design decisions:
-- Use per-million-token units in the config (matches Anthropic's published rates) and convert to per-token internally
-- Include a `default` entry that applies to unrecognized model names, with a note in the UI that the rate is estimated
-- When a JSONL entry has a `model` field that does not match any config key, log the unrecognized model name so users know to update their config
-- Show the pricing version date and a link to Anthropic's pricing page in the dashboard footer so users know when to update
-
-Do NOT attempt to auto-fetch pricing from Anthropic — they have no public pricing API, and scraping the pricing page would be fragile.
-
-**Warning signs:**
-- Console logs show "unrecognized model: claude-opus-4-6, using default rate" often
-- Cost estimates are $0 for recent sessions while older sessions show costs
-- User reports that estimated costs do not match their Anthropic invoice
-
-**Phase to address:**
-Phase 2 (cost estimation). Design the config file format before implementing the cost calculation. Never write pricing values directly in TypeScript source files.
-
----
-
-### Pitfall 6: Historical Storage Approach Chosen Too Late Requires Data Migration
-
-**What goes wrong:**
-The dashboard shows "today's totals + 30-day daily breakdown." If historical data is stored as individual JSONL files re-parsed on demand, the 30-day view requires reading up to 30 days × (multiple sessions per day) JSONL files on each open — potentially 50-100 files at 2-18MB each. This is unacceptably slow. If data is stored as a single growing JSON file (`history.json`), the entire file must be read and written on every update — at 30 days of data, this file can grow to several MB, and JSON.parse of the full file on startup adds startup latency. SQLite avoids both problems but adds a native module dependency that must be rebuilt for the specific Electron ABI version.
-
-**Why it happens:**
-Teams reach for the simplest storage mechanism (JSON file) for early features and discover its limitations only when the dataset grows. For 30 days of daily aggregates, the data volume is actually small (30 records × ~5 fields each). The problem is not data size — it is re-parsing raw JSONL on demand versus reading pre-aggregated summaries.
-
-**How to avoid:**
-Use a pre-aggregated JSON store with one record per day, stored in Electron's `app.getPath('userData')`:
-
-```typescript
-// ~/.config/Agent World/usage-history.json (or Windows equivalent)
-{
-  "version": 1,
-  "dailyTotals": {
-    "2026-02-28": {
-      "inputTokens": 1250000,
-      "outputTokens": 180000,
-      "cacheCreationTokens": 95000,
-      "cacheReadTokens": 3200000,
-      "estimatedCostUSD": 4.23,
-      "sessionCount": 8,
-      "completionCount": 6
-    },
-    "2026-03-01": { ... }
-  },
-  "lastUpdated": "2026-03-01T14:32:00Z"
-}
-```
-
-This approach:
-- Stores only 30 records (one per day), not raw JSONL data
-- Can be read synchronously at startup (tiny file, < 10KB for 30 days)
-- Requires writing only on day boundary transitions (once per day, not every poll)
-- Requires no native module dependencies (no SQLite rebuild against Electron ABI)
-- Is human-readable and user-inspectable
-
-Do NOT use SQLite unless the data model requires complex queries. For 30-day daily aggregates, SQLite is engineering overkill and adds Electron native module complexity (better-sqlite3 must be rebuilt against each Electron major version).
-
-**Warning signs:**
-- Dashboard startup takes > 500ms (signals re-parsing historical JSONL)
-- The history store file grows > 1MB (signals storing raw entries instead of aggregates)
-- Console shows "rebuilding SQLite native module" on first run (signals premature SQLite adoption)
-
-**Phase to address:**
-Phase 3 (historical data). Decide the storage format before writing any persistence code. The pre-aggregated JSON approach handles the 30-day case cleanly with zero dependencies.
-
----
-
-### Pitfall 7: Dashboard HTML Rendered in PixiJS Canvas Space Instead of DOM Layer
-
-**What goes wrong:**
-The developer attempts to build the dashboard as a PixiJS Graphics/Text layer added below the world's stage. This creates several problems: text rendering in PixiJS is either BitmapText (good for pixel art but poor for dense numerical data) or HTMLText (which uses CSS in an SVG foreignObject and has known rendering issues in Electron). Click interactions on dashboard rows require manual hit-testing against PixiJS display objects instead of native DOM events. Scrolling a 30-day breakdown list in PixiJS requires implementing a custom scroll container. Updating token counts on each 3-second poll requires re-rendering dozens of PixiJS text objects, which is expensive compared to updating DOM `textContent`.
-
-Additionally, per PixiJS issue #4327, mixing DOM elements with PixiJS elements using `DOMContainer` has an unresolved architectural complexity: DOM elements must be positioned as CSS overlays synchronized with PixiJS transforms, which breaks if the canvas moves.
-
-**Why it happens:**
-For developers already working in PixiJS, the temptation is to build everything inside the canvas. The fantasy RPG world is PixiJS, so "add the dashboard to PixiJS" feels natural. But dashboards are a DOM-native use case — tabular data, scrolling lists, styled text, interactive rows — and implementing them in WebGL/Canvas is strictly harder than using HTML.
-
-**How to avoid:**
-Build the dashboard as a plain HTML `<div>` below the PixiJS `<canvas>`. The canvas occupies the top 768px; the dashboard div occupies the bottom 300px. They never interact. The dashboard reads token data via IPC from the main process and updates `textContent` and `classList` directly. This approach uses:
-- Native DOM scrolling for the 30-day breakdown list
-- Native CSS for hover states, truncation, expandable rows
-- No PixiJS involvement in the dashboard layer
-
-The PixiJS canvas and the dashboard div are completely separate. The only shared concern is the overall window height. This is the correct architecture.
-
-```html
-<div style="display:flex; flex-direction:column; height:1068px;">
-  <canvas id="world" style="width:1024px; height:768px; flex:0 0 768px;"></canvas>
-  <div id="dashboard" style="flex:0 0 300px; overflow-y:auto; background:#1a1a2e;">
-    <!-- session rows, token totals, 30-day chart rendered as HTML -->
-  </div>
-</div>
-```
-
-**Warning signs:**
-- Session rows are being added as PixiJS Text or Container objects
-- Dashboard scrolling requires a custom PixiJS viewport implementation
-- Token count updates cause PixiJS to re-render the display list unnecessarily
-- Click handling on dashboard rows goes through PixiJS event system
-
-**Phase to address:**
-Phase 1 (window layout). Establish the HTML structure as the first step. The architecture decision (HTML div, not PixiJS layer) must be made before any dashboard rendering code is written.
-
----
-
-### Pitfall 8: 30-Day Retention Cleanup Race Condition Corrupts History File
-
-**What goes wrong:**
-The cleanup job that removes history entries older than 30 days runs at startup or on a timer. If the app is closed mid-write during the cleanup (or if the write and the cleanup both run simultaneously), the `usage-history.json` file can be written in a partially truncated state. On next startup, `JSON.parse` fails and the entire history is lost. This is particularly bad because history cannot be reconstructed from JSONL files without re-parsing all historical sessions (which may no longer exist if Claude Code has cleaned up its own JSONL files).
-
-**Why it happens:**
-`fs.writeFileSync()` is not atomic. Writing a large JSON file replaces the file in place. If the process crashes between the old file being cleared and the new content being written, the file is empty. Concurrent writes (main process writes a daily update while the startup cleanup is also running) can interleave and corrupt the output.
-
-**How to avoid:**
-Use an atomic write pattern: write to a `.tmp` file first, then rename:
-
-```typescript
-import { writeFileSync, renameSync } from 'fs';
-import { join } from 'path';
-
-function saveHistoryAtomically(historyPath: string, data: HistoryData): void {
-  const tmpPath = historyPath + '.tmp';
-  writeFileSync(tmpPath, JSON.stringify(data, null, 2), 'utf-8');
-  renameSync(tmpPath, historyPath);  // atomic on most filesystems
-}
-```
-
-On Windows, `renameSync` over an existing file may fail if the file is locked. Use a try/catch and fall back to `copyFileSync` + `unlinkSync` if rename fails.
-
-Serialize all history writes through a single async queue — never write the history file from two concurrent code paths. The main process owns the history file exclusively; the renderer reads it via IPC only.
-
-**Warning signs:**
-- `usage-history.json` is zero bytes on startup after an unexpected app close
-- `JSON.parse` failures in startup logs
-- History data resets to empty without user action
-
-**Phase to address:**
-Phase 3 (historical data persistence). The atomic write pattern must be the implementation from day one. Retrofitting it requires auditing all write call sites.
-
----
-
-### Pitfall 9: IPC Data Transfer Overhead for Large Token Aggregates on Each Poll
-
-**What goes wrong:**
-The 3-second poll cycle pushes session data from main process to renderer via IPC. If the full token breakdown (all 30 days of history + all live session token counts) is serialized and sent on every poll tick, the IPC payload grows as more sessions accumulate. IPC in Electron serializes objects to JSON for transfer — sending 30 days × 8 sessions/day × 4 token fields = 960+ numbers plus metadata on every 3-second tick is wasteful. More importantly, if the renderer processes a large IPC payload synchronously, it blocks the PixiJS render loop.
-
-**Why it happens:**
-The existing IPC pattern sends all session data on each `updateSessions` IPC call. Extending this call to also include token data and historical summaries is the path of least resistance. But combining live session state (changes every 3 seconds) with historical data (changes at most once per day) into the same frequent IPC call is architecturally wrong.
-
-**How to avoid:**
-Split IPC into two channels with different update frequencies:
-
-1. **`session-update` (every 3 seconds):** Sends only live session state — status, current tool, token delta since last poll (not cumulative totals). The renderer accumulates deltas locally.
-
-2. **`history-snapshot` (on startup + once per day at midnight):** Sends the full 30-day historical summary. The renderer caches this and only re-requests it via `ipcRenderer.invoke('get-history')` when the user navigates to the history view.
-
-This keeps the high-frequency IPC payload small (< 1KB per tick for typical 4-session usage) and avoids re-sending historical data that has not changed.
-
-**Warning signs:**
-- IPC messages are larger than a few KB per 3-second tick
-- The renderer's `ipcRenderer.on('session-update')` handler takes > 16ms (misses a frame)
-- Historical data is included in every live poll response
-
-**Phase to address:**
-Phase 2 (dashboard live data). Design the IPC protocol separation before writing any token-to-renderer IPC code. The separation is cheap to do upfront and expensive to refactor later.
-
----
-
-### Pitfall 10: Session Duration Calculation is Wrong for Long-Running or Interrupted Sessions
-
-**What goes wrong:**
-Session duration is calculated as `lastActivity - firstActivity` from JSONL timestamps. For a session that ran from 9am to 5pm but was idle from 12pm to 2pm (user at lunch), this reports 8 hours even though Claude was only actively working for 6 hours. For sessions interrupted by a system restart or app crash, the last JSONL timestamp before the crash is used as the end time, which may be hours before the session actually stopped. The dashboard shows inflated "active session duration" metrics.
-
-**Why it happens:**
-"Duration = last timestamp - first timestamp" is the obvious calculation. It is wrong for long-running sessions with idle gaps, which are exactly the sessions users care most about tracking.
-
-**How to avoid:**
-Calculate duration as the sum of active intervals rather than total elapsed time. Define an "active interval" as a sequence of JSONL entries where no gap between consecutive entries exceeds a threshold (e.g., 5 minutes — the same threshold used for idle timeout in the existing session detection logic). If two consecutive JSONL entries are more than 5 minutes apart, the gap is not counted toward duration. This gives "active working time" rather than "wall clock time."
-
-```typescript
-function calculateActiveSessionDuration(entries: JsonlEntry[]): number {
-  const GAP_THRESHOLD_MS = 5 * 60 * 1000;
-  let totalMs = 0;
-  for (let i = 1; i < entries.length; i++) {
-    const gap = entries[i].timestamp - entries[i-1].timestamp;
-    if (gap < GAP_THRESHOLD_MS) {
-      totalMs += gap;
-    }
-  }
-  return totalMs;
-}
-```
-
-Use the same 5-minute idle threshold already used in the session detection logic for consistency.
-
-**Warning signs:**
-- Session durations exceed 8 hours for sessions where Claude was clearly idle overnight
-- Duration shown for crashed sessions matches the time from session start to app restart, not actual work time
-- "Average session duration" is disproportionately high compared to subjective experience
-
-**Phase to address:**
-Phase 2 (token counting + session metrics). Define the duration calculation algorithm explicitly and document it in the dashboard tooltip — users will otherwise be confused by the definition of "duration."
+Phase 2 (hardening pass). Small fix, low risk. The `UsageAggregator.clearSession()` method already exists but is never called -- wire it up.
 
 ---
 
@@ -413,13 +361,13 @@ Phase 2 (token counting + session metrics). Define the duration calculation algo
 
 | Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
 |----------|-------------------|----------------|-----------------|
-| `readFileSync` for JSONL parsing | Simpler code, no async complexity | Blocks main process on 18MB files; animation hitches every 3 seconds | Never — streaming is only slightly more complex and always required |
-| Hardcoded pricing rates in source code | Fast to implement | Rates stale within months; unrecognized new model names silently cost $0 | Never — use a config JSON file from day one |
-| Single `session-update` IPC for all data | No new IPC channels needed | Historical data re-sent every 3 seconds; large payload blocks renderer | Never — split live vs. historical IPC channels |
-| Re-parsing full JSONL on each poll | No offset tracking state needed | Token counts multiply by elapsed time; CPU wasteful on 18MB files | Never — track byte offsets from the start |
-| SQLite for 30-day daily summaries | Structured queries, ACID writes | Native module ABI rebuild required per Electron major version; overkill for 30 records | Never for this scale — pre-aggregated JSON is sufficient |
-| Storing full JSONL entries in history | Easy to add new aggregation later | History file grows unbounded; re-aggregation on startup is slow | MVP only if the data is discarded on next startup (not persisted) |
-| Building dashboard as PixiJS layer | No HTML/DOM work needed | Scrolling, text, click interaction all require custom PixiJS reimplementation | Never — HTML div below canvas is strictly simpler |
+| No `texture.destroy()` on palette swap cache eviction | Simpler cache implementation | GPU memory grows unbounded; silent OOM crash after hours | Never -- lifecycle must match creation |
+| `Graphics.clear()` + redraw instead of destroy+recreate | Avoids allocation churn | Potential WebGL buffer accumulation in long-running PixiJS 8 apps | Acceptable if growth rate is verified to be zero in soak testing |
+| Unbounded timer accumulators (elapsed, phase, breathTimer) | Simplest implementation | Floating-point precision drift after days | Never for production always-on app |
+| No `stream.destroy()` in finally block for JSONL parsing | Fewer lines of code | File descriptor leak on parsing errors | Never -- always clean up streams |
+| No crash telemetry (no crashReporter, no error handlers) | Faster development | Impossible to diagnose production crashes | Never for always-on applications |
+| Module-level `swapCache` Map with no eviction | Cache always hits, fast lookups | Memory grows with total unique agents over app lifetime | Acceptable for short sessions, not for always-on |
+| `dismissedSessions` Set with no pruning | Correct resurrection prevention | Minor unbounded growth | Acceptable for short sessions, not for always-on |
 
 ---
 
@@ -427,13 +375,13 @@ Phase 2 (token counting + session metrics). Define the duration calculation algo
 
 | Integration | Common Mistake | Correct Approach |
 |-------------|----------------|------------------|
-| PixiJS canvas + dashboard HTML | CSS `height: 100%` on canvas element stretches canvas to fill new window height | Explicit `height: 768px` in CSS; never use percentage heights on the PixiJS canvas element |
-| Electron `BrowserWindow.setSize()` | Using `setSize()` instead of `setContentSize()` — content area is smaller than window by title bar height | Use `setContentSize(1024, 1068)` so canvas + dashboard fill the content area exactly |
-| JSONL `message.usage` structure | Assuming `usage` is always present on every line — most JSONL lines are tool calls with no `usage` field | Guard: `if (entry.message?.usage)` before accessing token fields |
-| Claude model name in JSONL | Model name format changes between versions (`claude-3-5-sonnet-20241022` → `claude-sonnet-4-5` → `claude-sonnet-4-6`) | Use prefix matching (`startsWith('claude-opus')`) or a fallback default rate |
-| Cache token pricing | Treating `cache_read_input_tokens` at the same rate as `input_tokens` | Cache reads cost 0.1× input rate; cache writes cost 1.25× input rate; always use separate multipliers |
-| History file write | Writing JSON directly to the target file — partial write on crash corrupts it | Write to `.tmp` file, then `renameSync` to target (atomic on most filesystems) |
-| IPC for historical data | Including 30-day history in the 3-second `session-update` IPC call | Separate `get-history` invoke (on-demand) from `session-update` push (frequent) |
+| PixiJS `Container.destroy({ children: true })` | Assuming filters are destroyed with the container | Explicitly destroy all filters before calling container.destroy() |
+| PixiJS `AnimatedSprite.textures = newTextures` | Assuming old textures are automatically cleaned up | Destroy old textures if they were created outside the PixiJS asset system |
+| PixiJS `Graphics.clear()` in v8 | Assuming clear() fully releases GPU resources | Prefer destroy+recreate for Graphics that are cleared frequently over long periods |
+| Node.js `readline` + `createReadStream` | Assuming `for await...of` cleans up the stream on error | Explicitly call `stream.destroy()` in a `finally` block |
+| Electron `render-process-gone` | Not listening for this event | Register handler to log the crash reason (`oom`, `crashed`, etc.) |
+| Electron `webContents.on('console-message')` | Relying on it for crash diagnosis | Console messages may not be emitted if the renderer crashes; use `render-process-gone` instead |
+| PixiJS TextureGCSystem at low FPS | Assuming textures are GC'd after 1 minute | At 5fps idle, the 3600-frame GC threshold is 12 minutes, not 1 minute |
 
 ---
 
@@ -441,37 +389,24 @@ Phase 2 (token counting + session metrics). Define the duration calculation algo
 
 | Trap | Symptoms | Prevention | When It Breaks |
 |------|----------|------------|----------------|
-| Full JSONL re-parse on each 3-second poll | Main process CPU usage spikes every 3 seconds; animation stutters | Track byte offset per session file; only read new lines since last poll | Immediately on sessions with > 500 JSONL lines (~1MB) |
-| `Promise.all()` for parallel historical JSONL reads | Memory spike at startup; I/O saturation; no meaningful speedup | Process historical files sequentially with `await`; one file at a time | When loading 30+ historical session files simultaneously |
-| Re-rendering full dashboard on every IPC tick | DOM thrashing; token numbers flicker; forced layout recalculations | Use DOM diffing: only update `textContent` on elements whose values changed | With 8+ live sessions updating every 3 seconds |
-| Dashboard causing PixiJS frame drop | PixiJS reports 20 FPS during dashboard data updates | Dashboard JS must not run during PixiJS render frame; use `requestAnimationFrame` scheduling | Whenever dashboard JS takes > 8ms per update (common with naive DOM update loops) |
-| History cleanup deleting files while being read | Partial file read during deletion causes parse failure | Lock history file during cleanup; complete all reads before beginning cleanup writes | During startup when both init-read and cleanup run concurrently |
-
----
-
-## UX Pitfalls
-
-| Pitfall | User Impact | Better Approach |
-|---------|-------------|-----------------|
-| Showing raw cache token counts without explanation | Users see "cache_read_input_tokens: 3,200,000" and are confused why it is so high | Show "Cache Reads" with a tooltip: "Re-used context (billed at 0.1× input rate)" |
-| Cost estimate labeled as exact rather than estimated | User compares dashboard cost to Anthropic invoice and finds discrepancy; loses trust | Label all costs as "est." with a note that rates may differ from actual billing; link to pricing page |
-| 30-day chart without context | Bar chart with no axis labels or session counts is uninterpretable | Show date labels on x-axis and token count / cost on y-axis; add session count per bar |
-| Dashboard obscures RPG world during active sessions | User's attention is split; dashboard draws eye away from agent animations | Keep dashboard panel visually subdued (dark background, muted colors) so RPG world remains primary |
-| Token counts updating every 3 seconds cause numeric flicker | Rapidly changing numbers are stressful and unreadable | Round displayed numbers (e.g., show "1.2M" not "1,234,567") and only update when change exceeds 1% |
+| Palette swap textures never destroyed | GPU memory grows 5-20MB/hour | Destroy textures when agents are removed; prune swapCache | After 4-8 hours depending on agent churn |
+| GlowFilter not destroyed after celebration | GPU shader/texture accumulation per celebration event | Explicitly destroy filters before container.destroy() | After 20+ celebrations (depends on GPU memory) |
+| Unbounded timer accumulators | Subtle day/night drift; potential NaN from precision loss | Use modulo-bounded accumulators | After 24-72 hours of continuous running |
+| File descriptor leak from readline streams | Session detection stops working; dashboard freezes | Always destroy streams in finally blocks | After hundreds of JSONL parse errors (depends on error rate) |
+| Canvas elements from palette swap not released | Browser memory grows with orphaned DOM canvases | Destroy ImageSource when evicting from swap cache | After dozens of unique agents pass through system |
 
 ---
 
 ## "Looks Done But Isn't" Checklist
 
-- [ ] **Canvas layout:** Window height expanded to 1068px — verify PixiJS canvas is still 768px by inspecting canvas element `getBoundingClientRect()` (not stretched to 1068px)
-- [ ] **Token totals accuracy:** Compare dashboard token totals against `ccusage` output for the same session — they must match within rounding error (< 1%)
-- [ ] **Cache token separate rates:** Verify cost estimate uses different rates for `cache_creation_input_tokens` (1.25×) vs `cache_read_input_tokens` (0.1×) — not the same rate for all input token types
-- [ ] **Unrecognized model handling:** Start a session with a newly-released model not in the pricing config — verify cost shows "est. (unknown model)" rather than silently returning $0
-- [ ] **Offset tracking:** Start a session, let it generate 1000 JSONL lines, restart the app — verify token totals are not doubled (offset tracking resumes from correct position)
-- [ ] **History atomicity:** Kill the app mid-write during a daily rollover — restart and verify `usage-history.json` is valid JSON (not empty or truncated)
-- [ ] **30-day cleanup:** Simulate 31 days of history entries — verify entries older than 30 days are removed and the file does not grow unboundedly
-- [ ] **Duration calculation:** Open a session, pause for 10 minutes, resume, and close — verify the 10-minute idle gap is excluded from the reported session duration
-- [ ] **IPC payload size:** Log IPC message size on each `session-update` event — verify it stays under 10KB even with 8 active sessions
+- [ ] **Crash telemetry:** `render-process-gone` handler is wired and logging -- verify by deliberately crashing renderer (e.g., `webContents.executeJavaScript('process.crash()')`)
+- [ ] **Texture cleanup:** After an agent is removed, verify `document.querySelectorAll('canvas').length` does not increase permanently
+- [ ] **Soak test:** App ran for 8 hours continuously with < 50MB renderer process memory growth -- verify via Task Manager at start and end
+- [ ] **Filter cleanup:** After a celebration completes, verify the GlowFilter's GPU resources are released (no increasing GPU memory per celebration)
+- [ ] **Stream cleanup:** Corrupt a JSONL file mid-read, verify no `EMFILE` errors appear after 100+ poll cycles
+- [ ] **Timer bounds:** After 24 hours of running, verify day/night cycle still transitions smoothly (no stutter, no jump)
+- [ ] **Cache pruning:** After sessions end, verify `UsageAggregator.cache.size` and `dismissedSessions.size` decrease over time
+- [ ] **Health reporter:** Periodic memory metrics are being logged every 60 seconds to a file or console for post-mortem analysis
 
 ---
 
@@ -479,13 +414,14 @@ Phase 2 (token counting + session metrics). Define the duration calculation algo
 
 | Pitfall | Recovery Cost | Recovery Steps |
 |---------|---------------|----------------|
-| Animation stutter from sync JSONL parse | HIGH | Identify call sites using `readFileSync`; convert each to streaming readline; test with 18MB fixture file |
-| Canvas coordinate corruption after height expand | HIGH | Audit all CSS on canvas element; enforce `height: 768px` inline style; call `app.renderer.resize(1024, 768)` after window resize if needed |
-| Token double-counting from no offset tracking | MEDIUM | Clear accumulated token state; re-parse all current session files from offset 0 (one-time cost); add offset tracking going forward |
-| Corrupted history file | MEDIUM | Delete `usage-history.json`; history resets to today-only (30-day data is lost but app continues working); add atomic write to prevent recurrence |
-| Stale pricing rates | LOW | Update config JSON file with current Anthropic rates; cost estimates recalculate on next app restart |
-| History storage approach wrong (full JSONL stored) | HIGH | Migrate data: re-aggregate stored raw entries into daily summaries; delete raw entries; update write logic to aggregate at write time |
-| Dashboard built as PixiJS layer | HIGH | Migrate to HTML div: remove PixiJS dashboard containers; create `dashboard.ts` HTML renderer; restructure layout HTML |
+| Palette swap texture leak | MEDIUM | Add `destroySwappedTextures()` to palette-swap.ts; call from `removeAgent()`; flush swapCache entries for removed agents |
+| GlowFilter not destroyed | LOW | Add explicit `filter.destroy()` before each `LevelUpEffect.destroy()`; one-line fix in two locations (Agent.ts celebrating state, Agent.startFadeOut) |
+| Unbounded timers | LOW | Change `elapsed += deltaMs` to `elapsed = (elapsed + deltaMs) % CYCLE_MS` in DayNightCycle; similar for particle phases |
+| No crash telemetry | LOW | Add 4 event handlers (2 in main, 2 in renderer); takes 30 minutes |
+| File descriptor leak | LOW | Add `finally { stream.destroy() }` to readUsageTotals; one-line fix |
+| dismissedSessions growth | LOW | Replace Set with Map<string, number>; add pruning in updateSessions |
+| Cache accumulation | LOW | Call existing `clearSession()` method; add pruning loop in poll() |
+| Wrong diagnostic approach | HIGH | Build multi-dimensional health reporter; requires understanding which metrics to track |
 
 ---
 
@@ -493,40 +429,34 @@ Phase 2 (token counting + session metrics). Define the duration calculation algo
 
 | Pitfall | Prevention Phase | Verification |
 |---------|------------------|--------------|
-| Synchronous JSONL parsing blocks main process | Phase 1: Parsing infrastructure | Parse 18MB fixture file; confirm main process stays responsive (< 10ms IPC round-trip during parse) |
-| Window height expansion corrupts canvas | Phase 1: Window layout | Inspect canvas element after resize; `getBoundingClientRect().height` must equal 768 |
-| Dashboard in PixiJS canvas layer | Phase 1: Window layout | Dashboard must be a `<div>` element, not PixiJS Container; verify in DevTools Elements panel |
-| Token double-counting from re-reads | Phase 1: Parsing infrastructure | Parse same JSONL twice; totals must be identical to parsing once (idempotent) |
-| Cache token mis-accounting | Phase 2: Token counting | Compare 4-field breakdown against `ccusage` output; all four values must match |
-| Hardcoded pricing rates | Phase 2: Cost estimation | Change model name in test JSONL to unknown value; verify cost shows "est. (unknown)" not $0 |
-| IPC payload bloat | Phase 2: Dashboard live data | Log IPC message byte size; must stay < 10KB per 3-second tick |
-| Session duration inflation | Phase 2: Session metrics | Create test JSONL with 10-minute gap between entries; gap must not appear in computed duration |
-| Historical storage format | Phase 3: Historical data | History file must be < 10KB for 30 days of data; must load in < 50ms at startup |
-| History file corruption on crash | Phase 3: Historical data | Kill process during write; restart; history file must be valid JSON |
-| 30-day retention cleanup race | Phase 3: Historical data | Simulate 31-day history; verify cleanup completes atomically and does not corrupt file |
-| Stale pricing rates over time | Post-launch | Add UI note with last-updated date and link to Anthropic pricing page |
+| No crash telemetry (Pitfall 6) | Phase 1: Diagnosis infrastructure | Deliberately crash renderer; verify crash.log contains reason |
+| Health reporter (Pitfall 8) | Phase 1: Diagnosis infrastructure | Health metrics logged every 60s; plot shows stable or decreasing values |
+| Palette swap texture leak (Pitfall 1) | Phase 1: Resource audit + fix | 1-hour soak test: renderer RSS growth < 5MB |
+| File descriptor leak (Pitfall 5) | Phase 1: Resource audit + fix | Corrupt JSONL; verify no EMFILE after 100 polls |
+| GlowFilter leak (Pitfall 7) | Phase 1: Resource audit + fix | Trigger 10 celebrations; GPU memory returns to baseline |
+| Graphics.clear accumulation (Pitfall 2) | Phase 2: Hardening | 4-hour soak test with frequent tool changes; renderer RSS stable |
+| Unbounded timers (Pitfall 3) | Phase 2: Hardening | 8-hour soak test; day/night cycle smooth throughout |
+| dismissedSessions growth (Pitfall 4) | Phase 2: Hardening | Run with 10+ sessions cycling; Set size bounded |
+| Cache accumulation (Pitfall 10) | Phase 2: Hardening | Verify caches shrink when sessions end |
+| Whack-a-mole (Pitfall 9) | Phase 3: Soak testing | 8-hour soak test with < 50MB total growth; all metrics stable |
 
 ---
 
 ## Sources
 
-- [Electron Performance Docs](https://www.electronjs.org/docs/latest/tutorial/performance) — Main process blocking patterns and Worker Thread recommendations (HIGH confidence, official docs)
-- [The Horror of Blocking Electron's Main Process — Actual Budget](https://medium.com/actualbudget/the-horror-of-blocking-electrons-main-process-351bf11a763c) — Real-world case study on main process blocking consequences (MEDIUM confidence, verified pattern)
-- [PixiJS Issue #11427 — resizeTo ignores layout changes](https://github.com/pixijs/pixijs/issues/11427) — Confirmed PixiJS bug: resizeTo only responds to window resize events, not DOM layout changes (HIGH confidence, May 2025 issue)
-- [PixiJS Renderers Guide](https://pixijs.com/8.x/guides/components/renderers) — Official PixiJS 8 resize and resolution documentation (HIGH confidence)
-- [PixiJS Issue #4327 — DOM + PixiJS mixing](https://github.com/pixijs/pixijs/issues/4327) — Architectural complexity of DOMContainer approach (MEDIUM confidence)
-- [Electron BrowserWindow Docs](https://www.electronjs.org/docs/latest/api/browser-window) — setSize, setContentSize, content vs. window size (HIGH confidence, official docs)
-- [Electron Issue #6320 — Canvas disappears on Windows after minimize-restore](https://github.com/electron/electron/issues/6320) — Windows-specific canvas + minWidth/maxHeight interaction bug (MEDIUM confidence)
-- [Node.js Streams for Large Files — Paige Niedringhaus](https://www.paigeniedringhaus.com/blog/streams-for-the-win-a-performance-comparison-of-node-js-methods-for-reading-large-datasets-pt-2/) — Performance comparison: readFileSync vs. readline streaming for large files (HIGH confidence)
-- [ccusage — Claude Code Usage CLI](https://github.com/ryoppippi/ccusage) — Reference implementation for JSONL token aggregation; tracks all four token fields separately (HIGH confidence, active project as of 2026)
-- [Cache Tokens Dominate Quota — Claude Code Issue #24147](https://github.com/anthropics/claude-code/issues/24147) — Cache read tokens can be 99.93% of quota; confirms cache tokens must be tracked separately (HIGH confidence)
-- [Anthropic Pricing Page](https://platform.claude.com/docs/en/about-claude/pricing) — Current model rates and cache pricing multipliers (HIGH confidence, official docs)
-- [Anthropic Pricing Cut — InfoWorld](https://www.infoworld.com/article/4095894/anthropics-claude-opus-4-5-pricing-cut-signals-a-shift-in-the-enterprise-ai-market.html) — 67% Opus price cut in 2025 documents pricing volatility (HIGH confidence)
-- [Model Deprecations — Anthropic Docs](https://platform.claude.com/docs/en/about-claude/model-deprecations) — Deprecation timeline and 60-day notice policy (HIGH confidence, official docs)
-- [RxDB Electron Database Guide](https://rxdb.info/electron-database.html) — SQLite vs. JSON file tradeoffs for Electron persistence (MEDIUM confidence)
-- [Electron IPC Memory Leak — Issue #27039](https://github.com/electron/electron/issues/27039) — IPC event listener leaks when contextBridge is used incorrectly (MEDIUM confidence)
-- [Shipyard: Claude Code Tokens Explained](https://shipyard.build/blog/claude-code-tokens/) — Token type definitions and cost calculation methodology (MEDIUM confidence)
+- [PixiJS Issue #11407 -- AnimatedSprite lacks destroyTexture option in v8](https://github.com/pixijs/pixijs/issues/11407) -- Confirmed: assigning new textures to AnimatedSprite does not destroy old ones (HIGH confidence, May 2025)
+- [PixiJS Issue #10549 -- Redrawing Graphics leaks memory](https://github.com/pixijs/pixijs/issues/10549) -- Root cause: `_needsContextNeedsRebuild` array grows unbounded; fixed in PR #10560 (HIGH confidence, May 2024)
+- [PixiJS Issue #11550 -- Memory leak regression in Graphics WebGL](https://github.com/pixijs/pixijs/issues/11550) -- Regression in 8.11.0+; fixed in PR #11753 (HIGH confidence, Nov 2025)
+- [PixiJS Issue #10586 -- Memory leak in Graphics destruction in v8](https://github.com/pixijs/pixijs/issues/10586) -- Rapidly creating/destroying Graphics leaks memory (HIGH confidence, May 2024)
+- [PixiJS Issue #11331 -- Severe VRAM Management Degradation in v8](https://github.com/pixijs/pixijs/issues/11331) -- VRAM management issues in v8 (MEDIUM confidence)
+- [PixiJS Garbage Collection Guide](https://pixijs.com/8.x/guides/concepts/garbage-collection) -- TextureGCSystem: removes unused textures after 3600 frames (HIGH confidence, official docs)
+- [Electron crashReporter Docs](https://www.electronjs.org/docs/latest/api/crash-reporter) -- Must start before renderer creation; does not capture JS exceptions (HIGH confidence, official docs)
+- [Electron render-process-gone Event](https://www.electronjs.org/docs/latest/api/web-contents#event-render-process-gone) -- Reports crash reason including `oom` (HIGH confidence, official docs)
+- [Node.js Issue #1834 -- createReadStream file descriptor leak](https://github.com/nodejs/node/issues/1834) -- File descriptor leak on stream abort (MEDIUM confidence)
+- [Electron Issue #7010 -- Renderer process OOM crash](https://github.com/electron/electron/issues/7010) -- Complex apps crash when renderer runs low on memory (MEDIUM confidence)
+- [PixiJS Issue #11592 -- Canvas leak after Application.destroy](https://github.com/pixijs/pixijs/issues/11592) -- Canvas elements not cleaned up on destroy (MEDIUM confidence)
+- Direct codebase analysis of Agent World src/ (HIGH confidence -- primary source)
 
 ---
-*Pitfalls research for: Agent World v1.5 — Usage Dashboard (token tracking, cost estimation, historical stats)*
-*Researched: 2026-03-01*
+*Pitfalls research for: Agent World v2.1 -- Hardening and Crash Diagnosis (memory leak detection, silent crash fixes, codebase hardening)*
+*Researched: 2026-03-16*
