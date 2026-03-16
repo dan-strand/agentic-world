@@ -9,6 +9,7 @@ import {
   SMOKE_NIGHT_COUNT_BONUS, SMOKE_NIGHT_OPACITY_MULT, SMOKE_NIGHT_SPAWN_MULT,
 } from '../shared/constants';
 import type { WorkSpot } from '../shared/constants';
+import { GraphicsPool } from './graphics-pool';
 
 /** Chimney smoke particle data. */
 interface SmokeParticle {
@@ -55,10 +56,11 @@ export class Building extends Container {
   private toolLabel: BitmapText;
   private toolBanner: Graphics;
 
-  // Chimney smoke particle system (Phase 20)
+  // Chimney smoke particle system (Phase 20, pooled Phase 24)
   private smokeParticles: SmokeParticle[] = [];
   private smokeTimer = 0;
   private smokeContainer: Container;
+  private smokePool!: GraphicsPool;
 
   constructor(buildingType: BuildingType, texture: Texture) {
     super();
@@ -130,6 +132,19 @@ export class Building extends Container {
     this.smokeContainer = new Container();
     if (buildingType !== 'campfire') {
       this.addChild(this.smokeContainer);
+
+      // Pre-allocate smoke particle pool (covers nighttime max: base + night bonus)
+      const poolSize = CHIMNEY_SMOKE_COUNT + SMOKE_NIGHT_COUNT_BONUS;
+      this.smokePool = new GraphicsPool(
+        () => {
+          const g = new Graphics();
+          g.circle(0, 0, CHIMNEY_SMOKE_SIZE_MIN);
+          g.fill({ color: CHIMNEY_SMOKE_COLOR, alpha: 1.0 });
+          return g;
+        },
+        poolSize,
+        this.smokeContainer,
+      );
     }
   }
 
@@ -354,25 +369,25 @@ export class Building extends Container {
     if (this.smokeTimer >= spawnInterval && this.smokeParticles.length < maxSmoke) {
       this.smokeTimer -= spawnInterval;
 
-      // Spawn a new smoke puff
-      const gfx = new Graphics();
-      gfx.circle(0, 0, CHIMNEY_SMOKE_SIZE_MIN);
-      gfx.fill({ color: CHIMNEY_SMOKE_COLOR, alpha: baseAlpha });
-      gfx.position.set(chimneyPos.x, chimneyPos.y);
+      // Borrow a pre-allocated smoke Graphics from pool (no new Graphics())
+      const gfx = this.smokePool.borrow();
+      if (gfx) {
+        gfx.position.set(chimneyPos.x, chimneyPos.y);
+        gfx.alpha = baseAlpha;
 
-      // Random horizontal drift direction
-      const driftDir = Math.random() < 0.5 ? -1 : 1;
+        // Random horizontal drift direction
+        const driftDir = Math.random() < 0.5 ? -1 : 1;
 
-      const particle: SmokeParticle = {
-        gfx,
-        age: 0,
-        lifetime: CHIMNEY_SMOKE_LIFETIME_MS,
-        vx: CHIMNEY_SMOKE_DRIFT_SPEED * driftDir * (0.5 + Math.random() * 0.5),
-        vy: -CHIMNEY_SMOKE_RISE_SPEED,
-      };
+        const particle: SmokeParticle = {
+          gfx,
+          age: 0,
+          lifetime: CHIMNEY_SMOKE_LIFETIME_MS,
+          vx: CHIMNEY_SMOKE_DRIFT_SPEED * driftDir * (0.5 + Math.random() * 0.5),
+          vy: -CHIMNEY_SMOKE_RISE_SPEED,
+        };
 
-      this.smokeContainer.addChild(gfx);
-      this.smokeParticles.push(particle);
+        this.smokeParticles.push(particle);
+      }
     }
 
     // Update existing particles
@@ -395,10 +410,9 @@ export class Building extends Container {
       // Fade alpha toward 0 as age approaches lifetime (using night-modulated base alpha)
       p.gfx.alpha = baseAlpha * (1 - lifeT);
 
-      // Remove particles that exceed lifetime
+      // Return particles that exceed lifetime to pool (no destroy())
       if (p.age >= p.lifetime) {
-        this.smokeContainer.removeChild(p.gfx);
-        p.gfx.destroy();
+        this.smokePool.return(p.gfx);
         this.smokeParticles.splice(i, 1);
       }
     }

@@ -1,4 +1,5 @@
 import { Container, Graphics } from 'pixi.js';
+import { GraphicsPool } from './graphics-pool';
 import {
   AMBIENT_PARTICLE_COUNT,
   AMBIENT_PARTICLE_SIZE_MIN,
@@ -93,6 +94,7 @@ export class AmbientParticles extends Container {
   private particles: AmbientParticle[] = [];
   private sparkParticles: SparkParticle[] = [];
   private sparkTimer = 0;
+  private sparkPool: GraphicsPool;
   private dustMotes: DustMote[] = [];
   private leafParticles: LeafParticle[] = [];
 
@@ -173,6 +175,17 @@ export class AmbientParticles extends Container {
         phase: Math.random() * Math.PI * 2,
       });
     }
+
+    // --- Spark pool (pre-allocated, no create/destroy churn in tick) ---
+    this.sparkPool = new GraphicsPool(
+      () => {
+        const g = new Graphics();
+        g.circle(0, 0, SPARK_SIZE).fill({ color: SPARK_COLOR, alpha: 1.0 });
+        return g;
+      },
+      SPARK_COUNT,
+      this,
+    );
   }
 
   /**
@@ -207,24 +220,24 @@ export class AmbientParticles extends Container {
       }
     }
 
-    // --- Sparks (near Training Grounds forge) ---
+    // --- Sparks (near Training Grounds forge, pooled Phase 24) ---
     this.sparkTimer += deltaMs;
     if (this.sparkTimer >= SPARK_SPAWN_MS && this.sparkParticles.length < SPARK_COUNT) {
       this.sparkTimer -= SPARK_SPAWN_MS;
-      // Create spark at SPARK_ORIGIN with random offset
-      const gfx = new Graphics();
-      gfx.circle(0, 0, SPARK_SIZE).fill({ color: SPARK_COLOR, alpha: 1.0 });
-      gfx.position.set(
-        SPARK_ORIGIN.x + (Math.random() - 0.5) * 20,
-        SPARK_ORIGIN.y,
-      );
-      this.addChild(gfx);
-      this.sparkParticles.push({
-        gfx,
-        age: 0,
-        vx: (Math.random() - 0.5) * SPARK_DRIFT_SPEED * 2,
-        vy: -SPARK_RISE_SPEED * (0.8 + Math.random() * 0.4),
-      });
+      // Borrow a pre-allocated spark Graphics from pool (no new Graphics())
+      const gfx = this.sparkPool.borrow();
+      if (gfx) {
+        gfx.position.set(
+          SPARK_ORIGIN.x + (Math.random() - 0.5) * 20,
+          SPARK_ORIGIN.y,
+        );
+        this.sparkParticles.push({
+          gfx,
+          age: 0,
+          vx: (Math.random() - 0.5) * SPARK_DRIFT_SPEED * 2,
+          vy: -SPARK_RISE_SPEED * (0.8 + Math.random() * 0.4),
+        });
+      }
     }
     // Update existing sparks
     for (let i = this.sparkParticles.length - 1; i >= 0; i--) {
@@ -235,8 +248,7 @@ export class AmbientParticles extends Container {
       const lifeT = s.age / SPARK_LIFETIME_MS;
       s.gfx.alpha = Math.max(0, 1 - lifeT);
       if (s.age >= SPARK_LIFETIME_MS) {
-        this.removeChild(s.gfx);
-        s.gfx.destroy();
+        this.sparkPool.return(s.gfx);
         this.sparkParticles.splice(i, 1);
       }
     }
