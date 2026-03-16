@@ -71,7 +71,14 @@ Instantly see the status of all Claude Code sessions so you know which one needs
 
 ### Active
 
-(No active requirements — ready for next milestone planning)
+## Current Milestone: v2.1 Hardening and Bug Fixes
+
+**Goal:** Fix the silent crash that occurs after hours of running, and audit the codebase for brittleness.
+
+**Target features:**
+- Diagnose and fix the silent crash (likely memory leak or resource exhaustion)
+- Audit animation loop, polling, JSONL parsing, and PixiJS resources for leaks
+- Harden any brittle patterns found during the audit
 
 ### Out of Scope
 
@@ -168,4 +175,4 @@ Instantly see the status of all Claude Code sessions so you know which one needs
 | nightIntensity as central signal (v2.0) | Single value threaded from cycle → glow, smoke, particles; no duplication | ✓ Good |
 
 ---
-*Last updated: 2026-03-03 after v2.0 milestone*
+*Last updated: 2026-03-16 after v2.1 milestone start*
