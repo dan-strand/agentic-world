@@ -354,7 +354,7 @@ export class Agent extends Container {
    */
   private updateBreathing(deltaMs: number): void {
     if (!this.isBreathing) return;
-    this.breathTimer += deltaMs * BREATH_CYCLE_SPEED;
+    this.breathTimer = (this.breathTimer + deltaMs * BREATH_CYCLE_SPEED) % (2 * Math.PI);
     const t = (Math.sin(this.breathTimer) + 1) / 2; // 0..1
     this.alpha = BREATH_ALPHA_MIN + t * (BREATH_ALPHA_MAX - BREATH_ALPHA_MIN);
   }

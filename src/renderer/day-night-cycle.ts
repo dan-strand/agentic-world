@@ -29,7 +29,7 @@ export class DayNightCycle {
    * @param deltaMs - Milliseconds since last tick
    */
   tick(deltaMs: number): void {
-    this.elapsed += deltaMs;
+    this.elapsed = (this.elapsed + deltaMs) % DAY_NIGHT_CYCLE_MS;
   }
 
   /**
@@ -37,7 +37,7 @@ export class DayNightCycle {
    * 0 = cycle start (dawn), 0.5 = dusk, 1.0 = wraps to 0.
    */
   getProgress(): number {
-    return (this.elapsed % DAY_NIGHT_CYCLE_MS) / DAY_NIGHT_CYCLE_MS;
+    return this.elapsed / DAY_NIGHT_CYCLE_MS;
   }
 
   /**

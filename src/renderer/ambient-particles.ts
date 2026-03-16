@@ -200,7 +200,7 @@ export class AmbientParticles extends Container {
     const nightBoost = FIREFLY_NIGHT_ALPHA_BOOST * nightIntensity;
 
     for (const p of this.particles) {
-      p.phase += dt;
+      p.phase = (p.phase + dt) % (2 * Math.PI);
 
       // Horizontal drift
       p.gfx.x += p.driftSpeed * dt;
@@ -255,7 +255,7 @@ export class AmbientParticles extends Container {
 
     // --- Dust Motes (daytime visible, fade at night) ---
     for (const m of this.dustMotes) {
-      m.phase += dt;
+      m.phase = (m.phase + dt) % (2 * Math.PI);
 
       // Horizontal drift
       m.gfx.x += m.driftSpeed * dt;
@@ -275,7 +275,7 @@ export class AmbientParticles extends Container {
 
     // --- Drifting Leaves ---
     for (const l of this.leafParticles) {
-      l.phase += dt;
+      l.phase = (l.phase + dt) % (2 * Math.PI);
 
       // Horizontal drift with sine-wave bob (gentle sway)
       l.gfx.x += l.driftSpeed * dt + Math.sin(l.phase * l.bobSpeed) * LEAF_BOB_AMP * dt;

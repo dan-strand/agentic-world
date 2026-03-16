@@ -182,6 +182,8 @@ export async function readUsageTotals(filePath: string): Promise<TokenUsageTotal
     }
   } catch {
     // File doesn't exist, permission error, etc. -- return zero totals
+  } finally {
+    if (stream) stream.destroy();
   }
 
   return totals;
