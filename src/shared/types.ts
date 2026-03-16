@@ -31,6 +31,10 @@ export const IPC_CHANNELS = {
   GET_INITIAL_SESSIONS: 'get-initial-sessions',
   DASHBOARD_UPDATE: 'dashboard-update',
   GET_HISTORY: 'get-history',
+  CRASH_LOG_ERROR: 'crash-log-error',
+  CRASH_LOG_CRITICAL: 'crash-log-critical',
+  CRASH_MEMORY_STATS: 'crash-memory-stats',
+  CRASH_MEMORY_WARNING: 'crash-memory-warning',
 } as const;
 
 // Type-safe API exposed via contextBridge
@@ -87,6 +91,10 @@ export interface IAgentWorldAPI {
   closeWindow: () => void;
   startDrag: () => void;
   endDrag: () => void;
+  logError: (source: string, message: string, stack?: string) => void;
+  logCritical: (source: string, message: string) => void;
+  logMemoryStats: (stats: { heapUsedMB: number; rssMB: number }) => void;
+  logMemoryWarning: (message: string) => void;
 }
 
 // Token usage from a single JSONL assistant entry's message.usage
