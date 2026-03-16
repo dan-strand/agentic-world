@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Hardening and Bug Fixes
-status: completed
-stopped_at: Completed 24-02-PLAN.md
-last_updated: "2026-03-16T19:49:37.412Z"
-last_activity: 2026-03-16 -- Completed Plan 24-02 collection pruning, timer modulo wraps, stream cleanup
+status: in-progress
+stopped_at: "25-01 Task 3 checkpoint: awaiting 8-hour soak test"
+last_updated: "2026-03-16T21:47:00.000Z"
+last_activity: 2026-03-16 -- Phase 25 Plan 01 Tasks 1-2 complete, soak test scripts ready
 progress:
   total_phases: 3
   completed_phases: 2
-  total_plans: 4
+  total_plans: 5
   completed_plans: 4
-  percent: 100
+  percent: 80
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-16)
 
 **Core value:** Instantly see the status of all Claude Code sessions so you know which one needs attention next.
-**Current focus:** v2.1 Hardening and Bug Fixes -- Phase 24: Resource Leak Fixes
+**Current focus:** v2.1 Hardening and Bug Fixes -- Phase 25: Soak Testing and Verification
 
 ## Current Position
 
-Phase: 24 of 25 (Resource Leak Fixes) -- second phase of v2.1
-Plan: 2 of 2 in current phase (COMPLETE)
-Status: Phase Complete
-Last activity: 2026-03-16 -- Completed Plan 24-02 collection pruning, timer modulo wraps, stream cleanup
+Phase: 25 of 25 (Soak Testing and Verification) -- third/final phase of v2.1
+Plan: 1 of 1 in current phase (IN PROGRESS -- checkpoint at Task 3)
+Status: Awaiting 8-hour soak test
+Last activity: 2026-03-16 -- Created soak test harness and log analyzer scripts (Tasks 1-2 of 25-01)
 
-Progress: [██████████] 100%
+Progress: [████████░░] 80%
 
 ## Performance Metrics
 
@@ -87,6 +87,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-03-16T19:47:10.000Z
-Stopped at: Completed 24-02-PLAN.md
-Resume file: None
+Last session: 2026-03-16T21:47:00.000Z
+Stopped at: "25-01 Task 3 checkpoint: awaiting 8-hour soak test"
+Resume file: .planning/phases/25-soak-testing-and-verification/25-01-PLAN.md
