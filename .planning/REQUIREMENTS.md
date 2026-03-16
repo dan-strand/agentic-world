@@ -10,9 +10,9 @@ Requirements for hardening and bug fix release. Each maps to roadmap phases.
 ### Crash Diagnosis
 
 - [x] **DIAG-01**: App captures crash events (render-process-gone, uncaughtException, window.onerror) and logs them to a persistent file
-- [ ] **DIAG-02**: Game loop tick is wrapped in an error boundary so a single exception doesn't silently freeze the app
+- [x] **DIAG-02**: Game loop tick is wrapped in an error boundary so a single exception doesn't silently freeze the app
 - [x] **DIAG-03**: Crash events are logged to a persistent file via electron-log with timestamps and stack traces
-- [ ] **DIAG-04**: Memory health monitor periodically logs heap statistics to detect growing memory before crash
+- [x] **DIAG-04**: Memory health monitor periodically logs heap statistics to detect growing memory before crash
 
 ### Resource Leak Fixes
 
@@ -48,9 +48,9 @@ Requirements for hardening and bug fix release. Each maps to roadmap phases.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | DIAG-01 | Phase 23 | Complete |
-| DIAG-02 | Phase 23 | Pending |
+| DIAG-02 | Phase 23 | Complete |
 | DIAG-03 | Phase 23 | Complete |
-| DIAG-04 | Phase 23 | Pending |
+| DIAG-04 | Phase 23 | Complete |
 | LEAK-01 | Phase 24 | Pending |
 | LEAK-02 | Phase 24 | Pending |
 | LEAK-03 | Phase 24 | Pending |
