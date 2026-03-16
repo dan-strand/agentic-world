@@ -16,9 +16,9 @@ Requirements for hardening and bug fix release. Each maps to roadmap phases.
 
 ### Resource Leak Fixes
 
-- [ ] **LEAK-01**: Smoke and spark particles use object pooling instead of creating/destroying Graphics objects every tick
-- [ ] **LEAK-02**: Palette swap texture cache destroys textures when agents are removed and uses LRU eviction
-- [ ] **LEAK-03**: GlowFilter GPU resources are explicitly destroyed after celebration effects complete
+- [x] **LEAK-01**: Smoke and spark particles use object pooling instead of creating/destroying Graphics objects every tick
+- [x] **LEAK-02**: Palette swap texture cache destroys textures when agents are removed and uses LRU eviction
+- [x] **LEAK-03**: GlowFilter GPU resources are explicitly destroyed after celebration effects complete
 - [ ] **LEAK-04**: Stale entries in dismissedSessions, mtimeCache, cwdCache, and usageAggregator cache are pruned periodically
 
 ### Long-Running Stability
@@ -51,9 +51,9 @@ Requirements for hardening and bug fix release. Each maps to roadmap phases.
 | DIAG-02 | Phase 23 | Complete |
 | DIAG-03 | Phase 23 | Complete |
 | DIAG-04 | Phase 23 | Complete |
-| LEAK-01 | Phase 24 | Pending |
-| LEAK-02 | Phase 24 | Pending |
-| LEAK-03 | Phase 24 | Pending |
+| LEAK-01 | Phase 24 | Complete |
+| LEAK-02 | Phase 24 | Complete |
+| LEAK-03 | Phase 24 | Complete |
 | LEAK-04 | Phase 24 | Pending |
 | STAB-01 | Phase 24 | Pending |
 | STAB-02 | Phase 24 | Pending |

@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Hardening and Bug Fixes
 status: executing
-stopped_at: Completed 23-02-PLAN.md (Phase 23 complete)
-last_updated: "2026-03-16T19:11:27.643Z"
-last_activity: 2026-03-16 -- Completed Plan 23-02 renderer error boundary and memory monitor
+stopped_at: Completed 24-01-PLAN.md
+last_updated: "2026-03-16T19:41:15.359Z"
+last_activity: 2026-03-16 -- Completed Plan 24-01 GPU resource leak fixes (GraphicsPool, palette swap, GlowFilter)
 progress:
   total_phases: 3
   completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
-  percent: 100
+  total_plans: 4
+  completed_plans: 3
+  percent: 96
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-16)
 
 **Core value:** Instantly see the status of all Claude Code sessions so you know which one needs attention next.
-**Current focus:** v2.1 Hardening and Bug Fixes -- Phase 23: Crash Diagnosis Infrastructure
+**Current focus:** v2.1 Hardening and Bug Fixes -- Phase 24: Resource Leak Fixes
 
 ## Current Position
 
-Phase: 23 of 25 (Crash Diagnosis Infrastructure) -- first phase of v2.1
-Plan: 2 of 2 in current phase (PHASE COMPLETE)
+Phase: 24 of 25 (Resource Leak Fixes) -- second phase of v2.1
+Plan: 1 of 2 in current phase
 Status: Executing
-Last activity: 2026-03-16 -- Completed Plan 23-02 renderer error boundary and memory monitor
+Last activity: 2026-03-16 -- Completed Plan 24-01 GPU resource leak fixes (GraphicsPool, palette swap, GlowFilter)
 
-Progress: [██████████] 100%
+Progress: [██████████] 96%
 
 ## Performance Metrics
 
@@ -64,6 +64,9 @@ Recent decisions affecting current work:
 - [Phase 23]: Extracted checkTrend as pure function for testability instead of mocking performance.memory
 - [Phase 23]: Used performance.memory (Chromium-specific) since renderer is sandboxed with nodeIntegration: false
 - [Phase 23]: ErrorTracker co-located in game-loop.ts for single import adjacency
+- [Phase 24]: Pre-draw particle geometry once with fill alpha 1.0, use gfx.alpha for runtime fade
+- [Phase 24]: Exposed swapCache via _getSwapCacheForTesting() for test-only cache manipulation
+- [Phase 24]: Save agent characterClass/paletteIndex before destroy() since destroy invalidates the object
 
 ### Blockers/Concerns
 
@@ -81,6 +84,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-03-16T19:09:21Z
-Stopped at: Completed 23-02-PLAN.md (Phase 23 complete)
+Last session: 2026-03-16T19:41:15.357Z
+Stopped at: Completed 24-01-PLAN.md
 Resume file: None

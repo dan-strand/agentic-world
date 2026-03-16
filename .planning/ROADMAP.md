@@ -129,7 +129,7 @@ Plans:
   3. After a celebration effect completes, GPU resources (GlowFilter shaders, render textures) are fully released -- triggering 50 celebrations does not increase baseline GPU memory
   4. Stale entries in dismissedSessions, mtimeCache, cwdCache, and usageAggregator cache are pruned on a periodic schedule; collections do not grow monotonically
   5. Timer accumulators (DayNightCycle.elapsed, particle phase, breathTimer) wrap via modulo and never exceed one cycle period; JSONL readline streams are destroyed in a finally block on every code path
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 Plans:
 - [ ] 24-01-PLAN.md -- GPU resource leak fixes: GraphicsPool for particles, palette swap cache lifecycle, GlowFilter explicit destruction
 - [ ] 24-02-PLAN.md -- Stability fixes: collection pruning, timer modulo wraps, stream cleanup
@@ -174,5 +174,5 @@ Phases execute in numeric order: 23 → 24 → 25
 | 21. Character Identity | v2.0 | 2/2 | Complete | 2026-03-03 |
 | 22. Day/Night Cycle & Atmosphere | v2.0 | 2/2 | Complete | 2026-03-03 |
 | 23. Crash Diagnosis Infrastructure | 2/2 | Complete    | 2026-03-16 | - |
-| 24. Resource Leak Fixes | v2.1 | 0/2 | Not started | - |
+| 24. Resource Leak Fixes | 1/2 | In Progress|  | - |
 | 25. Soak Testing and Verification | v2.1 | 0/? | Not started | - |
