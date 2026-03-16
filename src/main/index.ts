@@ -4,6 +4,8 @@ import { FilesystemSessionDetector } from './session-detector';
 import { SessionStore } from './session-store';
 import { UsageAggregator } from './usage-aggregator';
 import { HistoryStore } from './history-store';
+import { CrashLogger } from './crash-logger';
+import { IPC_CHANNELS } from '../shared/types';
 
 // Forge webpack magic globals for entry point URLs
 declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
@@ -22,6 +24,38 @@ const detector = new FilesystemSessionDetector();
 const usageAggregator = new UsageAggregator();
 const historyStore = new HistoryStore(app.getPath('userData'));
 const store = new SessionStore(detector, usageAggregator, historyStore);
+
+// Initialize crash logging infrastructure
+const crashLogger = new CrashLogger(app.getPath('userData'));
+crashLogger.checkPreviousCrash();
+
+// Catch uncaught exceptions in the main process -- log and exit
+process.on('uncaughtException', (error) => {
+  crashLogger.logCrash('main-uncaughtException', error.message, error.stack);
+  // Allow time for electron-log to flush, then exit
+  setTimeout(() => app.exit(1), 1000);
+});
+
+// Catch unhandled promise rejections in the main process
+process.on('unhandledRejection', (reason) => {
+  const msg = reason instanceof Error ? reason.message : String(reason);
+  const stack = reason instanceof Error ? reason.stack : undefined;
+  crashLogger.logError('main-unhandledRejection', msg + (stack ? '\n' + stack : ''));
+});
+
+// IPC listeners for renderer crash logging
+ipcMain.on(IPC_CHANNELS.CRASH_LOG_ERROR, (_event, source: string, message: string, stack?: string) => {
+  crashLogger.logError(source, stack ? message + '\n' + stack : message);
+});
+ipcMain.on(IPC_CHANNELS.CRASH_LOG_CRITICAL, (_event, source: string, message: string) => {
+  crashLogger.logCrash(source, message);
+});
+ipcMain.on(IPC_CHANNELS.CRASH_MEMORY_STATS, (_event, stats: { heapUsedMB: number; rssMB: number }) => {
+  crashLogger.logMemoryStats(stats);
+});
+ipcMain.on(IPC_CHANNELS.CRASH_MEMORY_WARNING, (_event, message: string) => {
+  crashLogger.logMemoryWarning(message);
+});
 
 const createWindow = (): void => {
   const mainWindow = new BrowserWindow({
@@ -48,6 +82,11 @@ const createWindow = (): void => {
   // Log renderer console output to main process stdout
   mainWindow.webContents.on('console-message', (event) => {
     console.log(`[renderer] ${event.message}`);
+  });
+
+  // Log renderer process crashes to crash.log
+  mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    crashLogger.logCrash('render-process-gone', details.reason, `exitCode=${details.exitCode}`);
   });
 
   // Open DevTools in development for debugging

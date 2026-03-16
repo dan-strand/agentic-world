@@ -30,4 +30,16 @@ contextBridge.exposeInMainWorld('agentWorld', {
   endDrag: (): void => {
     ipcRenderer.send('window-drag-end');
   },
+  logError: (source: string, message: string, stack?: string): void => {
+    ipcRenderer.send(IPC_CHANNELS.CRASH_LOG_ERROR, source, message, stack);
+  },
+  logCritical: (source: string, message: string): void => {
+    ipcRenderer.send(IPC_CHANNELS.CRASH_LOG_CRITICAL, source, message);
+  },
+  logMemoryStats: (stats: { heapUsedMB: number; rssMB: number }): void => {
+    ipcRenderer.send(IPC_CHANNELS.CRASH_MEMORY_STATS, stats);
+  },
+  logMemoryWarning: (message: string): void => {
+    ipcRenderer.send(IPC_CHANNELS.CRASH_MEMORY_WARNING, message);
+  },
 });
