@@ -12,6 +12,25 @@ import { initActivityIcons } from './activity-icons';
 import { loadAllAssets } from './asset-loader';
 import { SoundManager } from './sound-manager';
 import { DashboardPanel } from './dashboard-panel';
+import { MemoryMonitor } from './memory-monitor';
+
+// Global error handlers -- installed before main() so they catch init errors too
+window.onerror = (message, source, lineno, colno, error) => {
+  window.agentWorld.logError(
+    'renderer',
+    `${message} at ${source}:${lineno}:${colno}`,
+    error?.stack
+  );
+};
+
+window.onunhandledrejection = (event) => {
+  const reason = event.reason;
+  window.agentWorld.logError(
+    'renderer-promise',
+    reason instanceof Error ? reason.message : String(reason),
+    reason instanceof Error ? reason.stack : undefined
+  );
+};
 
 async function main(): Promise<void> {
   // Wire window control buttons
@@ -53,6 +72,13 @@ async function main(): Promise<void> {
   const gameLoop = new GameLoop(world.getApp(), world);
   gameLoop.start();
   console.log('[renderer] GameLoop started');
+
+  // Start memory monitoring (60s sampling with heap trend detection)
+  const memoryMonitor = new MemoryMonitor({
+    onStats: (stats) => window.agentWorld.logMemoryStats(stats),
+    onWarning: (message) => window.agentWorld.logMemoryWarning(message),
+  });
+  memoryMonitor.start();
 
   // 3. Wire IPC -> visuals
   window.agentWorld.onSessionsUpdate((sessions: SessionInfo[]) => {
@@ -118,6 +144,7 @@ async function main(): Promise<void> {
 
 main().catch(err => {
   console.error('[renderer] Failed to initialize Agent World:', err);
+  window.agentWorld.logError('renderer-init', err?.message || String(err), err?.stack);
   // Show error visually in the DOM so it's visible without DevTools
   const errDiv = document.createElement('div');
   errDiv.style.cssText = 'color:red;padding:20px;font-family:monospace;white-space:pre-wrap;';
