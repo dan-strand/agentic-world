@@ -174,5 +174,5 @@ Phases execute in numeric order: 23 → 24 → 25
 | 21. Character Identity | v2.0 | 2/2 | Complete | 2026-03-03 |
 | 22. Day/Night Cycle & Atmosphere | v2.0 | 2/2 | Complete | 2026-03-03 |
 | 23. Crash Diagnosis Infrastructure | 2/2 | Complete    | 2026-03-16 | - |
-| 24. Resource Leak Fixes | 2/2 | Complete   | 2026-03-16 | - |
+| 24. Resource Leak Fixes | 2/2 | Complete    | 2026-03-16 | - |
 | 25. Soak Testing and Verification | v2.1 | 0/? | Not started | - |
