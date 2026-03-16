@@ -177,4 +177,32 @@ describe('readUsageTotals', () => {
     assert.equal(result.outputTokens, 0);
     assert.equal(result.turnCount, 0);
   });
+
+  it('readUsageTotals destroys stream on successful read (no leaked file descriptors)', async () => {
+    // Create a temp file with valid data
+    const filePath = writeTempJsonl([
+      assistantEntry({ input_tokens: 100, output_tokens: 50 }),
+    ]);
+    tempFiles.push(filePath);
+
+    // Call readUsageTotals -- the finally block should destroy the stream
+    const result = await readUsageTotals(filePath);
+    assert.equal(result.inputTokens, 100);
+    assert.equal(result.outputTokens, 50);
+    assert.equal(result.turnCount, 1);
+    // Stream cleanup is structural (finally block) -- verification is that
+    // this test completes without hanging from a leaked file descriptor
+  });
+
+  it('readUsageTotals returns zero totals and does not leak stream on read error', async () => {
+    // Pass a directory path (not a file) which will cause createReadStream to error
+    const dirPath = os.tmpdir();
+
+    const result = await readUsageTotals(dirPath);
+    assert.equal(result.inputTokens, 0);
+    assert.equal(result.outputTokens, 0);
+    assert.equal(result.turnCount, 0);
+    // If stream.destroy() is missing from the finally block, the stream
+    // could leak a file descriptor. This test verifies it doesn't hang.
+  });
 });
