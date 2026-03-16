@@ -12,7 +12,7 @@ export function parseMemoryLine(
   line: string
 ): { timestamp: string; heapMB: number; rssMB: number } | null {
   const match = line.match(
-    /^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3})\] \[info\] \[MEMORY\] heap=([\d.]+)MB rss=([\d.]+)MB/
+    /^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3})\] \[info\]\s+\[MEMORY\] heap=([\d.]+)MB rss=([\d.]+)MB/
   );
   if (!match) return null;
   return {
