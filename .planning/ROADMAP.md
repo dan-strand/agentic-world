@@ -9,6 +9,7 @@
 - ✅ **v1.4 Enhanced Session Workspaces** - Phases 14-16 (shipped 2026-02-27)
 - ✅ **v1.5 Usage Dashboard** - Phases 17-19 (shipped 2026-03-01)
 - ✅ **v2.0 World & Character Detail** - Phases 20-22 (shipped 2026-03-03)
+- 🚧 **v2.1 Hardening and Bug Fixes** - Phases 23-25 (in progress)
 
 ## Phases
 
@@ -94,7 +95,53 @@ See: [`.planning/milestones/v2.0-ROADMAP.md`](milestones/v2.0-ROADMAP.md) for fu
 
 </details>
 
+### 🚧 v2.1 Hardening and Bug Fixes (In Progress)
+
+**Milestone Goal:** Fix the silent crash that occurs after hours of running by instrumenting crash detection, eliminating all identified resource leaks, and proving stability with an 8-hour soak test.
+
+- [ ] **Phase 23: Crash Diagnosis Infrastructure** - Crash event handlers, error boundaries, persistent logging, and memory health monitoring
+- [ ] **Phase 24: Resource Leak Fixes** - Object pooling, texture cache lifecycle, filter cleanup, collection pruning, timer wrapping, and stream hardening
+- [ ] **Phase 25: Soak Testing and Verification** - 8-hour continuous run proving all leaks are eliminated
+
+## Phase Details
+
+### Phase 23: Crash Diagnosis Infrastructure
+**Goal**: The app captures and logs every crash, exception, and memory anomaly so no failure is ever silent again
+**Depends on**: Phase 22
+**Requirements**: DIAG-01, DIAG-02, DIAG-03, DIAG-04
+**Success Criteria** (what must be TRUE):
+  1. When the renderer process crashes or goes unresponsive, the crash reason and timestamp are written to a log file that survives the crash
+  2. When a single exception occurs inside the game loop tick, the world continues running (the error is logged, not propagated)
+  3. Crash log file at a known location contains timestamped entries with stack traces that can be read after a restart
+  4. Memory health stats (heap size, RSS, process memory) are periodically logged, and a sustained upward trend triggers a warning entry in the log
+**Plans**: TBD
+
+### Phase 24: Resource Leak Fixes
+**Goal**: Every identified source of unbounded memory/GPU/handle growth is eliminated so the app can run indefinitely without resource exhaustion
+**Depends on**: Phase 23
+**Requirements**: LEAK-01, LEAK-02, LEAK-03, LEAK-04, STAB-01, STAB-02
+**Success Criteria** (what must be TRUE):
+  1. Smoke and spark particles reuse a fixed pool of Graphics objects -- no new Graphics are created or destroyed during normal operation
+  2. When an agent is removed, its palette-swapped textures are destroyed and freed from the cache; the cache does not grow without bound
+  3. After a celebration effect completes, GPU resources (GlowFilter shaders, render textures) are fully released -- triggering 50 celebrations does not increase baseline GPU memory
+  4. Stale entries in dismissedSessions, mtimeCache, cwdCache, and usageAggregator cache are pruned on a periodic schedule; collections do not grow monotonically
+  5. Timer accumulators (DayNightCycle.elapsed, particle phase, breathTimer) wrap via modulo and never exceed one cycle period; JSONL readline streams are destroyed in a finally block on every code path
+**Plans**: TBD
+
+### Phase 25: Soak Testing and Verification
+**Goal**: The app proves it can run for 8 continuous hours without meaningful memory growth, confirming all leaks are fixed
+**Depends on**: Phase 24
+**Requirements**: STAB-03
+**Success Criteria** (what must be TRUE):
+  1. The app runs continuously for 8 hours without crashing, freezing, or becoming unresponsive
+  2. Total renderer process memory growth over the 8-hour run is less than 50MB
+  3. Health monitor logs show no monotonically increasing metric -- all resource counters are stable or periodic
+**Plans**: TBD
+
 ## Progress
+
+**Execution Order:**
+Phases execute in numeric order: 23 → 24 → 25
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -120,3 +167,6 @@ See: [`.planning/milestones/v2.0-ROADMAP.md`](milestones/v2.0-ROADMAP.md) for fu
 | 20. World & Building Art | v2.0 | 3/3 | Complete | 2026-03-03 |
 | 21. Character Identity | v2.0 | 2/2 | Complete | 2026-03-03 |
 | 22. Day/Night Cycle & Atmosphere | v2.0 | 2/2 | Complete | 2026-03-03 |
+| 23. Crash Diagnosis Infrastructure | v2.1 | 0/? | Not started | - |
+| 24. Resource Leak Fixes | v2.1 | 0/? | Not started | - |
+| 25. Soak Testing and Verification | v2.1 | 0/? | Not started | - |

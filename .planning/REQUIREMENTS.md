@@ -47,23 +47,23 @@ Requirements for hardening and bug fix release. Each maps to roadmap phases.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DIAG-01 | — | Pending |
-| DIAG-02 | — | Pending |
-| DIAG-03 | — | Pending |
-| DIAG-04 | — | Pending |
-| LEAK-01 | — | Pending |
-| LEAK-02 | — | Pending |
-| LEAK-03 | — | Pending |
-| LEAK-04 | — | Pending |
-| STAB-01 | — | Pending |
-| STAB-02 | — | Pending |
-| STAB-03 | — | Pending |
+| DIAG-01 | Phase 23 | Pending |
+| DIAG-02 | Phase 23 | Pending |
+| DIAG-03 | Phase 23 | Pending |
+| DIAG-04 | Phase 23 | Pending |
+| LEAK-01 | Phase 24 | Pending |
+| LEAK-02 | Phase 24 | Pending |
+| LEAK-03 | Phase 24 | Pending |
+| LEAK-04 | Phase 24 | Pending |
+| STAB-01 | Phase 24 | Pending |
+| STAB-02 | Phase 24 | Pending |
+| STAB-03 | Phase 25 | Pending |
 
 **Coverage:**
 - v2.1 requirements: 11 total
-- Mapped to phases: 0
-- Unmapped: 11 ⚠️
+- Mapped to phases: 11
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-16*
-*Last updated: 2026-03-16 after initial definition*
+*Last updated: 2026-03-16 after roadmap creation*

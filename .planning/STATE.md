@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Hardening and Bug Fixes
-status: defining_requirements
+status: ready_to_plan
 last_updated: "2026-03-16T00:00:00.000Z"
 progress:
-  total_phases: 0
+  total_phases: 3
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -18,14 +18,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-16)
 
 **Core value:** Instantly see the status of all Claude Code sessions so you know which one needs attention next.
-**Current focus:** v2.1 Hardening and Bug Fixes
+**Current focus:** v2.1 Hardening and Bug Fixes -- Phase 23: Crash Diagnosis Infrastructure
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-03-16 — Milestone v2.1 started
+Phase: 23 of 25 (Crash Diagnosis Infrastructure) -- first phase of v2.1
+Plan: 0 of ? in current phase (not yet planned)
+Status: Ready to plan
+Last activity: 2026-03-16 -- Roadmap created for v2.1
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -50,10 +50,16 @@ Progress: [░░░░░░░░░░] 0%
 ### Decisions
 
 Decisions are logged in PROJECT.md Key Decisions table.
+Recent decisions affecting current work:
+
+- [v2.1]: Instrumentation before fixes -- cannot verify leak fixes without baseline health metrics (from research)
+- [v2.1]: Object pooling over create/destroy -- eliminates GPU allocation churn risk entirely rather than relying on PixiJS 8.16.0 fix completeness
+- [v2.1]: Soak test as definition of done -- 8 hours with <50MB growth proves stability
 
 ### Blockers/Concerns
 
-None.
+- Research flag: Graphics object pool must correctly reset all state (position, alpha, scale, tint, visibility, geometry) on return. May need investigation during Phase 24 planning.
+- Research flag: palette swap texture.destroy(true) effectiveness needs verification during Phase 24 implementation.
 
 ### Quick Tasks Completed
 
@@ -65,5 +71,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-16
-Stopped at: Starting v2.1 Hardening and Bug Fixes milestone
+Stopped at: Roadmap created for v2.1 Hardening and Bug Fixes
 Resume file: None
