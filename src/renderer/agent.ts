@@ -56,11 +56,11 @@ export class Agent extends Container {
   readonly sessionId: string;
   private state: AgentState = 'idle_at_hq';
   private sprite: AnimatedSprite;
-  private characterClass: CharacterClass;
+  readonly characterClass: CharacterClass;
   private currentAnimState: AnimState = 'idle';
 
   // Character identity (palette swap, gear overlay, name label)
-  private paletteIndex: number;
+  readonly paletteIndex: number;
   private gearIndex: number;
   private gearSprite: Sprite | null = null;
 
@@ -230,12 +230,8 @@ export class Agent extends Container {
         }
         this.setAnimation('celebrate'); // Class-specific celebrate animation
         if (this.celebrationTimer >= CELEBRATION_DURATION_MS) {
-          // Clean up level-up effect
-          if (this.levelUpEffect) {
-            this.removeChild(this.levelUpEffect);
-            this.levelUpEffect.destroy({ children: true });
-            this.levelUpEffect = null;
-          }
+          // Clean up level-up effect (destroys GlowFilter GPU resources)
+          this.cleanupLevelUpEffect();
           // Walk directly to HQ (no vehicle)
           this.state = 'walking_to_building';
           this.buildingEntrance = this.hqPosition;
@@ -395,12 +391,8 @@ export class Agent extends Container {
    */
   startFadeOut(): void {
     if (this.state === 'fading_out') return;
-    // Clean up celebration effect if mid-celebration
-    if (this.levelUpEffect) {
-      this.removeChild(this.levelUpEffect);
-      this.levelUpEffect.destroy({ children: true });
-      this.levelUpEffect = null;
-    }
+    // Clean up celebration effect if mid-celebration (destroys GlowFilter GPU resources)
+    this.cleanupLevelUpEffect();
     this.state = 'fading_out';
     this.fadeOutTimer = 0;
   }
@@ -427,6 +419,18 @@ export class Agent extends Container {
     this.tintTimer = 0;
     this.tint = 0xffffff;
     this.setAnimation('idle');
+  }
+
+  /**
+   * Clean up the LevelUpEffect if present.
+   * Destroys GlowFilter GPU resources before container destroy to prevent shader leaks.
+   */
+  private cleanupLevelUpEffect(): void {
+    if (!this.levelUpEffect) return;
+    this.levelUpEffect.cleanupFilters();
+    this.removeChild(this.levelUpEffect);
+    this.levelUpEffect.destroy({ children: true });
+    this.levelUpEffect = null;
   }
 
   /**

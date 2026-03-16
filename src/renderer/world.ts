@@ -30,6 +30,7 @@ import { AmbientParticles } from './ambient-particles';
 import { SoundManager } from './sound-manager';
 import { DayNightCycle } from './day-night-cycle';
 import { buildNightGlowLayer, updateNightGlowLayer } from './night-glow-layer';
+import { destroyCachedTextures } from './palette-swap';
 
 /** Per-agent status debounce tracking to prevent jittery visual flickering. */
 interface StatusDebounce {
@@ -473,8 +474,20 @@ export class World {
       this.agentsContainer.removeChild(agent);
     }
 
+    // Save characterClass and paletteIndex BEFORE destroy invalidates the object
+    const savedClass = agent.characterClass;
+    const savedPaletteIndex = agent.paletteIndex;
+
     // Destroy PixiJS container + all children (AnimatedSprite, SpeechBubble)
     agent.destroy({ children: true });
+
+    // Clean up palette swap textures if no other active agent shares the same class+palette combo
+    const shouldCleanup = ![...this.agents.values()].some(
+      a => a !== agent && a.characterClass === savedClass && a.paletteIndex === savedPaletteIndex,
+    );
+    if (shouldCleanup) {
+      destroyCachedTextures(savedClass, savedPaletteIndex);
+    }
 
     // Clean ALL tracking Maps
     this.agents.delete(sessionId);

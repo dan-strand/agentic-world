@@ -1,4 +1,4 @@
-import { Container, Graphics, FillGradient } from 'pixi.js';
+import { Container, Graphics, FillGradient, Filter } from 'pixi.js';
 import { GlowFilter } from 'pixi-filters';
 import {
   LEVEL_UP_DURATION_MS,
@@ -151,5 +151,19 @@ export class LevelUpEffect extends Container {
    */
   isDone(): boolean {
     return this.done;
+  }
+
+  /**
+   * Explicitly destroy GPU resources for all filters (GlowFilter shader programs).
+   * Must be called BEFORE container.destroy() since Container.destroy() does NOT
+   * destroy filters -- they must be cleaned up manually.
+   */
+  cleanupFilters(): void {
+    if (this.filters) {
+      for (const f of this.filters) {
+        (f as Filter).destroy();
+      }
+      this.filters = [];
+    }
   }
 }

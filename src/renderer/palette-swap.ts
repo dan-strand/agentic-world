@@ -112,3 +112,39 @@ export function createPaletteSwappedTextures(
   swapCache.set(cacheKey, swapped);
   return swapped;
 }
+
+/**
+ * Destroy all cached palette-swapped textures for a specific class+palette combo.
+ * Call when an agent is removed and no other active agent shares the same combo.
+ *
+ * Destroys both the ImageSource (GPU texture) and the Texture wrapper for each entry.
+ * Multiple cache entries may match (one per animation state with different firstTextureUid).
+ */
+export function destroyCachedTextures(characterClass: CharacterClass, paletteIndex: number): void {
+  const prefix = `${characterClass}_${paletteIndex}_`;
+  for (const [key, textures] of swapCache) {
+    if (key.startsWith(prefix)) {
+      for (const tex of textures) {
+        tex.source?.destroy();
+        tex.destroy();
+      }
+      swapCache.delete(key);
+    }
+  }
+}
+
+/**
+ * Get the current number of entries in the swap cache.
+ * Useful for monitoring cache growth and verifying cleanup.
+ */
+export function getSwapCacheSize(): number {
+  return swapCache.size;
+}
+
+/**
+ * Expose the swap cache for testing purposes only.
+ * @internal
+ */
+export function _getSwapCacheForTesting(): Map<string, Texture[]> {
+  return swapCache;
+}
