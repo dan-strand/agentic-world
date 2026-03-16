@@ -520,12 +520,14 @@ export class World {
     // Destroy PixiJS container + all children (AnimatedSprite, SpeechBubble)
     agent.destroy({ children: true });
 
-    // Clean up palette swap textures if no other active agent shares the same class+palette combo
+    // Clean up palette swap textures if no other active agent shares the same class+palette combo.
+    // Deferred to next frame via setTimeout(0) to avoid destroying textures that PixiJS
+    // may still reference during the current render pass (causes null style crash in GlTextureSystem).
     const shouldCleanup = ![...this.agents.values()].some(
       a => a !== agent && a.characterClass === savedClass && a.paletteIndex === savedPaletteIndex,
     );
     if (shouldCleanup) {
-      destroyCachedTextures(savedClass, savedPaletteIndex);
+      setTimeout(() => destroyCachedTextures(savedClass, savedPaletteIndex), 0);
     }
 
     // Clean ALL tracking Maps
