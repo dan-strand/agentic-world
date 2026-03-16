@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Hardening and Bug Fixes
 status: executing
-stopped_at: Completed 24-01-PLAN.md
-last_updated: "2026-03-16T19:41:15.359Z"
-last_activity: 2026-03-16 -- Completed Plan 24-01 GPU resource leak fixes (GraphicsPool, palette swap, GlowFilter)
+stopped_at: Completed 24-02-PLAN.md
+last_updated: "2026-03-16T19:47:10.000Z"
+last_activity: 2026-03-16 -- Completed Plan 24-02 collection pruning, timer modulo wraps, stream cleanup
 progress:
   total_phases: 3
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 4
-  completed_plans: 3
-  percent: 96
+  completed_plans: 4
+  percent: 100
 ---
 
 # Project State
@@ -26,16 +26,16 @@ See: .planning/PROJECT.md (updated 2026-03-16)
 ## Current Position
 
 Phase: 24 of 25 (Resource Leak Fixes) -- second phase of v2.1
-Plan: 1 of 2 in current phase
-Status: Executing
-Last activity: 2026-03-16 -- Completed Plan 24-01 GPU resource leak fixes (GraphicsPool, palette swap, GlowFilter)
+Plan: 2 of 2 in current phase (COMPLETE)
+Status: Phase Complete
+Last activity: 2026-03-16 -- Completed Plan 24-02 collection pruning, timer modulo wraps, stream cleanup
 
-Progress: [██████████] 96%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 45 (v1.0: 9, v1.1: 9, v1.2: 4, v1.3: 4, v1.4: 6, v1.5: 6, v2.0: 7)
+- Total plans completed: 46 (v1.0: 9, v1.1: 9, v1.2: 4, v1.3: 4, v1.4: 6, v1.5: 6, v2.0: 7, v2.1: 4+)
 - Total execution time: ~5 days
 
 ## Shipped Milestones
@@ -67,6 +67,9 @@ Recent decisions affecting current work:
 - [Phase 24]: Pre-draw particle geometry once with fill alpha 1.0, use gfx.alpha for runtime fade
 - [Phase 24]: Exposed swapCache via _getSwapCacheForTesting() for test-only cache manipulation
 - [Phase 24]: Save agent characterClass/paletteIndex before destroy() since destroy invalidates the object
+- [Phase 24]: pruneByAge exported as pure function from world.ts for testability (same pattern as Phase 23 checkTrend)
+- [Phase 24]: pruneStaleEntries as optional method on SessionDetector interface to avoid runtime casting
+- [Phase 24]: dismissedSessions pruning: 5 min interval, 30 min max age
 
 ### Blockers/Concerns
 
@@ -84,6 +87,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-03-16T19:41:15.357Z
-Stopped at: Completed 24-01-PLAN.md
+Last session: 2026-03-16T19:47:10.000Z
+Stopped at: Completed 24-02-PLAN.md
 Resume file: None

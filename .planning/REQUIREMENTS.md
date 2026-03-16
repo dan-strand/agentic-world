@@ -19,12 +19,12 @@ Requirements for hardening and bug fix release. Each maps to roadmap phases.
 - [x] **LEAK-01**: Smoke and spark particles use object pooling instead of creating/destroying Graphics objects every tick
 - [x] **LEAK-02**: Palette swap texture cache destroys textures when agents are removed and uses LRU eviction
 - [x] **LEAK-03**: GlowFilter GPU resources are explicitly destroyed after celebration effects complete
-- [ ] **LEAK-04**: Stale entries in dismissedSessions, mtimeCache, cwdCache, and usageAggregator cache are pruned periodically
+- [x] **LEAK-04**: Stale entries in dismissedSessions, mtimeCache, cwdCache, and usageAggregator cache are pruned periodically
 
 ### Long-Running Stability
 
-- [ ] **STAB-01**: Timer accumulators (DayNightCycle.elapsed, particle phase, breathTimer) use modulo wrap to prevent floating-point precision drift
-- [ ] **STAB-02**: JSONL readline streams are properly cleaned up with finally { stream.destroy() }
+- [x] **STAB-01**: Timer accumulators (DayNightCycle.elapsed, particle phase, breathTimer) use modulo wrap to prevent floating-point precision drift
+- [x] **STAB-02**: JSONL readline streams are properly cleaned up with finally { stream.destroy() }
 - [ ] **STAB-03**: Milestone passes an 8-hour soak test with less than 50MB total memory growth
 
 ## Future Requirements
@@ -54,9 +54,9 @@ Requirements for hardening and bug fix release. Each maps to roadmap phases.
 | LEAK-01 | Phase 24 | Complete |
 | LEAK-02 | Phase 24 | Complete |
 | LEAK-03 | Phase 24 | Complete |
-| LEAK-04 | Phase 24 | Pending |
-| STAB-01 | Phase 24 | Pending |
-| STAB-02 | Phase 24 | Pending |
+| LEAK-04 | Phase 24 | Complete |
+| STAB-01 | Phase 24 | Complete |
+| STAB-02 | Phase 24 | Complete |
 | STAB-03 | Phase 25 | Pending |
 
 **Coverage:**
