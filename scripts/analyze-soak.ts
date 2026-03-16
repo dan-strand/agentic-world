@@ -120,7 +120,7 @@ export function parseAnalyzerArgs(
   if (platform === 'win32') {
     defaultLogPath = path.join(
       process.env.APPDATA ?? path.join(os.homedir(), 'AppData', 'Roaming'),
-      'agent-world',
+      'Agent World',
       'crash.log'
     );
   } else if (platform === 'darwin') {
@@ -128,14 +128,14 @@ export function parseAnalyzerArgs(
       os.homedir(),
       'Library',
       'Application Support',
-      'agent-world',
+      'Agent World',
       'crash.log'
     );
   } else {
     defaultLogPath = path.join(
       os.homedir(),
       '.config',
-      'agent-world',
+      'Agent World',
       'crash.log'
     );
   }

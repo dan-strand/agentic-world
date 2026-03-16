@@ -17,4 +17,8 @@ export const mainConfig: Configuration = {
   resolve: {
     extensions: ['.js', '.ts', '.jsx', '.tsx', '.css', '.json'],
   },
+  externals: {
+    'electron-log': 'commonjs electron-log',
+    'electron-log/main': 'commonjs electron-log/main',
+  },
 };
