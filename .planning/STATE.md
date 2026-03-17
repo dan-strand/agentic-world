@@ -82,6 +82,7 @@ Recent decisions affecting current work:
 |---|-------------|------|--------|-----------|
 | 6 | Fix avatar working in wrong area and disappearing behind bottom-left section | 2026-03-03 | 074b9e8 | [6-there-are-jobs-being-done-in-the-top-lef](./quick/6-there-are-jobs-being-done-in-the-top-lef/) |
 | 7 | Add ambient idle agents at campfire | 2026-03-03 | 37f9087 | [7-can-we-have-a-couple-of-idle-agents-arou](./quick/7-can-we-have-a-couple-of-idle-agents-arou/) |
+| 8 | Fix audio not playing when window unfocused | 2026-03-17 | 2c31f80 | [8-when-the-window-doesn-t-have-focus-it-no](./quick/8-when-the-window-doesn-t-have-focus-it-no/) |
 | Phase 23 P01 | 3min | 2 tasks | 7 files |
 | Phase 23 P02 | 3min | 3 tasks | 5 files |
 
