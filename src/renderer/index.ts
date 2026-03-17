@@ -92,13 +92,14 @@ async function main(): Promise<void> {
   world.updateSessions(initialSessions);
   gameLoop.onSessionsUpdate(initialSessions);
 
-  // 5. Handle minimize/restore for adaptive frame rate (window is fixed-size, no resize handler needed)
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden) {
-      gameLoop.onWindowMinimized();
-    } else {
-      gameLoop.onWindowRestored();
-    }
+  // 5. Handle minimize/restore for adaptive frame rate
+  // Uses Electron IPC (not visibilitychange) so the ticker keeps running when
+  // window loses focus but is NOT minimized -- critical for background audio.
+  window.agentWorld.onWindowMinimized(() => {
+    gameLoop.onWindowMinimized();
+  });
+  window.agentWorld.onWindowRestored(() => {
+    gameLoop.onWindowRestored();
   });
 
   // 6. Wire audio controls
