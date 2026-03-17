@@ -74,10 +74,20 @@ const createWindow = (): void => {
       preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
       contextIsolation: true,
       nodeIntegration: false,
+      backgroundThrottling: false,
     },
   });
 
   mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
+
+  // Forward native minimize/restore events to renderer via IPC
+  // so the renderer can distinguish "minimized" from "unfocused"
+  mainWindow.on('minimize', () => {
+    mainWindow.webContents.send(IPC_CHANNELS.WINDOW_MINIMIZED);
+  });
+  mainWindow.on('restore', () => {
+    mainWindow.webContents.send(IPC_CHANNELS.WINDOW_RESTORED);
+  });
 
   // Log renderer console output to main process stdout
   mainWindow.webContents.on('console-message', (event) => {

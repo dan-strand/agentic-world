@@ -42,4 +42,10 @@ contextBridge.exposeInMainWorld('agentWorld', {
   logMemoryWarning: (message: string): void => {
     ipcRenderer.send(IPC_CHANNELS.CRASH_MEMORY_WARNING, message);
   },
+  onWindowMinimized: (callback: () => void): void => {
+    ipcRenderer.on(IPC_CHANNELS.WINDOW_MINIMIZED, () => callback());
+  },
+  onWindowRestored: (callback: () => void): void => {
+    ipcRenderer.on(IPC_CHANNELS.WINDOW_RESTORED, () => callback());
+  },
 });

@@ -35,6 +35,8 @@ export const IPC_CHANNELS = {
   CRASH_LOG_CRITICAL: 'crash-log-critical',
   CRASH_MEMORY_STATS: 'crash-memory-stats',
   CRASH_MEMORY_WARNING: 'crash-memory-warning',
+  WINDOW_MINIMIZED: 'window-minimized',
+  WINDOW_RESTORED: 'window-restored',
 } as const;
 
 // Type-safe API exposed via contextBridge
@@ -95,6 +97,8 @@ export interface IAgentWorldAPI {
   logCritical: (source: string, message: string) => void;
   logMemoryStats: (stats: { heapUsedMB: number; rssMB: number }) => void;
   logMemoryWarning: (message: string) => void;
+  onWindowMinimized: (callback: () => void) => void;
+  onWindowRestored: (callback: () => void) => void;
 }
 
 // Token usage from a single JSONL assistant entry's message.usage
