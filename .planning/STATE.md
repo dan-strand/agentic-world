@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-03-16)
 Phase: 25 of 25 (Soak Testing and Verification) -- third/final phase of v2.1
 Plan: 1 of 1 in current phase (IN PROGRESS -- checkpoint at Task 3)
 Status: Awaiting 8-hour soak test
-Last activity: 2026-03-16 -- Created soak test harness and log analyzer scripts (Tasks 1-2 of 25-01)
+Last activity: 2026-03-17 - Completed quick task 8: Fix audio not playing when window unfocused
 
 Progress: [████████░░] 80%
 
