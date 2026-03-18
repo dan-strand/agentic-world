@@ -228,6 +228,79 @@ export async function readSessionTail(
   }
 }
 
+/**
+ * Incrementally read newly-appended bytes from a JSONL file starting at a byte offset,
+ * accumulating token usage onto existing totals. Avoids re-reading the entire file
+ * when only new entries have been appended.
+ *
+ * When fromOffset > 0, backs up 1 byte and discards the first readline output
+ * (captures the trailing \n or partial line from the previous read boundary).
+ * When fromOffset = 0, no lines are discarded (reading from start).
+ *
+ * Returns { totals, newOffset } where newOffset = file size after read.
+ * On read error, returns existing totals unchanged and the original offset.
+ */
+export async function readUsageTotalsIncremental(
+  filePath: string,
+  fromOffset: number,
+  existingTotals: TokenUsageTotals
+): Promise<{ totals: TokenUsageTotals; newOffset: number }> {
+  const totals: TokenUsageTotals = { ...existingTotals };
+  let stream: fs.ReadStream | null = null;
+
+  try {
+    // When resuming from a non-zero offset, back up 1 byte so readline's
+    // first yielded line is the tail of the previous data (or empty from \n).
+    // This ensures partial lines from mid-offset resume are safely discarded.
+    const streamStart = fromOffset > 0 ? fromOffset - 1 : 0;
+
+    stream = fs.createReadStream(filePath, {
+      encoding: 'utf-8',
+      start: streamStart,
+    });
+
+    const rl = readline.createInterface({
+      input: stream,
+      crlfDelay: Infinity,
+    });
+
+    let isFirstLine = fromOffset > 0;
+    for await (const line of rl) {
+      if (isFirstLine) {
+        isFirstLine = false;
+        continue; // Discard potential partial line from mid-offset resume
+      }
+
+      if (!line.trim()) continue;
+      try {
+        const entry = JSON.parse(line);
+        if (entry.type !== 'assistant') continue;
+        const usage = entry.message?.usage;
+        if (!usage) continue;
+
+        totals.inputTokens += usage.input_tokens ?? 0;
+        totals.outputTokens += usage.output_tokens ?? 0;
+        totals.cacheCreationTokens += usage.cache_creation_input_tokens ?? 0;
+        totals.cacheReadTokens += usage.cache_read_input_tokens ?? 0;
+        totals.turnCount++;
+
+        if (entry.message?.model) {
+          totals.model = entry.message.model;
+        }
+      } catch {
+        // Malformed line -- skip
+      }
+    }
+
+    const stat = await fsp.stat(filePath);
+    return { totals, newOffset: stat.size };
+  } catch {
+    return { totals: existingTotals, newOffset: fromOffset };
+  } finally {
+    if (stream) stream.destroy();
+  }
+}
+
 export interface TokenUsageTotals {
   inputTokens: number;
   outputTokens: number;
