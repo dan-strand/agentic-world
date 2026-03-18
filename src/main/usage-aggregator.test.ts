@@ -146,4 +146,65 @@ describe('UsageAggregator', () => {
     const r2again = await agg.getUsage('session-b', file2);
     assert.equal(r2, r2again); // Same reference = cache hit
   });
+
+  it('incremental parse on append produces correct accumulated totals', async () => {
+    const filePath = writeTempJsonl([
+      assistantEntry({ input_tokens: 100, output_tokens: 50 }),
+    ]);
+    tempFiles.push(filePath);
+
+    const agg = new UsageAggregator();
+    const result1 = await agg.getUsage('session-incr', filePath);
+    assert.equal(result1!.inputTokens, 100);
+    assert.equal(result1!.outputTokens, 50);
+    assert.equal(result1!.turnCount, 1);
+
+    // Wait to ensure mtime changes, then append
+    await new Promise(resolve => setTimeout(resolve, 50));
+    fs.appendFileSync(filePath, assistantEntry({ input_tokens: 200, output_tokens: 75 }) + '\n');
+
+    const result2 = await agg.getUsage('session-incr', filePath);
+    assert.equal(result2!.inputTokens, 300);   // 100 + 200
+    assert.equal(result2!.outputTokens, 125);   // 50 + 75
+    assert.equal(result2!.turnCount, 2);
+  });
+
+  it('truncation triggers full re-parse (not stale accumulated data)', async () => {
+    const filePath = writeTempJsonl([
+      assistantEntry({ input_tokens: 100, output_tokens: 50 }),
+      assistantEntry({ input_tokens: 200, output_tokens: 75 }),
+      assistantEntry({ input_tokens: 300, output_tokens: 125 }),
+    ]);
+    tempFiles.push(filePath);
+
+    const agg = new UsageAggregator();
+    const result1 = await agg.getUsage('session-trunc', filePath);
+    assert.equal(result1!.inputTokens, 600);  // 100 + 200 + 300
+    assert.equal(result1!.turnCount, 3);
+
+    // Truncate and write 1 new entry with different token counts
+    await new Promise(resolve => setTimeout(resolve, 50));
+    fs.writeFileSync(filePath, assistantEntry({ input_tokens: 42, output_tokens: 7 }) + '\n');
+
+    const result2 = await agg.getUsage('session-trunc', filePath);
+    assert.equal(result2!.inputTokens, 42);   // Only the new single entry
+    assert.equal(result2!.outputTokens, 7);
+    assert.equal(result2!.turnCount, 1);
+  });
+
+  it('cache stores byteOffset after getUsage', async () => {
+    const filePath = writeTempJsonl([
+      assistantEntry({ input_tokens: 10, output_tokens: 5 }),
+    ]);
+    tempFiles.push(filePath);
+
+    const agg = new UsageAggregator();
+    await agg.getUsage('session-offset', filePath);
+
+    // Access private cache to verify byteOffset is stored
+    const cached = (agg as any).cache.get('session-offset');
+    assert.notEqual(cached, undefined);
+    assert.equal(typeof cached.byteOffset, 'number');
+    assert.ok(cached.byteOffset > 0, 'byteOffset should be > 0 after reading a non-empty file');
+  });
 });
