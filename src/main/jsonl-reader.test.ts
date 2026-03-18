@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { readUsageTotals, readSessionTail } from './jsonl-reader';
+import { readUsageTotals, readUsageTotalsIncremental, readSessionTail } from './jsonl-reader';
 
 // Helper to create a temp JSONL file with given lines
 function writeTempJsonl(lines: string[]): string {
@@ -318,5 +318,115 @@ describe('readSessionTail', () => {
     assert.notEqual(result.lastEntry, null);
     assert.equal(result.lastEntry!.type, 'system');
     assert.equal(result.lastToolName, null);
+  });
+});
+
+describe('readUsageTotalsIncremental', () => {
+  const tempFiles: string[] = [];
+
+  after(() => {
+    for (const f of tempFiles) {
+      try { fs.unlinkSync(f); } catch { /* ignore */ }
+    }
+  });
+
+  it('reading from offset 0 produces same totals as readUsageTotals (full file equivalence)', async () => {
+    const filePath = writeTempJsonl([
+      assistantEntry({ model: 'claude-opus-4-6', input_tokens: 100, output_tokens: 50, cache_creation_input_tokens: 200, cache_read_input_tokens: 300 }),
+      assistantEntry({ model: 'claude-sonnet-4-20250514', input_tokens: 400, output_tokens: 150, cache_creation_input_tokens: 0, cache_read_input_tokens: 500 }),
+    ]);
+    tempFiles.push(filePath);
+
+    const zeroTotals = { inputTokens: 0, outputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0, model: '', turnCount: 0 };
+    const incremental = await readUsageTotalsIncremental(filePath, 0, zeroTotals);
+    const full = await readUsageTotals(filePath);
+
+    assert.equal(incremental.totals.inputTokens, full.inputTokens);
+    assert.equal(incremental.totals.outputTokens, full.outputTokens);
+    assert.equal(incremental.totals.cacheCreationTokens, full.cacheCreationTokens);
+    assert.equal(incremental.totals.cacheReadTokens, full.cacheReadTokens);
+    assert.equal(incremental.totals.model, full.model);
+    assert.equal(incremental.totals.turnCount, full.turnCount);
+  });
+
+  it('reading from a mid-file offset accumulates only new entries onto existing totals', async () => {
+    // Write 2 entries, note file size
+    const filePath = writeTempJsonl([
+      assistantEntry({ input_tokens: 100, output_tokens: 50 }),
+      assistantEntry({ input_tokens: 200, output_tokens: 75 }),
+    ]);
+    tempFiles.push(filePath);
+
+    const midSize = fs.statSync(filePath).size;
+
+    // Append 1 more entry
+    fs.appendFileSync(filePath, assistantEntry({ input_tokens: 300, output_tokens: 125 }) + '\n');
+
+    // Read incrementally from old size with existing totals
+    const existingTotals = { inputTokens: 300, outputTokens: 125, cacheCreationTokens: 0, cacheReadTokens: 0, model: 'claude-opus-4-6', turnCount: 2 };
+    const result = await readUsageTotalsIncremental(filePath, midSize, existingTotals);
+
+    // Should have accumulated only the new entry's tokens
+    assert.equal(result.totals.inputTokens, 600);   // 300 existing + 300 new
+    assert.equal(result.totals.outputTokens, 250);   // 125 existing + 125 new
+    assert.equal(result.totals.turnCount, 3);         // 2 existing + 1 new
+  });
+
+  it('first line after non-zero offset is discarded (partial line safety)', async () => {
+    // Write 2 entries
+    const filePath = writeTempJsonl([
+      assistantEntry({ input_tokens: 100, output_tokens: 50 }),
+      assistantEntry({ input_tokens: 200, output_tokens: 75 }),
+    ]);
+    tempFiles.push(filePath);
+
+    // Use an offset that lands mid-way through the first line (simulate mid-line resume)
+    const offset = 10; // mid-first-line offset
+    const existingTotals = { inputTokens: 0, outputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0, model: '', turnCount: 0 };
+    const result = await readUsageTotalsIncremental(filePath, offset, existingTotals);
+
+    // First line fragment should be discarded, only second entry counted
+    assert.equal(result.totals.inputTokens, 200);
+    assert.equal(result.totals.outputTokens, 75);
+    assert.equal(result.totals.turnCount, 1);
+  });
+
+  it('returns existing totals unchanged on nonexistent file', async () => {
+    const existingTotals = { inputTokens: 42, outputTokens: 7, cacheCreationTokens: 3, cacheReadTokens: 1, model: 'claude-opus-4-6', turnCount: 5 };
+    const result = await readUsageTotalsIncremental('/tmp/nonexistent-incremental-12345.jsonl', 0, existingTotals);
+
+    assert.equal(result.totals.inputTokens, 42);
+    assert.equal(result.totals.outputTokens, 7);
+    assert.equal(result.totals.turnCount, 5);
+    assert.equal(result.newOffset, 0);
+  });
+
+  it('skips non-assistant entries in incremental delta', async () => {
+    const filePath = writeTempJsonl([
+      JSON.stringify({ type: 'user', message: { content: 'hello' } }),
+      JSON.stringify({ type: 'system', data: {} }),
+      assistantEntry({ input_tokens: 10, output_tokens: 5 }),
+    ]);
+    tempFiles.push(filePath);
+
+    const zeroTotals = { inputTokens: 0, outputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0, model: '', turnCount: 0 };
+    const result = await readUsageTotalsIncremental(filePath, 0, zeroTotals);
+
+    assert.equal(result.totals.inputTokens, 10);
+    assert.equal(result.totals.outputTokens, 5);
+    assert.equal(result.totals.turnCount, 1);
+  });
+
+  it('returns newOffset equal to file size after successful read', async () => {
+    const filePath = writeTempJsonl([
+      assistantEntry({ input_tokens: 100, output_tokens: 50 }),
+    ]);
+    tempFiles.push(filePath);
+
+    const expectedSize = fs.statSync(filePath).size;
+    const zeroTotals = { inputTokens: 0, outputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0, model: '', turnCount: 0 };
+    const result = await readUsageTotalsIncremental(filePath, 0, zeroTotals);
+
+    assert.equal(result.newOffset, expectedSize);
   });
 });
