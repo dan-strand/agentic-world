@@ -9,7 +9,8 @@
 - ✅ **v1.4 Enhanced Session Workspaces** - Phases 14-16 (shipped 2026-02-27)
 - ✅ **v1.5 Usage Dashboard** - Phases 17-19 (shipped 2026-03-01)
 - ✅ **v2.0 World & Character Detail** - Phases 20-22 (shipped 2026-03-03)
-- 🚧 **v2.1 Hardening and Bug Fixes** - Phases 23-25 (in progress)
+- Parked **v2.1 Hardening and Bug Fixes** - Phases 23-25 (Phase 25 soak test pending)
+- 🚧 **v2.2 Performance Optimization** - Phases 26-29 (in progress)
 
 ## Phases
 
@@ -95,61 +96,74 @@ See: [`.planning/milestones/v2.0-ROADMAP.md`](milestones/v2.0-ROADMAP.md) for fu
 
 </details>
 
-### v2.1 Hardening and Bug Fixes (In Progress)
-
-**Milestone Goal:** Fix the silent crash that occurs after hours of running by instrumenting crash detection, eliminating all identified resource leaks, and proving stability with an 8-hour soak test.
+<details>
+<summary>Parked: v2.1 Hardening and Bug Fixes (Phases 23-25)</summary>
 
 - [x] **Phase 23: Crash Diagnosis Infrastructure** - Crash event handlers, error boundaries, persistent logging, and memory health monitoring (completed 2026-03-16)
 - [x] **Phase 24: Resource Leak Fixes** - Object pooling, texture cache lifecycle, filter cleanup, collection pruning, timer wrapping, and stream hardening (completed 2026-03-16)
 - [ ] **Phase 25: Soak Testing and Verification** - 8-hour continuous run proving all leaks are eliminated
 
+</details>
+
+### v2.2 Performance Optimization (In Progress)
+
+**Milestone Goal:** Eliminate the highest-impact CPU, GPU, and I/O inefficiencies so the always-on app uses fewer resources with no visual or behavioral regression.
+
+- [ ] **Phase 26: I/O Pipeline** - Non-blocking session discovery, combined file reads, incremental JSONL parsing, adaptive poll backoff
+- [ ] **Phase 27: GPU Rendering** - Replace stage filter with container tint, threshold-gated updates, static layer caching, glow guards
+- [ ] **Phase 28: CPU Tick Loop** - Particle throttling, swap-and-pop removal, dirty-flag highlights, state transition guards, DOM diffing, allocation cleanup, dependency removal
+- [ ] **Phase 29: Agent State Consolidation** - Unify 13+ per-agent Maps into single AgentTrackingState structure
+
 ## Phase Details
 
-### Phase 23: Crash Diagnosis Infrastructure
-**Goal**: The app captures and logs every crash, exception, and memory anomaly so no failure is ever silent again
-**Depends on**: Phase 22
-**Requirements**: DIAG-01, DIAG-02, DIAG-03, DIAG-04
+### Phase 26: I/O Pipeline
+**Goal**: The main process never blocks its event loop during session polling, reads the minimum bytes necessary per poll cycle, and backs off polling when idle
+**Depends on**: Phase 25 (v2.1 parked -- no hard dependency; can proceed independently)
+**Requirements**: IO-01, IO-02, IO-03, IO-04
 **Success Criteria** (what must be TRUE):
-  1. When the renderer process crashes or goes unresponsive, the crash reason and timestamp are written to a log file that survives the crash
-  2. When a single exception occurs inside the game loop tick, the world continues running (the error is logged, not propagated)
-  3. Crash log file at a known location contains timestamped entries with stack traces that can be read after a restart
-  4. Memory health stats (heap size, RSS, process memory) are periodically logged, and a sustained upward trend triggers a warning entry in the log
-**Plans:** 2/2 plans complete
-Plans:
-- [ ] 23-01-PLAN.md -- Crash logging infrastructure: electron-log, CrashLogger class, IPC channels, preload bridge, crash event handlers
-- [ ] 23-02-PLAN.md -- Error boundary and memory monitor: game loop try/catch, MemoryMonitor, renderer global error handlers
+  1. Session discovery completes without blocking IPC, timers, or other async operations on the main process event loop (no synchronous fs calls in the poll path)
+  2. Each changed session triggers one file open instead of two -- `readLastJsonlLine` and `readLastToolUse` consolidated into a single pass
+  3. UsageAggregator reads only newly-appended bytes from JSONL files (not the full 2-18MB) and correctly falls back to full re-parse on file truncation or inode change
+  4. When no sessions are active for consecutive poll cycles, the poll interval stretches to 10-30s; when a session becomes active, polling resets to the normal 3s interval immediately
+**Plans**: TBD
 
-### Phase 24: Resource Leak Fixes
-**Goal**: Every identified source of unbounded memory/GPU/handle growth is eliminated so the app can run indefinitely without resource exhaustion
-**Depends on**: Phase 23
-**Requirements**: LEAK-01, LEAK-02, LEAK-03, LEAK-04, STAB-01, STAB-02
+### Phase 27: GPU Rendering
+**Goal**: The renderer draws the scene in a single pass (no off-screen framebuffer) with threshold-gated updates that skip GPU writes on 98% of frames during day/night plateaus
+**Depends on**: Phase 26
+**Requirements**: GPU-01, GPU-02, GPU-03, GPU-04
 **Success Criteria** (what must be TRUE):
-  1. Smoke and spark particles reuse a fixed pool of Graphics objects -- no new Graphics are created or destroyed during normal operation
-  2. When an agent is removed, its palette-swapped textures are destroyed and freed from the cache; the cache does not grow without bound
-  3. After a celebration effect completes, GPU resources (GlowFilter shaders, render textures) are fully released -- triggering 50 celebrations does not increase baseline GPU memory
-  4. Stale entries in dismissedSessions, mtimeCache, cwdCache, and usageAggregator cache are pruned on a periodic schedule; collections do not grow monotonically
-  5. Timer accumulators (DayNightCycle.elapsed, particle phase, breathTimer) wrap via modulo and never exceed one cycle period; JSONL readline streams are destroyed in a finally block on every code path
-**Plans:** 2/2 plans complete
-Plans:
-- [ ] 24-01-PLAN.md -- GPU resource leak fixes: GraphicsPool for particles, palette swap cache lifecycle, GlowFilter explicit destruction
-- [ ] 24-02-PLAN.md -- Stability fixes: collection pruning, timer modulo wraps, stream cleanup
+  1. The day/night color shift renders correctly across all 5 cycle points (dawn, day, dusk, night, midnight) with no stage-level filter -- visual comparison against pre-migration screenshot baseline shows acceptable match
+  2. Day/night tint values only update when the computed value changes by more than the perceptible threshold (~0.005); plateau frames perform zero tint writes
+  3. Static scenery and tilemap layers are cached as single GPU textures and do not re-render their children each frame
+  4. Night glow alpha values only update when nightIntensity changes beyond threshold; unchanged ticks skip all 19+ glow object writes
+**Plans**: TBD
 
-### Phase 25: Soak Testing and Verification
-**Goal**: The app proves it can run for 8 continuous hours without meaningful memory growth, confirming all leaks are fixed
-**Depends on**: Phase 24
-**Requirements**: STAB-03
+### Phase 28: CPU Tick Loop
+**Goal**: Per-tick CPU work is minimized through dirty flags, idle-aware throttling, efficient data structures, and in-place DOM updates
+**Depends on**: Phase 27
+**Requirements**: CPU-01, CPU-02, CPU-03, CPU-05, DOM-01, DOM-02, DOM-03
 **Success Criteria** (what must be TRUE):
-  1. The app runs continuously for 8 hours without crashing, freezing, or becoming unresponsive
-  2. Total renderer process memory growth over the 8-hour run is less than 50MB
-  3. Health monitor logs show no monotonically increasing metric -- all resource counters are stable or periodic
-**Plans:** 1 plan
-Plans:
-- [ ] 25-01-PLAN.md -- Soak test harness, log analyzer, and 8-hour verification run
+  1. Smoke and spark particle subsystems skip their update logic at idle FPS (5fps); fireflies, dust, and leaves continue updating at all times (too cheap to throttle, too visible to skip)
+  2. Particle removal uses O(1) swap-and-pop instead of O(n) Array.splice; no forward-iteration loop uses this pattern (reverse-only invariant)
+  3. Building highlight tints only recompute when agent occupancy changes (dirty flag set on state transitions), not on every frame
+  4. Agent reparenting between containers and setAnimation calls happen inside state transition handlers, not in the per-frame tick poll
+  5. Dashboard session list updates existing DOM elements in place (text content mutation, not element replacement); click-to-expand state survives data refreshes
+**Plans**: TBD
+
+### Phase 29: Agent State Consolidation
+**Goal**: Per-agent tracking data lives in one Map instead of 13+, making agent lifecycle operations (create, update, delete) access a single location
+**Depends on**: Phase 28
+**Requirements**: CPU-04
+**Success Criteria** (what must be TRUE):
+  1. A single `Map<string, AgentTrackingState>` replaces the 13+ separate Maps in world.ts; no per-agent data remains in standalone Maps
+  2. Agent removal executes one `agentStates.delete(sessionId)` instead of 13 individual Map deletes
+  3. All existing agent behaviors (status transitions, speech bubbles, wander, celebrate, fade-out) work identically after the refactor -- no logic changes, only data structure consolidation
+**Plans**: TBD
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 23 → 24 → 25
+Phases execute in numeric order: 26 → 27 → 28 → 29
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -175,6 +189,10 @@ Phases execute in numeric order: 23 → 24 → 25
 | 20. World & Building Art | v2.0 | 3/3 | Complete | 2026-03-03 |
 | 21. Character Identity | v2.0 | 2/2 | Complete | 2026-03-03 |
 | 22. Day/Night Cycle & Atmosphere | v2.0 | 2/2 | Complete | 2026-03-03 |
-| 23. Crash Diagnosis Infrastructure | 2/2 | Complete    | 2026-03-16 | - |
-| 24. Resource Leak Fixes | 2/2 | Complete    | 2026-03-16 | - |
-| 25. Soak Testing and Verification | v2.1 | 0/1 | Not started | - |
+| 23. Crash Diagnosis Infrastructure | v2.1 | 2/2 | Complete | 2026-03-16 |
+| 24. Resource Leak Fixes | v2.1 | 2/2 | Complete | 2026-03-16 |
+| 25. Soak Testing and Verification | v2.1 | 0/1 | Parked | - |
+| 26. I/O Pipeline | v2.2 | 0/? | Not started | - |
+| 27. GPU Rendering | v2.2 | 0/? | Not started | - |
+| 28. CPU Tick Loop | v2.2 | 0/? | Not started | - |
+| 29. Agent State Consolidation | v2.2 | 0/? | Not started | - |

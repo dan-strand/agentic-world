@@ -63,28 +63,28 @@ Carried from v2.1, pending soak test verification.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| GPU-01 | Pending | Pending |
-| GPU-02 | Pending | Pending |
-| GPU-03 | Pending | Pending |
-| GPU-04 | Pending | Pending |
-| IO-01 | Pending | Pending |
-| IO-02 | Pending | Pending |
-| IO-03 | Pending | Pending |
-| IO-04 | Pending | Pending |
-| CPU-01 | Pending | Pending |
-| CPU-02 | Pending | Pending |
-| CPU-03 | Pending | Pending |
-| CPU-04 | Pending | Pending |
-| CPU-05 | Pending | Pending |
-| DOM-01 | Pending | Pending |
-| DOM-02 | Pending | Pending |
-| DOM-03 | Pending | Pending |
+| GPU-01 | Phase 27 | Pending |
+| GPU-02 | Phase 27 | Pending |
+| GPU-03 | Phase 27 | Pending |
+| GPU-04 | Phase 27 | Pending |
+| IO-01 | Phase 26 | Pending |
+| IO-02 | Phase 26 | Pending |
+| IO-03 | Phase 26 | Pending |
+| IO-04 | Phase 26 | Pending |
+| CPU-01 | Phase 28 | Pending |
+| CPU-02 | Phase 28 | Pending |
+| CPU-03 | Phase 28 | Pending |
+| CPU-04 | Phase 29 | Pending |
+| CPU-05 | Phase 28 | Pending |
+| DOM-01 | Phase 28 | Pending |
+| DOM-02 | Phase 28 | Pending |
+| DOM-03 | Phase 28 | Pending |
 
 **Coverage:**
 - v2.2 requirements: 16 total
-- Mapped to phases: 0
-- Unmapped: 16 ⚠️
+- Mapped to phases: 16
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-18*
-*Last updated: 2026-03-18 after initial definition*
+*Last updated: 2026-03-18 after roadmap creation*

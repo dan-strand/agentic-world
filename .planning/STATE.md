@@ -4,10 +4,10 @@ milestone: v2.2
 milestone_name: Performance Optimization
 status: in-progress
 stopped_at: null
-last_updated: "2026-03-18T20:35:00.000Z"
-last_activity: 2026-03-18 -- Milestone v2.2 started
+last_updated: "2026-03-18T21:00:00.000Z"
+last_activity: 2026-03-18 -- Roadmap created for v2.2 (4 phases, 16 requirements)
 progress:
-  total_phases: 0
+  total_phases: 4
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** Instantly see the status of all Claude Code sessions so you know which one needs attention next.
-**Current focus:** v2.2 Performance Optimization -- Defining requirements
+**Current focus:** v2.2 Performance Optimization -- Phase 26 ready to plan
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-03-18 — Milestone v2.2 started
+Phase: 26 of 29 (I/O Pipeline)
+Plan: --
+Status: Ready to plan
+Last activity: 2026-03-18 -- Roadmap created (4 phases: 26-29)
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -59,10 +59,10 @@ Progress: [░░░░░░░░░░] 0%
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- [v2.2]: Performance audit identified 6 high-impact and 16 medium-impact issues across rendering, memory, I/O, and game loop
-- [v2.2]: Stage-level ColorMatrixFilter is the single most impactful GPU issue -- forces full-scene double-render every frame
-- [v2.2]: All session discovery file I/O is synchronous, blocking Electron main process event loop every 3s
-- [v2.2]: readLastJsonlLine + readLastToolUse open the same file twice per changed session per poll
+- [v2.2]: I/O changes first (main process isolation, no visual risk, establishes async foundation)
+- [v2.2]: GPU phase second (highest visual impact, needs screenshot baseline, builds on stable I/O)
+- [v2.2]: Agent state consolidation last (widest code surface, must avoid merge conflicts with tick loop changes)
+- [v2.2]: Research flags Phase 27 for visual regression risk -- screenshot baseline required before code changes
 
 ### Blockers/Concerns
 
@@ -79,5 +79,5 @@ None
 ## Session Continuity
 
 Last session: 2026-03-18
-Stopped at: null
+Stopped at: Roadmap created for v2.2, ready to plan Phase 26
 Resume file: null
