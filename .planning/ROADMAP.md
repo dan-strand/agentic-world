@@ -125,7 +125,11 @@ See: [`.planning/milestones/v2.0-ROADMAP.md`](milestones/v2.0-ROADMAP.md) for fu
   2. Each changed session triggers one file open instead of two -- `readLastJsonlLine` and `readLastToolUse` consolidated into a single pass
   3. UsageAggregator reads only newly-appended bytes from JSONL files (not the full 2-18MB) and correctly falls back to full re-parse on file truncation or inode change
   4. When no sessions are active for consecutive poll cycles, the poll interval stretches to 10-30s; when a session becomes active, polling resets to the normal 3s interval immediately
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 26-01-PLAN.md -- Combined JSONL tail read + async session discovery (IO-01, IO-02)
+- [ ] 26-02-PLAN.md -- Incremental offset-based JSONL usage parsing (IO-03)
+- [ ] 26-03-PLAN.md -- Adaptive poll backoff with setTimeout recursion (IO-04)
 
 ### Phase 27: GPU Rendering
 **Goal**: The renderer draws the scene in a single pass (no off-screen framebuffer) with threshold-gated updates that skip GPU writes on 98% of frames during day/night plateaus
@@ -192,7 +196,7 @@ Phases execute in numeric order: 26 → 27 → 28 → 29
 | 23. Crash Diagnosis Infrastructure | v2.1 | 2/2 | Complete | 2026-03-16 |
 | 24. Resource Leak Fixes | v2.1 | 2/2 | Complete | 2026-03-16 |
 | 25. Soak Testing and Verification | v2.1 | 0/1 | Parked | - |
-| 26. I/O Pipeline | v2.2 | 0/? | Not started | - |
+| 26. I/O Pipeline | v2.2 | 0/3 | Not started | - |
 | 27. GPU Rendering | v2.2 | 0/? | Not started | - |
 | 28. CPU Tick Loop | v2.2 | 0/? | Not started | - |
 | 29. Agent State Consolidation | v2.2 | 0/? | Not started | - |
