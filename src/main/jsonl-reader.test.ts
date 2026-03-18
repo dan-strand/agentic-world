@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { readUsageTotals } from './jsonl-reader';
+import { readUsageTotals, readSessionTail } from './jsonl-reader';
 
 // Helper to create a temp JSONL file with given lines
 function writeTempJsonl(lines: string[]): string {
@@ -204,5 +204,119 @@ describe('readUsageTotals', () => {
     assert.equal(result.turnCount, 0);
     // If stream.destroy() is missing from the finally block, the stream
     // could leak a file descriptor. This test verifies it doesn't hang.
+  });
+});
+
+// Helper to build an assistant entry with tool_use content
+function assistantWithToolUse(toolName: string): string {
+  return JSON.stringify({
+    type: 'assistant',
+    message: {
+      content: [{ type: 'tool_use', name: toolName, input: {} }],
+      model: 'claude-opus-4-6',
+      usage: { input_tokens: 10, output_tokens: 5 },
+    },
+  });
+}
+
+describe('readSessionTail', () => {
+  const tempFiles: string[] = [];
+
+  after(() => {
+    for (const f of tempFiles) {
+      try { fs.unlinkSync(f); } catch { /* ignore */ }
+    }
+  });
+
+  it('returns { lastEntry: null, lastToolName: null } for an empty file', async () => {
+    const filePath = writeTempJsonl([]);
+    tempFiles.push(filePath);
+    fs.writeFileSync(filePath, '', 'utf-8');
+
+    const result = await readSessionTail(filePath);
+    assert.equal(result.lastEntry, null);
+    assert.equal(result.lastToolName, null);
+  });
+
+  it('returns both lastEntry and lastToolName for a single assistant entry with tool_use', async () => {
+    const filePath = writeTempJsonl([
+      assistantWithToolUse('Edit'),
+    ]);
+    tempFiles.push(filePath);
+
+    const result = await readSessionTail(filePath);
+    assert.notEqual(result.lastEntry, null);
+    assert.equal(result.lastEntry!.type, 'assistant');
+    assert.equal(result.lastToolName, 'Edit');
+  });
+
+  it('returns lastEntry but lastToolName is null when no tool_use content', async () => {
+    const filePath = writeTempJsonl([
+      JSON.stringify({ type: 'user', message: { content: 'hello' } }),
+      JSON.stringify({
+        type: 'assistant',
+        message: {
+          content: [{ type: 'text', text: 'response' }],
+          model: 'claude-opus-4-6',
+          usage: { input_tokens: 10, output_tokens: 5 },
+        },
+      }),
+    ]);
+    tempFiles.push(filePath);
+
+    const result = await readSessionTail(filePath);
+    assert.notEqual(result.lastEntry, null);
+    assert.equal(result.lastEntry!.type, 'assistant');
+    assert.equal(result.lastToolName, null);
+  });
+
+  it('falls back to previous line when last line is malformed (mid-write race)', async () => {
+    const filePath = writeTempJsonl([
+      assistantWithToolUse('Read'),
+      '{this is a partial write that got cut off',
+    ]);
+    tempFiles.push(filePath);
+
+    const result = await readSessionTail(filePath);
+    assert.notEqual(result.lastEntry, null);
+    assert.equal(result.lastEntry!.type, 'assistant');
+    assert.equal(result.lastToolName, 'Read');
+  });
+
+  it('returns { lastEntry: null, lastToolName: null } for a nonexistent file', async () => {
+    const result = await readSessionTail('/tmp/nonexistent-readSessionTail-test-12345.jsonl');
+    assert.equal(result.lastEntry, null);
+    assert.equal(result.lastToolName, null);
+  });
+
+  it('returns the LAST tool_use when file has multiple tool_use entries (scanning backward)', async () => {
+    const filePath = writeTempJsonl([
+      assistantWithToolUse('Read'),
+      JSON.stringify({ type: 'user', message: { content: 'ok' } }),
+      assistantWithToolUse('Write'),
+      JSON.stringify({ type: 'user', message: { content: 'next' } }),
+      assistantWithToolUse('Bash'),
+    ]);
+    tempFiles.push(filePath);
+
+    const result = await readSessionTail(filePath);
+    assert.notEqual(result.lastEntry, null);
+    // lastEntry is the last valid entry scanning backward (the Bash tool_use)
+    assert.equal(result.lastEntry!.type, 'assistant');
+    // lastToolName should be the most recent tool_use
+    assert.equal(result.lastToolName, 'Bash');
+  });
+
+  it('finds lastEntry even when all entries are non-assistant (lastToolName is null)', async () => {
+    const filePath = writeTempJsonl([
+      JSON.stringify({ type: 'user', message: { content: 'hello' } }),
+      JSON.stringify({ type: 'system', data: { foo: 'bar' } }),
+    ]);
+    tempFiles.push(filePath);
+
+    const result = await readSessionTail(filePath);
+    assert.notEqual(result.lastEntry, null);
+    assert.equal(result.lastEntry!.type, 'system');
+    assert.equal(result.lastToolName, null);
   });
 });
