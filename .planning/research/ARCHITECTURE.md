@@ -1,473 +1,487 @@
-# Architecture Research: Crash Prevention & Resource Management
+# Architecture Research: v2.2 Performance Optimization Integration
 
-**Domain:** Electron + PixiJS always-on desktop app hardening
-**Researched:** 2026-03-16
-**Confidence:** HIGH (full codebase audit + official docs + known issue tracking)
+**Domain:** Performance optimization for existing Electron + PixiJS always-on desktop visualizer
+**Researched:** 2026-03-18
+**Confidence:** HIGH (based on direct source code analysis of all affected files, PixiJS 8 documentation, Node.js fs API docs)
 
 ## Existing Architecture Overview
 
 ```
-MAIN PROCESS                                 RENDERER PROCESS
-+-----------------------------------+        +---------------------------------------------+
-| index.ts (entry)                  |        | index.ts (entry)                            |
-|   FilesystemSessionDetector       |  IPC   |   World (scene graph root)                  |
-|   SessionStore (3s poll interval) | =====> |     tilemapLayer (static canvas)             |
-|   UsageAggregator (mtime cache)   |        |     buildingsContainer                      |
-|   HistoryStore (atomic JSON)      |        |       4x Building (smoke particles)         |
-|   Window drag interval (16ms)     |        |       campfire Sprite                       |
-|                                   |        |     sceneryLayer (96 static sprites)        |
-| IPC Channels:                     |        |     nightGlowLayer (19 Graphics glows)      |
-|   sessions-update (push)          |        |     AmbientParticles (25+15+6+8 particles)  |
-|   dashboard-update (push)         |        |     agentsContainer (dynamic agents)        |
-|   get-initial-sessions (invoke)   |        |       Agent (AnimatedSprite + gear + bubble) |
-|   get-history (invoke)            |        |         LevelUpEffect (celebration)         |
-|   window-minimize/close/drag      |        |         SpeechBubble (Graphics + BitmapText)|
-+-----------------------------------+        |                                             |
-                                             |   GameLoop (adaptive ticker 5/30 fps)       |
-                                             |   DayNightCycle (10-min sine wave)           |
-                                             |   ColorMatrixFilter (stage-level)            |
-                                             |   DashboardPanel (vanilla DOM, below canvas) |
-                                             |   SoundManager (HTML5 Audio singleton)       |
-                                             +---------------------------------------------+
+MAIN PROCESS (Node.js)
+======================
+                    every 3s
+  SessionStore ───────────> poll()
+       |                       |
+       |    ┌──────────────────┤
+       |    |                  |
+       |    v                  v
+       | FilesystemSession   UsageAggregator
+       | Detector             |
+       |    |                  | mtime check --> readUsageTotals()
+       |    | readdirSync()    | (full re-stream on mtime change)
+       |    | statSync()       |
+       |    | readLastJsonlLine()
+       |    | readLastToolUse()
+       |    |  (2 separate file opens per session)
+       |    |
+       v    v
+  IPC push: sessions-update + dashboard-update
+       |
+       v
+RENDERER PROCESS (PixiJS 8)
+============================
+  GameLoop (adaptive FPS: 30/5/0)
+       |
+       v
+  World.tick(deltaMs)
+       |
+       |-- DayNightCycle.tick()
+       |     |-- getNightIntensity()    [sin/pow every tick]
+       |     '-- getTintRGB()           [3 lerps every tick]
+       |
+       |-- stageFilter.matrix = [...]   [new array every tick, GPU re-upload]
+       |
+       |-- updateNightGlowLayer()       [19+ alpha writes every tick]
+       |
+       |-- ambientAgents.tick()          [2 agents]
+       |
+       |-- agents.tick()                 [per-agent: tint, breathing, shake, anim, state machine]
+       |     |-- handleAgentReparenting()
+       |     |-- advanceStatusDebounce()
+       |     |-- idle/waiting timers
+       |     '-- visibility safeguard
+       |
+       |-- deferred agent removal
+       |
+       |-- building.tick()               [4 buildings: smoke particles]
+       |
+       |-- ambientParticles.tick()       [25 fireflies + 8 sparks + 15 dust + 6 leaves]
+       |
+       |-- speechBubbles.tick()
+       |
+       |-- pruneDismissedSessions()
+       |
+       '-- building highlight recalc    [iterates all agents, sets tint on 4 buildings every tick]
 ```
 
-### Scene Graph Children Count (steady state)
+## Optimization Integration Map
 
-| Layer | Objects | Type | Static? |
-|-------|---------|------|---------|
-| tilemapLayer | 1 | Sprite (canvas) | Yes |
-| buildingsContainer | 5 | Sprite + Container | Yes (smoke particles dynamic) |
-| sceneryLayer | ~96 | Sprite | Yes |
-| nightGlowLayer | ~19 | Graphics | Yes (alpha varies) |
-| AmbientParticles | ~54 | Graphics | Mostly (sparks cycle) |
-| agentsContainer | 0-10 | Container (Agent) | No -- dynamic lifecycle |
-| stage filters | 1 | ColorMatrixFilter | Yes (matrix updates per tick) |
+Each optimization below is classified as either **MODIFY** (changes existing code) or **NEW** (adds new code/component). The integration point in the existing architecture is specified.
 
-## Leak Analysis: What Is Most Likely Crashing
+### 1. Remove Stage-Level ColorMatrixFilter (GPU -- Critical)
 
-### CRITICAL: Chimney Smoke Particles (Building.tick)
+**Type:** MODIFY
+**Files:** `src/renderer/world.ts`, `src/renderer/day-night-cycle.ts`
+**Current behavior:** A `ColorMatrixFilter` is applied to `app.stage.filters`. Every tick, `world.ts:287-292` creates a new 20-element array and assigns it to `stageFilter.matrix`. This forces PixiJS to re-upload the matrix to GPU as a uniform every frame. Worse, any filter on `app.stage` causes PixiJS to render the entire scene to an offscreen framebuffer first, then apply the filter shader, then composite to screen. This doubles the GPU render passes for the entire scene.
 
-**Severity: HIGH -- Almost certainly the primary leak**
+**Optimization:** Replace the stage filter with per-container `tint` values. In PixiJS 8, `Container.tint` is inherited by all children. Set `tint` on the top-level containers (`tilemapLayer`, `buildingsContainer`, `sceneryLayer`, `agentsContainer`) instead of using a filter on `app.stage`.
 
-Each of the 4 buildings continuously creates and destroys `Graphics` objects for smoke:
-- Spawn rate: one puff every `CHIMNEY_SMOKE_SPAWN_MS` (varies with night, likely ~300-500ms)
-- At night: `SMOKE_NIGHT_COUNT_BONUS` extra particles, spawn rate multiplied by `SMOKE_NIGHT_SPAWN_MULT`
-- Each puff: `new Graphics()` -> `circle().fill()` -> `addChild()` -> later `removeChild()` + `destroy()`
-- **4 buildings x continuous operation = hundreds of Graphics create/destroy cycles per hour**
+**Integration points:**
+- `World.init()`: Remove `this.stageFilter = new ColorMatrixFilter()` and `this.app.stage.filters = [this.stageFilter]` (lines 252-253)
+- `World.tick()`: Replace the `stageFilter.matrix` assignment (lines 287-292) with tint updates on each layer container
+- `DayNightCycle.getTintRGB()`: Keep this method but add a `getTintHex()` method that returns a single `0xRRGGBB` number for use with `Container.tint`
+- `nightGlowLayer` must NOT be tinted (glows should remain their original warm color)
 
-In PixiJS 8 versions before ~8.12.0, this pattern (rapid Graphics create/destroy) caused a confirmed memory leak (issue #10549, #10586, #11550). While PixiJS 8.16.0 includes fixes for the most severe regressions, the pattern of frequent Graphics allocation remains inefficient and may still accumulate minor overhead over many hours.
-
-**Evidence:** The project runs PixiJS 8.16.0, which is post-fix for the severe Graphics leak. However, the `clear()`-and-redraw pattern in `Building.setToolLabel()` (line 226-237) also repeatedly clears and redraws the `toolBanner` Graphics, which is a secondary concern.
-
-### CRITICAL: Forge Spark Particles (AmbientParticles.tick)
-
-**Severity: HIGH -- Same pattern as smoke**
-
-Sparks near Training Grounds follow identical create/destroy pattern:
-- `new Graphics()` -> `circle().fill()` -> `addChild()` -> later `removeChild()` + `destroy()`
-- Capped at `SPARK_COUNT` (8), spawning every `SPARK_SPAWN_MS`
-- Each spark lives `SPARK_LIFETIME_MS` then is destroyed
-- Continuous operation = ~8 create/destroy cycles per spark lifetime period
-
-### MODERATE: Palette Swap Texture Cache (palette-swap.ts)
-
-**Severity: MODERATE -- Grows unboundedly**
-
-The `swapCache` Map at module level caches palette-swapped textures forever:
-- Key: `${characterClass}_${paletteIndex}_${firstTextureUid}`
-- Each cache entry holds `Texture[]` with `ImageSource` wrapping offscreen `<canvas>` elements
-- New entries created whenever `setAnimation()` transitions trigger `createPaletteSwappedTextures()`
-- **Never cleaned up** -- the cache grows with every unique class+palette+animation combo encountered
-- With 4 classes x 25 palettes x 4 animation states = up to 400 cache entries, each holding multiple Textures backed by canvas elements
-- In practice bounded by the session count, but the cache holds references to destroyed agent textures indefinitely
-
-### MODERATE: dismissedSessions Set (World class)
-
-**Severity: MODERATE -- Unbounded growth over days**
-
-The `dismissedSessions` Set tracks removed session IDs to prevent resurrection:
-- Added on agent removal (line 499)
-- Only cleared when a session re-activates (line 522)
-- **Never pruned** -- grows by ~1 entry per completed Claude session
-- Not a direct memory issue (UUIDs are small), but symptomatic of no lifecycle cleanup
-- Over 24 hours with many sessions, this set grows indefinitely
-
-### MODERATE: Dashboard DOM Recreation (DashboardPanel.renderSessions)
-
-**Severity: MODERATE -- DOM churn with event listener accumulation**
-
-Every session update replaces the entire session list DOM:
-- `this.sessionList.innerHTML = ''` clears children
-- New elements created with `addEventListener('click', ...)` for each session row
-- Event listeners on old DOM nodes should be garbage collected when the DOM is cleared, but this pattern is suboptimal
-- With 3-second polling and dashboard updates on change, this adds up
-
-### LOW: IPC Message Overhead (SessionStore polling)
-
-**Severity: LOW -- but documented Electron issue**
-
-The SessionStore polls every 3 seconds and sends IPC messages:
-- `webContents.send()` for `sessions-update` and `dashboard-update`
-- Documented Electron issue: `setInterval` + `ipc.send()` can leak 10-15MB/hour in the browser process
-- The 3-second interval is relatively slow, reducing impact
-- The `mainWindow.isDestroyed()` guard (line 128) prevents sending to destroyed windows
-
-### LOW: UsageAggregator Stream Not Explicitly Closed
-
-**Severity: LOW -- likely auto-closed but fragile**
-
-`readUsageTotals()` in `jsonl-reader.ts` creates a `ReadStream` via `createReadStream()`:
-- The `readline.createInterface` consumes it via `for await`
-- Default `autoClose: true` should close the stream when exhausted
-- **But**: if the `for await` loop throws after partial consumption, the stream may remain open
-- The outer `try/catch` catches errors but does not explicitly destroy the stream
-- Over many polls re-parsing changed files, leaked file handles could exhaust OS limits
-
-### LOW: AgentFactory slotCache Not Pruned
-
-**Severity: LOW -- small objects, bounded by session count**
-
-The `AgentFactory` has a `slotCache` Map that is cleaned per-agent via `releaseSlot()`, but the World class also instantiates its own `agentFactory` (line 80) separate from the singleton export (line 45 of agent-factory.ts). The World's instance is cleaned correctly via `removeAgent()`, but the module-level singleton is never used -- potential confusion but not a leak.
-
-## Integration Points for Hardening
-
-### New Components to Add
-
-| Component | Location | Purpose |
-|-----------|----------|---------|
-| `HealthMonitor` | `src/main/health-monitor.ts` | Periodic memory/heap sampling, log to console, detect growth trends |
-| `CrashGuard` | `src/main/index.ts` (integrated) | `webContents.on('render-process-gone')` handler with auto-restart |
-| `ResourcePool<Graphics>` | `src/renderer/resource-pool.ts` | Object pool for particle Graphics to avoid create/destroy churn |
-| Cleanup sweep | `src/renderer/world.ts` (integrated) | Periodic pruning of stale Maps (dismissedSessions, caches) |
-
-### Modified Components
-
-| Component | File | Changes |
-|-----------|------|---------|
-| `Building` | `src/renderer/building.ts` | Pool smoke Graphics instead of create/destroy; reuse via reset |
-| `AmbientParticles` | `src/renderer/ambient-particles.ts` | Pool spark Graphics instead of create/destroy |
-| `palette-swap.ts` | `src/renderer/palette-swap.ts` | Add cache size limit or LRU eviction; destroy textures on evict |
-| `World` | `src/renderer/world.ts` | Prune dismissedSessions periodically; add error boundary to tick() |
-| `DashboardPanel` | `src/renderer/dashboard-panel.ts` | Diff-update DOM instead of full replacement |
-| `main/index.ts` | `src/main/index.ts` | Add renderer crash recovery, memory monitoring |
-| `session-store.ts` | `src/main/session-store.ts` | Guard against sending to destroyed webContents more robustly |
-| `jsonl-reader.ts` | `src/main/jsonl-reader.ts` | Ensure stream cleanup in error paths of `readUsageTotals()` |
-| `LevelUpEffect` | `src/renderer/level-up-effect.ts` | Ensure GlowFilter is destroyed when effect ends |
-
-## Architectural Patterns for Hardening
-
-### Pattern 1: Graphics Object Pool
-
-**What:** Pre-allocate a fixed pool of Graphics objects for particles. Instead of `new Graphics()` + `destroy()`, borrow from pool and return when done.
-
-**When to use:** Any recurring create/destroy pattern for short-lived Graphics (smoke, sparks).
-
-**Trade-offs:**
-- Pro: Eliminates GPU resource allocation churn entirely
-- Pro: No risk of PixiJS Graphics memory leak bugs
-- Con: Pool size must be tuned (set to max concurrent particles)
-- Con: Must reset all Graphics state on return to pool (position, alpha, scale, visible)
-
-**Example:**
-```typescript
-class GraphicsPool {
-  private available: Graphics[] = [];
-  private inUse: Set<Graphics> = new Set();
-
-  constructor(private createFn: () => Graphics, initialSize: number) {
-    for (let i = 0; i < initialSize; i++) {
-      this.available.push(createFn());
-    }
-  }
-
-  borrow(): Graphics | null {
-    const gfx = this.available.pop();
-    if (!gfx) return null; // Pool exhausted
-    gfx.visible = true;
-    this.inUse.add(gfx);
-    return gfx;
-  }
-
-  return(gfx: Graphics): void {
-    gfx.visible = false;
-    gfx.alpha = 1;
-    gfx.scale.set(1, 1);
-    gfx.position.set(0, 0);
-    this.inUse.delete(gfx);
-    this.available.push(gfx);
-  }
-
-  get activeCount(): number { return this.inUse.size; }
-}
+**Data flow change:**
+```
+BEFORE: DayNightCycle.getTintRGB() --> [r,g,b] --> stageFilter.matrix (GPU uniform)
+AFTER:  DayNightCycle.getTintHex() --> 0xRRGGBB --> container.tint (vertex color, no shader pass)
 ```
 
-### Pattern 2: Renderer Crash Recovery
+**Risk:** Container tint multiplies vertex colors, which is not identical to a color matrix. The visual result will be slightly different -- tint can only darken channels (multiply by 0-1), matching the current matrix which only uses diagonal values (r,g,b multipliers). Since the current matrix only sets diagonal values (no cross-channel mixing), tint is a valid 1:1 replacement.
 
-**What:** Listen for `render-process-gone` events on `webContents` and automatically reload the renderer. The main process survives renderer crashes -- it just needs to reload the window.
+### 2. Cache Day/Night Values with Change Threshold (GPU/CPU)
 
-**When to use:** Always-on applications that must survive GPU crashes, OOM events, or WebGL context loss.
+**Type:** MODIFY
+**Files:** `src/renderer/world.ts`, `src/renderer/day-night-cycle.ts`
+**Current behavior:** Every tick calls `getNightIntensity()` (1 sin + 1 pow) and `getTintRGB()` (3 lerps). Both recompute from scratch. The stage filter matrix is re-uploaded every tick even if the value has not visibly changed.
 
-**Trade-offs:**
-- Pro: App auto-recovers from crashes without user intervention
-- Pro: Main process state (session data) is preserved across renderer restarts
-- Con: Brief visual interruption during reload (~1-2 seconds)
-- Con: Must handle the delay between crash and recovery (use `setTimeout` to avoid Electron crash-on-immediate-loadURL bug)
+**Optimization:** Cache `nightIntensity` and `tintHex` inside DayNightCycle. Only recompute when `elapsed` has advanced enough to change the output. At 30fps, a tick is 33ms. The 10-minute cycle is 600,000ms. A threshold of ~100ms (0.017% of cycle) is invisible but skips 2 out of 3 recomputes.
 
-**Example:**
-```typescript
-mainWindow.webContents.on('render-process-gone', (_event, details) => {
-  console.error(`[main] Renderer crashed: ${details.reason} (exit ${details.exitCode})`);
-  // Delay reload to avoid Electron bug with immediate loadURL in crash handler
-  setTimeout(() => {
-    if (!mainWindow.isDestroyed()) {
-      mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
-    }
-  }, 1000);
-});
+**Integration points:**
+- `DayNightCycle`: Add `private cachedNightIntensity`, `private cachedTintHex`, `private lastComputeElapsed` fields
+- `DayNightCycle.tick()`: After advancing elapsed, check `|elapsed - lastComputeElapsed| > threshold`. If not, skip recompute. Return cached values from getters.
+- `World.tick()`: Compare new tint hex to previous. Only call `container.tint = newTint` when the value actually changed.
+
+**Dependency:** Builds on top of optimization #1 (tint replaces filter). Can be done in the same task.
+
+### 3. Night Glow Layer -- Guard Against Redundant Alpha Updates (CPU)
+
+**Type:** MODIFY
+**Files:** `src/renderer/night-glow-layer.ts`, `src/renderer/world.ts`
+**Current behavior:** `updateNightGlowLayer()` iterates 19+ glow sprites and sets `.alpha` on every tick, even when `nightIntensity` has not changed (or changed by an invisible amount).
+
+**Optimization:** Pass previous `nightIntensity` to the update function. If `|current - previous| < 0.005`, skip the update entirely. Store the last-applied intensity in a variable.
+
+**Integration points:**
+- `World`: Add `private lastAppliedNightIntensity = -1` field
+- `World.tick()`: Before calling `updateNightGlowLayer()`, check threshold. Skip if unchanged.
+- `updateNightGlowLayer()`: No signature change needed -- the guard lives in `world.ts`
+
+### 4. Throttle Ambient Particles at Idle FPS (CPU)
+
+**Type:** MODIFY
+**Files:** `src/renderer/ambient-particles.ts`, `src/renderer/world.ts`
+**Current behavior:** `AmbientParticles.tick()` updates all 54 particles (25 fireflies + 15 dust + 6 leaves + up to 8 sparks) every tick, even at 5fps idle when visual fidelity is not needed.
+
+**Optimization:** At idle FPS (5fps), skip every other tick for fireflies, dust motes, and leaves (they move slowly enough that 2.5fps updates are indistinguishable). Sparks can skip entirely when no sessions are active.
+
+**Integration points:**
+- `AmbientParticles`: Add `private tickCounter = 0` field
+- `AmbientParticles.tick()`: Accept an `isIdle` boolean parameter. When idle, increment counter and skip particle types based on counter parity.
+- `World.tick()`: Pass idle state to `ambientParticles.tick()`
+- `World`: Add `private isIdle = true` field, updated from session data
+
+**Data flow change:**
+```
+BEFORE: World.tick() --> ambientParticles.tick(deltaMs, nightIntensity)
+AFTER:  World.tick() --> ambientParticles.tick(deltaMs, nightIntensity, isIdle)
 ```
 
-### Pattern 3: Memory Health Monitor
+### 5. Combine Redundant JSONL File Reads (I/O -- Main Process)
 
-**What:** Periodically sample `process.memoryUsage()` in main process and `performance.memory` (if available) in renderer. Log to console and warn when growth exceeds threshold.
+**Type:** MODIFY
+**Files:** `src/main/jsonl-reader.ts`, `src/main/session-detector.ts`
+**Current behavior:** For each changed session file, `processSessionFile()` calls:
+1. `readLastJsonlLine(filePath)` -- opens file, reads 64KB tail, parses last line
+2. `readLastToolUse(filePath)` -- opens SAME file again, reads 64KB tail, scans for tool_use
 
-**When to use:** Always-on apps where gradual leaks manifest as crashes after hours.
+Each call does `fs.openSync()`, `fs.fstatSync()`, `fs.readSync()`, `fs.closeSync()` separately. That is 8 syscalls per session per poll cycle (when mtime changed), reading the same 64KB buffer twice.
 
-**Trade-offs:**
-- Pro: Provides diagnostic data to identify leak rate
-- Pro: Can trigger proactive recovery before crash
-- Con: Adds minimal overhead (one measurement per minute is negligible)
-- Con: `performance.memory` is Chromium-only, not standard
+**Optimization:** Create a single `readSessionTail(filePath)` function that opens the file once, reads the tail buffer once, and extracts both the last entry AND the last tool_use name from the same buffer in a single pass.
 
-**Example:**
-```typescript
-class HealthMonitor {
-  private lastHeapUsed = 0;
-  private interval: NodeJS.Timeout | null = null;
+**Integration points:**
+- `jsonl-reader.ts`: Add `readSessionTail(filePath)` returning `{ lastEntry: JsonlEntry | null, lastToolName: string | null }`
+- `session-detector.ts`: Replace the two separate calls in `processSessionFile()` (lines 147-157) with a single `readSessionTail()` call
+- No changes to `readUsageTotals()` -- it reads the full file (different use case) and is already mtime-gated
 
-  start(intervalMs = 60_000): void {
-    this.interval = setInterval(() => {
-      const mem = process.memoryUsage();
-      const heapMB = (mem.heapUsed / 1024 / 1024).toFixed(1);
-      const rssMB = (mem.rss / 1024 / 1024).toFixed(1);
-      const delta = mem.heapUsed - this.lastHeapUsed;
-      const deltaMB = (delta / 1024 / 1024).toFixed(2);
-      console.log(`[health] Heap: ${heapMB}MB, RSS: ${rssMB}MB, Delta: ${deltaMB}MB`);
-
-      if (mem.heapUsed > 500 * 1024 * 1024) {
-        console.warn('[health] WARNING: Heap exceeds 500MB');
-      }
-      this.lastHeapUsed = mem.heapUsed;
-    }, intervalMs);
-  }
-
-  stop(): void {
-    if (this.interval) clearInterval(this.interval);
-  }
-}
+**Data flow change:**
+```
+BEFORE: processSessionFile() --> readLastJsonlLine() + readLastToolUse() (2 file opens)
+AFTER:  processSessionFile() --> readSessionTail() (1 file open, 1 buffer, combined parse)
 ```
 
-### Pattern 4: Error Boundary in Animation Loop
+### 6. Convert Synchronous File I/O to Async (I/O -- Main Process)
 
-**What:** Wrap `World.tick()` in try/catch so a single bad frame doesn't kill the entire app. Log the error, skip the frame, and continue.
+**Type:** MODIFY
+**Files:** `src/main/session-detector.ts`
+**Current behavior:** `discoverSessions()` is synchronous: `readdirSync()` on `~/.claude/projects/`, then per project dir: `readdirSync()`, then per JSONL file: `statSync()`, `readLastJsonlLine()` (sync), `readLastToolUse()` (sync). With 5 projects and 3 sessions each, that is ~60+ blocking syscalls on the main process event loop every 3 seconds.
 
-**When to use:** Any `requestAnimationFrame`/ticker callback that processes dynamic data.
+**Optimization:** Convert to `async discoverSessions()` using `fs.promises.readdir()`, `fs.promises.stat()`, and async file reads. The `SessionStore.poll()` is already `async`, so the call site is ready.
 
-**Trade-offs:**
-- Pro: Prevents runtime exceptions from crashing the renderer
-- Pro: App continues operating even with degraded visuals
-- Con: Could mask bugs that should be fixed (use sparingly, log all errors)
+**Integration points:**
+- `SessionDetector` interface: Change `discoverSessions()` return type from `SessionInfo[]` to `Promise<SessionInfo[]>`
+- `FilesystemSessionDetector`: Convert all `fs.*Sync()` calls to `fs.promises.*` equivalents
+- `SessionStore.poll()`: Already `await`s -- just change `this.detector.discoverSessions()` to `await this.detector.discoverSessions()`
+- `readSessionTail()` (from optimization #5): Convert to async with `fs.promises.open()` + `fileHandle.read()` + `fileHandle.close()`
 
-**Example:**
-```typescript
-// In GameLoop.start():
-this.tickerCallback = (ticker: { deltaMS: number }) => {
-  try {
-    this.world.tick(ticker.deltaMS);
-  } catch (err) {
-    console.error('[game-loop] Tick error (skipping frame):', err);
-  }
-};
+**Risk:** The mtime cache check (`cached.mtimeMs === stat.mtimeMs`) still works with async stat. Race condition risk is the same as sync (file could change between stat and read) -- existing fallback parsing handles this.
+
+**Dependency:** Best done together with optimization #5 (combined read). Convert both in one pass.
+
+### 7. Incremental JSONL Usage Parsing (I/O -- Main Process)
+
+**Type:** MODIFY
+**Files:** `src/main/jsonl-reader.ts`, `src/main/usage-aggregator.ts`
+**Current behavior:** When a session's mtime changes, `UsageAggregator.getUsage()` calls `readUsageTotals(filePath)` which streams the ENTIRE file from byte 0 using `createReadStream` + `readline`. For a 10MB JSONL file, this re-parses ~5000 lines to recompute totals that only changed by the last few entries.
+
+**Optimization:** Track the byte offset where the previous parse ended. On the next mtime change, open the file and seek to that offset. Only parse new lines appended since the last read. Accumulate incrementally into the cached totals.
+
+**Integration points:**
+- `UsageAggregator.cache`: Change value type from `{ mtimeMs, totals }` to `{ mtimeMs, totals, lastByteOffset }`
+- `jsonl-reader.ts`: Add `readUsageTotalsIncremental(filePath, fromOffset)` that opens the file, seeks to `fromOffset`, and parses only new content
+- `UsageAggregator.getUsage()`: When mtime changed and cache exists, call incremental version. When cache miss (new session), call full parse.
+- Fallback: If the file size is SMALLER than `lastByteOffset` (file was truncated/rotated), fall back to full re-parse
+
+**Data flow change:**
+```
+BEFORE: mtime changed --> readUsageTotals(fullFile) --> cache totals
+AFTER:  mtime changed --> readUsageTotalsIncremental(fromOffset) --> accumulate into cached totals
 ```
 
-### Pattern 5: Periodic Cache Pruning
+**Risk:** JSONL files are append-only (Claude Code never modifies earlier lines), so offset-based incremental parsing is safe. The only edge case is file rotation/truncation, which the size check handles.
 
-**What:** On a timer (e.g., every 5 minutes), prune stale entries from tracking Maps and caches.
+### 8. Building Highlight Caching (CPU -- Renderer)
 
-**When to use:** Any Map/Set that tracks entities with lifecycles (sessions, agents).
+**Type:** MODIFY
+**Files:** `src/renderer/world.ts`
+**Current behavior:** Lines 434-446 in `World.tick()` iterate ALL agents to build a `Set<Building>` of active buildings, then iterate ALL 4 quest zone buildings to set their `.tint`. This runs every tick (up to 30fps).
 
-**Trade-offs:**
-- Pro: Prevents unbounded growth of tracking data structures
-- Pro: Reclaims memory from stale texture caches
-- Con: Pruning must not interfere with active state
+**Optimization:** Cache the set of active buildings. Only recompute when agents change state (which only happens on IPC updates or agent state transitions, not every tick).
 
-**Example:**
-```typescript
-// In World class, called from tick every 5 minutes:
-private pruneTimer = 0;
-private pruneStaleState(deltaMs: number): void {
-  this.pruneTimer += deltaMs;
-  if (this.pruneTimer < 300_000) return; // 5 minutes
-  this.pruneTimer = 0;
+**Integration points:**
+- `World`: Add `private activeBuildingCache: Set<Building> = new Set()` and `private highlightsDirty = true`
+- `World.tick()`: Only recompute highlights when `highlightsDirty` is true. Set `highlightsDirty = false` after update.
+- `World.updateSessions()`, `World.manageAgents()`, agent state transitions: Set `highlightsDirty = true`
 
-  // Prune dismissed sessions older than 30 minutes
-  // (currently no timestamp, so just cap the set size)
-  if (this.dismissedSessions.size > 50) {
-    const arr = [...this.dismissedSessions];
-    this.dismissedSessions = new Set(arr.slice(-20));
-  }
-}
-```
+### 9. Per-Agent State Map Consolidation (Memory/CPU -- Renderer)
 
-## Data Flow Changes for Hardening
+**Type:** MODIFY
+**Files:** `src/renderer/world.ts`
+**Current behavior:** World maintains 13+ separate `Map<string, ...>` instances for per-agent tracking:
+- `agents`, `speechBubbles`, `lastActivity`, `statusDebounce`, `lastCommittedStatus`, `lastRawStatus`, `lastEntryType`, `agentBuilding`, `idleTimers`, `agentSpotIndex`, `hasPlayedReminder`, `waitingTimers`, `hasPlayedWaitingReminder`, `agentsInBuildings`
 
-### Current Flow (no crash protection)
+Each `.delete()` call on agent removal hits all 13 maps (lines 534-547, plus 731-744 for debounce cleanup). Each Map has its own hash table overhead.
 
-```
-SessionDetector.discoverSessions()
-    |
-    v
-SessionStore.poll() [3s interval]
-    |
-    v
-webContents.send('sessions-update', data)
-    |
-    v (IPC bridge)
-World.updateSessions(sessions)
-    |
-    v
-GameLoop.tick() -> World.tick(deltaMs)
-    |               |
-    |               +-> Building.tick() [smoke particles: new Graphics/destroy]
-    |               +-> AmbientParticles.tick() [sparks: new Graphics/destroy]
-    |               +-> Agent.tick() [setAnimation -> createPaletteSwappedTextures]
-    |
-    v
-[CRASH after hours -- no recovery]
-```
+**Optimization:** Create an `AgentTrackingState` interface that bundles all per-agent tracking into a single object. Use a single `Map<string, AgentTrackingState>` instead of 13 separate maps.
 
-### Proposed Flow (with hardening)
+**Integration points:**
+- `World`: Define `interface AgentTrackingState { agent, speechBubble, lastActivity, statusDebounce, ... }`
+- Replace all 13+ Maps with `private agentStates: Map<string, AgentTrackingState>`
+- `removeAgent()`: Single `this.agentStates.delete(sessionId)` replaces 13 individual deletes
+- All code that reads/writes individual maps refactored to access through the consolidated object
 
-```
-SessionDetector.discoverSessions()
-    |
-    v
-SessionStore.poll() [3s interval, with isDestroyed guard]
-    |
-    v
-webContents.send('sessions-update', data)
-    |
-    v (IPC bridge)
-World.updateSessions(sessions)
-    |
-    v
-GameLoop.tick() -> try { World.tick(deltaMs) } catch { log, skip }
-    |               |
-    |               +-> Building.tick() [smoke: POOL borrow/return, no alloc]
-    |               +-> AmbientParticles.tick() [sparks: POOL borrow/return]
-    |               +-> Agent.tick() [palette cache bounded with LRU eviction]
-    |               +-> pruneStaleState() [every 5 min]
-    |
-    v
-HealthMonitor [1 min sampling, warns at 500MB]
-    |
-    v
-CrashGuard [render-process-gone -> delayed reload]
-    |
-    v
-[RECOVERY: renderer reloads, main process preserves state]
-```
+**Risk:** This is a large refactor touching many lines. Benefits are reduced hash lookups per tick and cleaner removal. Should be done LAST to avoid merge conflicts with other optimizations.
 
-## Anti-Patterns in Current Codebase
+### 10. Poll Backoff When No Sessions Active (I/O -- Main Process)
 
-### Anti-Pattern 1: Create-and-Destroy Particle Graphics
+**Type:** MODIFY
+**Files:** `src/main/session-store.ts`, `src/shared/constants.ts`
+**Current behavior:** `SessionStore` polls every 3 seconds regardless of whether any sessions exist.
 
-**What the code does:** `Building.tick()` and `AmbientParticles.tick()` create `new Graphics()` for each particle, then `destroy()` it when lifetime expires.
+**Optimization:** When zero sessions are discovered for N consecutive polls, increase the poll interval (e.g., 3s --> 10s --> 30s). Reset to 3s immediately when a session is discovered.
 
-**Why it's wrong:** PixiJS Graphics creation involves GPU buffer allocation. Even with v8.16.0 leak fixes, repeated allocation/deallocation fragments GPU memory and adds GC pressure. Over hours, this compounds.
+**Integration points:**
+- `SessionStore`: Add `private consecutiveEmpty = 0` counter
+- `SessionStore.poll()`: After discovering sessions, if empty, increment counter. Use dynamic interval: `Math.min(30000, POLL_INTERVAL_MS * (1 + consecutiveEmpty))`
+- `SessionStore.start()`: Use `setTimeout` recursion instead of `setInterval` to support dynamic intervals
 
-**Do this instead:** Pre-allocate a pool of Graphics objects at initialization. Borrow when spawning a particle, return when it expires. Use `visible = false` + position reset instead of destroy.
+### 11. Splice-to-Swap-and-Pop for Particle Arrays (CPU)
 
-### Anti-Pattern 2: Unbounded Module-Level Cache
+**Type:** MODIFY
+**Files:** `src/renderer/ambient-particles.ts`, `src/renderer/building.ts`
+**Current behavior:** Both `AmbientParticles` and `Building` use `Array.splice(i, 1)` to remove expired particles from arrays. Splice is O(n) because it shifts all subsequent elements.
 
-**What the code does:** `palette-swap.ts` uses a module-level `Map` to cache palette-swapped textures with no eviction.
+**Optimization:** Replace with swap-and-pop: copy the last element to position `i`, then `array.pop()`. O(1) removal. Particle order does not matter for rendering.
 
-**Why it's wrong:** Each cache entry holds `Texture[]` backed by `<canvas>` elements and GPU texture memory. Entries are never removed even when agents are destroyed. Over a day with many sessions, this grows.
+**Integration points:**
+- `ambient-particles.ts`: Line 253 `this.sparkParticles.splice(i, 1)` --> swap-and-pop
+- `building.ts`: Line 416 `this.smokeParticles.splice(i, 1)` --> swap-and-pop
 
-**Do this instead:** Either make the cache LRU-bounded (e.g., max 100 entries, evict oldest), or destroy cached textures when their associated agent is removed.
+### 12. DOM Diffing for Dashboard Panel (CPU -- Renderer)
 
-### Anti-Pattern 3: Full DOM Replacement on Every Update
+**Type:** MODIFY
+**Files:** `src/renderer/dashboard-panel.ts`
+**Current behavior:** `renderSessions()` (line 90) clears `this.sessionList.innerHTML = ''` and rebuilds all DOM elements from scratch on every dashboard update. `renderTotals()` (line 81) sets `innerHTML` on every update even if values haven't changed.
 
-**What the code does:** `DashboardPanel.renderSessions()` clears `innerHTML` and rebuilds the entire DOM tree on every session change.
+**Optimization:** Diff against the previous state. Only update DOM elements that have actually changed. Reuse existing DOM nodes.
 
-**Why it's wrong:** Creates DOM churn and potentially leaks event listeners if any references are held externally. With 3-second polling, this rebuilds the DOM thousands of times per hour.
-
-**Do this instead:** Diff the session list -- only add/remove/update rows that actually changed. Use `dataset.sessionId` to match existing rows.
-
-### Anti-Pattern 4: No Error Boundary in Tick Loop
-
-**What the code does:** `GameLoop.start()` adds a ticker callback that calls `world.tick()` with no error handling.
-
-**Why it's wrong:** Any unhandled exception in `tick()` (e.g., accessing a destroyed Graphics, null reference from race condition) kills the ticker permanently. The app appears frozen with no recovery.
-
-**Do this instead:** Wrap in try/catch, log the error, skip the frame, and continue ticking.
+**Integration points:**
+- `DashboardPanel`: Add `private lastTotalsHtml: string` and `private lastSessionIds: string[]` for change detection
+- `renderTotals()`: Compare new HTML string to cached. Only assign `innerHTML` if different.
+- `renderSessions()`: Track existing session row elements by sessionId. Update in-place when possible. Only create/remove rows for added/removed sessions.
 
 ## Suggested Build Order
 
-Based on dependency analysis and impact, the recommended implementation order:
+The optimizations have dependencies and varying risk levels. The build order balances: (1) highest impact first, (2) dependencies respected, (3) lower risk before higher risk.
 
-1. **HealthMonitor + crash logging** (diagnostic foundation -- need data before fixing)
-   - Add `process.memoryUsage()` logging to main process
-   - Add `performance.memory` logging to renderer via IPC
-   - Add `render-process-gone` crash recovery handler
-   - No dependencies on other changes
+### Phase 1: I/O Pipeline (Main Process) -- Do First
 
-2. **Error boundary in GameLoop** (immediate crash prevention)
-   - Wrap `world.tick()` in try/catch
-   - Trivial change, high safety impact
-   - No dependencies
+**Rationale:** Main process optimizations are isolated from the renderer. No visual risk. Unblock the event loop before touching GPU code.
 
-3. **Graphics object pool** (address primary leak suspect)
-   - Create `ResourcePool<Graphics>` utility
-   - Refactor `Building.tick()` smoke particles to use pool
-   - Refactor `AmbientParticles.tick()` spark particles to use pool
-   - Requires pool implementation before building/particle refactor
+| Order | Optimization | Why This Order |
+|-------|-------------|----------------|
+| 1.1 | Combined JSONL read (#5) | Foundation for #6. Reduces syscalls 50%. Zero risk to visuals. |
+| 1.2 | Async file I/O (#6) | Depends on #5 (convert combined read to async). Unblocks main process event loop. |
+| 1.3 | Incremental usage parsing (#7) | Independent. Biggest I/O win for large JSONL files. |
+| 1.4 | Poll backoff (#10) | Independent. Quick win. Reduces idle I/O to near zero. |
 
-4. **Palette swap cache bounding** (address secondary leak)
-   - Add LRU eviction or explicit cleanup to `swapCache`
-   - Properly destroy evicted Texture objects (call `texture.destroy(true)`)
-   - Independent of pool work
+### Phase 2: GPU/Render Pipeline -- Highest Visual Impact
 
-5. **Stream cleanup hardening** (prevent file handle leaks)
-   - Add explicit stream destruction in error paths of `readUsageTotals()`
-   - Guard `webContents.send()` more robustly in SessionStore
-   - Independent of renderer changes
+**Rationale:** The ColorMatrixFilter removal is the single highest-impact optimization (doubles GPU throughput). Day/night caching builds on it.
 
-6. **Dashboard DOM optimization** (reduce churn)
-   - Implement diff-update for session list
-   - Lowest priority -- DOM churn is unlikely to cause crashes, just wastes CPU
+| Order | Optimization | Why This Order |
+|-------|-------------|----------------|
+| 2.1 | Remove stage ColorMatrixFilter (#1) | Eliminates double render pass. Biggest GPU win. |
+| 2.2 | Cache day/night values (#2) | Depends on #1 (works with tint, not filter). Reduces per-tick math. |
+| 2.3 | Night glow guards (#3) | Independent. Quick win after #2 gives us cached intensity. |
 
-7. **Stale state pruning** (prevent long-term growth)
-   - Add periodic pruning of `dismissedSessions`, stale caches
-   - Cap `swapCache` size
-   - Final cleanup pass after main fixes
+### Phase 3: CPU Tick Loop Micro-Optimizations
+
+**Rationale:** These reduce per-tick CPU work in the renderer. Lower individual impact but cumulative benefit.
+
+| Order | Optimization | Why This Order |
+|-------|-------------|----------------|
+| 3.1 | Building highlight caching (#8) | Quick dirty-flag pattern. Eliminates per-tick agent iteration. |
+| 3.2 | Particle throttling at idle (#4) | Reduces idle CPU by ~50% for particle updates. |
+| 3.3 | Splice-to-swap-and-pop (#11) | One-line changes. O(n) to O(1) removal. |
+| 3.4 | DOM diffing for dashboard (#12) | Eliminates unnecessary DOM thrashing. |
+
+### Phase 4: Structural Refactor -- Do Last
+
+**Rationale:** High line-count change that touches all agent tracking code. Do after all other optimizations are stable to avoid merge conflicts.
+
+| Order | Optimization | Why This Order |
+|-------|-------------|----------------|
+| 4.1 | Per-agent state consolidation (#9) | Touches 13+ Maps and dozens of access sites. Must be last. |
+
+## Component Boundaries
+
+| Component | Responsibility | Optimizations Touching It |
+|-----------|---------------|--------------------------|
+| `SessionStore` | Poll orchestration, IPC push | #10 (poll backoff) |
+| `FilesystemSessionDetector` | Filesystem scanning, session status | #5 (combined read), #6 (async) |
+| `UsageAggregator` | Token/cost accumulation | #7 (incremental parsing) |
+| `jsonl-reader.ts` | Low-level JSONL file I/O | #5 (combined read), #6 (async), #7 (incremental) |
+| `World` | Scene orchestration, tick loop | #1 (filter removal), #2 (caching), #3 (glow guards), #4 (particle throttle), #8 (highlight cache), #9 (state consolidation) |
+| `DayNightCycle` | Time-of-day computation | #1 (add getTintHex), #2 (caching) |
+| `night-glow-layer.ts` | Glow sprite alpha updates | #3 (threshold guard) |
+| `AmbientParticles` | Firefly/spark/dust/leaf simulation | #4 (idle throttle), #11 (swap-and-pop) |
+| `Building` | Smoke particles, station management | #11 (swap-and-pop) |
+| `DashboardPanel` | DOM rendering of session data | #12 (DOM diffing) |
+| `constants.ts` | Shared constants | #10 (dynamic poll interval) |
+
+## Data Flow Changes Summary
+
+### Main Process Pipeline (Before)
+
+```
+SessionStore.poll()
+    |
+    v  sync
+FilesystemSessionDetector.discoverSessions()
+    |  sync                          |  sync
+    v                                v
+readdirSync(projects)          per file:
+    |                              statSync()
+    v                              readLastJsonlLine()  <-- separate open
+readdirSync(dir)                   readLastToolUse()    <-- separate open (same file!)
+    |
+    v
+merge with session map
+    |  async
+    v
+UsageAggregator.getUsageWithCost()
+    |  if mtime changed
+    v
+readUsageTotals()  <-- full file re-stream
+    |
+    v
+IPC push to renderer
+```
+
+### Main Process Pipeline (After)
+
+```
+SessionStore.poll()  [dynamic interval: 3s active, up to 30s empty]
+    |
+    v  async
+FilesystemSessionDetector.discoverSessions()
+    |  async                         |  async
+    v                                v
+fs.promises.readdir(projects)  per file:
+    |                              fs.promises.stat()
+    v                              readSessionTail()  <-- SINGLE open, combined parse
+fs.promises.readdir(dir)
+    |
+    v
+merge with session map
+    |  async
+    v
+UsageAggregator.getUsageWithCost()
+    |  if mtime changed
+    v
+readUsageTotalsIncremental(offset)  <-- parse only NEW bytes
+    |
+    v
+IPC push to renderer
+```
+
+### Renderer Tick Loop (Before)
+
+```
+World.tick(deltaMs)
+    |
+    v
+DayNightCycle.tick()  --> sin()/pow() every tick
+    |
+    v
+stageFilter.matrix = [new array]  --> GPU uniform upload every tick
+                                      (+ double render pass from stage filter)
+    |
+    v
+updateNightGlowLayer()  --> 19+ alpha writes every tick
+    |
+    v
+[agents, buildings, particles, speech bubbles, highlights]
+    |
+    v
+building highlights --> iterate ALL agents every tick
+```
+
+### Renderer Tick Loop (After)
+
+```
+World.tick(deltaMs)
+    |
+    v
+DayNightCycle.tick()  --> cached: recompute only when threshold exceeded
+    |
+    v
+if tintHex changed:
+    container.tint = newTint  --> vertex color, NO extra render pass
+    |
+    v
+if nightIntensity changed (> 0.005):
+    updateNightGlowLayer()  --> 19+ alpha writes (only when needed)
+    |
+    v
+[agents, buildings, particles, speech bubbles]
+    |
+    v
+if highlightsDirty:
+    recompute active buildings --> only on state change, not every tick
+```
+
+## Anti-Patterns to Avoid
+
+### Anti-Pattern 1: Premature Abstraction of the Optimization Layer
+
+**What people do:** Create a generic "optimization framework" with dirty-flag systems, change observers, and caching abstractions before implementing any specific optimization.
+**Why it is wrong:** Adds indirection and complexity. Each optimization has different caching semantics (tint hex vs. night intensity threshold vs. mtime bytes). A generic system adds overhead without benefit.
+**Do this instead:** Apply each optimization directly in the component that needs it. Use simple `if (value !== cached)` checks inline. Only abstract if 3+ optimizations share identical patterns.
+
+### Anti-Pattern 2: Async Everything in the Session Detector
+
+**What people do:** Convert every sync call to async, including cheap operations like `UUID_JSONL_REGEX.test(entry.name)`.
+**Why it is wrong:** Async has overhead (microtask queue, promise allocation). Only I/O-bound operations (`stat`, `read`, `readdir`) benefit from async. CPU-bound operations (regex, string parsing, JSON.parse) should remain synchronous within the async flow.
+**Do this instead:** Make the outer loop async (`for await` over directory entries), but keep parsing logic synchronous within each iteration.
+
+### Anti-Pattern 3: Over-Throttling Day/Night Updates
+
+**What people do:** Cache day/night values with a 1-second threshold to minimize recomputes.
+**Why it is wrong:** A 1-second threshold at 30fps means 30 frames with the same tint value, then a visible jump. The day/night cycle is a 10-minute smooth sine wave -- jumps are noticeable.
+**Do this instead:** Use a threshold of ~50-100ms (1-3 frames). This still eliminates 66-96% of recomputes while keeping transitions visually smooth.
+
+### Anti-Pattern 4: Moving Particles to a Web Worker
+
+**What people do:** Try to offscreen particle computation to a Web Worker for "real parallelism."
+**Why it is wrong:** The bottleneck is not computation (54 particles is trivial) -- it is the PixiJS property assignments (`gfx.x`, `gfx.y`, `gfx.alpha`) which must happen on the main thread. Transferring position data via `postMessage` adds latency and complexity that exceeds the computation cost.
+**Do this instead:** Keep particles on the main thread. Throttle at idle FPS. The CPU cost at 5fps idle is already negligible.
+
+## Scaling Considerations
+
+| Concern | 1-4 sessions | 5-10 sessions | 20+ sessions |
+|---------|-------------|---------------|-------------|
+| JSONL reads per poll | 2-8 file opens (current: 4-16) | 10-20 file opens | Out of scope (building limit is 4) |
+| Tick loop CPU | ~0.5ms per tick | ~1ms per tick | N/A (max 4 buildings) |
+| Incremental parse | Negligible benefit (small files) | Significant: 10MB files parse only last few KB | N/A |
+| Poll backoff | Rarely triggers (usually sessions exist) | Never triggers | N/A |
+
+The app's architecture naturally bounds scaling at 4 active buildings + campfire. Performance optimizations primarily matter for the steady-state case (1-4 sessions, always-on for hours).
 
 ## Sources
 
-- [PixiJS 8.x Garbage Collection Guide](https://pixijs.com/8.x/guides/concepts/garbage-collection) -- HIGH confidence
-- [PixiJS #10549: Redrawing Graphics leaks memory](https://github.com/pixijs/pixijs/issues/10549) -- HIGH confidence, fixed in PixiJS 8
-- [PixiJS #11550: Memory leak regression in PIXI.Graphics (WebGL)](https://github.com/pixijs/pixijs/issues/11550) -- HIGH confidence, fixed in 8.12.0
-- [PixiJS #10586: Memory leak in Graphics destruction in v8](https://github.com/pixijs/pixijs/issues/10586) -- HIGH confidence
-- [PixiJS 8.x Graphics Guide](https://pixijs.com/8.x/guides/components/scene-objects/graphics) -- HIGH confidence
-- [PixiJS 8.x Performance Tips](https://pixijs.com/8.x/guides/production/performance-tips/) -- HIGH confidence
-- [Electron crashReporter API](https://www.electronjs.org/docs/latest/api/crash-reporter) -- HIGH confidence
-- [Electron RenderProcessGoneDetails](https://www.electronjs.org/docs/latest/api/structures/render-process-gone-details) -- HIGH confidence
-- [Electron #705: IPC memory leak with setInterval](https://github.com/electron/electron/issues/705) -- MEDIUM confidence (old issue, may be improved)
-- [Electron #19887: App crash after render process crash](https://github.com/electron/electron/issues/19887) -- HIGH confidence
-- [Electron #7604: Render process crashes after couple of hours](https://github.com/electron/electron/issues/7604) -- MEDIUM confidence
-- [Diagnosing Memory Leaks in Electron Applications](https://www.mindfulchase.com/explore/troubleshooting-tips/frameworks-and-libraries/diagnosing-and-fixing-memory-leaks-in-electron-applications.html) -- MEDIUM confidence
-- [Debugging Electron Memory Usage](https://seenaburns.com/debugging-electron-memory-usage/) -- MEDIUM confidence
-- [Node.js #1180: CreateReadStream doesn't close the file](https://github.com/nodejs/node/issues/1180) -- MEDIUM confidence
+- [PixiJS 8 Performance Tips](https://pixijs.com/8.x/guides/concepts/performance-tips) -- Official guidance on filters, caching, and render optimization
+- [PixiJS Issue #2288 -- Stage filter halves framerate](https://github.com/pixijs/pixijs/issues/2288) -- Confirmed: any filter on stage doubles render passes
+- [PixiJS 8 Container.tint documentation](https://pixijs.download/dev/docs/scene.Container.html) -- Tint is inherited by children in v8
+- [PixiJS Discussion #7765 -- How to tint Container](https://github.com/pixijs/pixijs/discussions/7765) -- Container tint as replacement for ColorMatrixFilter
+- [PixiJS 8 Filters Guide](https://pixijs.com/8.x/guides/components/filters) -- Filters add framebuffer + shader pass
+- [PixiJS Cache As Texture](https://pixijs.com/8.x/guides/components/scene-objects/container/cache-as-texture) -- Alternative to filters for static content
+- [Node.js fs.promises API](https://nodejs.org/api/fs.html) -- Async filesystem operations
+- [Node.js Stream Cleanup](https://nodejs.org/api/stream.html) -- Proper stream destruction patterns
+- Direct source code analysis of all 30+ files in Agent World `src/` directory
 
 ---
-*Architecture research for: Agent World v2.1 Hardening and Crash Diagnosis*
-*Researched: 2026-03-16*
+*Architecture research for: Agent World v2.2 Performance Optimization*
+*Researched: 2026-03-18*

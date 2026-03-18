@@ -1,186 +1,189 @@
 # Project Research Summary
 
-**Project:** Agent World v2.1 -- Hardening & Crash Diagnosis
-**Domain:** Electron + PixiJS always-on desktop app stability
-**Researched:** 2026-03-16
+**Project:** Agent World v2.2 — Performance Optimization
+**Domain:** Electron + PixiJS 8 always-on desktop visualizer — rendering and I/O optimization
+**Researched:** 2026-03-18
 **Confidence:** HIGH
 
 ## Executive Summary
 
-Agent World is a long-running Electron 40.6.1 + PixiJS 8.16.0 desktop visualizer that suffers from a silent crash after hours of continuous operation. The codebase has zero crash detection, zero crash recovery, zero memory monitoring, and several resource management patterns that cause unbounded growth over time. Research across stack, features, architecture, and pitfalls converges on a clear diagnosis: the crash is almost certainly caused by GPU/native memory exhaustion from palette-swapped texture accumulation, continuous Graphics object create/destroy churn in particle systems, and un-destroyed GlowFilter GPU resources -- none of which would appear in a JavaScript heap snapshot. The app has no error handlers of any kind, so these crashes are completely invisible.
+Agent World v2.2 targets a well-scoped set of performance inefficiencies uncovered by a prior 4-agent audit. The work falls into two independent tracks: GPU/rendering optimizations in the PixiJS renderer process, and I/O optimizations in the Electron main process. Every optimization uses APIs already available in the installed stack (PixiJS 8.16.0, Node.js 20.x via Electron 40.6.1) — zero new dependencies are required. The research identifies 12 concrete changes, of which 5 are P1 (highest-impact bottlenecks), 6 are P2 (meaningful improvements), and 1 is P3 (correct pattern, marginal impact at current scale).
 
-The recommended approach is a three-phase hardening milestone. Phase 1 instruments the app with crash telemetry and memory monitoring (using only 2 new npm dependencies plus Electron built-in APIs) so the actual crash cause can be confirmed. Phase 2 fixes the identified leak sources: object pooling for particle Graphics, palette swap cache lifecycle management, filter cleanup, unbounded collection pruning, and timer overflow fixes. Phase 3 runs soak tests to verify all leaks are eliminated and adds optional observability features. This order is critical -- fixing leaks without instrumentation means you cannot verify they are fixed, and fixing the wrong leak first wastes effort (the "whack-a-mole" pitfall).
+The highest-impact single change is replacing the stage-level `ColorMatrixFilter` with `Container.tint`. Any filter on `app.stage` forces PixiJS to render the entire scene to an off-screen framebuffer, apply a shader pass, then composite back to screen — doubling GPU work every frame. PixiJS 8's inherited `Container.tint` applies color multiplication during the normal draw batch at zero additional cost. On the I/O side, the main process blocks its event loop with synchronous `readdirSync`/`statSync`/`readSync` calls every 3 seconds; converting to `fs.promises` equivalents unblocks IPC, timers, and all async I/O without changing the logical flow. Incremental JSONL parsing (reading only newly appended bytes instead of the full 2–18MB file on each mtime change) is the second major I/O win.
 
-The key risk is misdiagnosing the crash by looking only at JavaScript heap metrics while the actual leak is in GPU memory, native memory, or file descriptors. The health monitoring system must track all four dimensions simultaneously. A secondary risk is that PixiJS 8.16.0's Graphics destruction, while improved from earlier 8.x versions, may still have residual issues at the volume of create/destroy cycles this app generates (~3,360/hour for smoke particles alone). Object pooling eliminates this risk entirely by removing the create/destroy cycle.
-
----
+The primary risks are visual regressions from the filter-to-tint migration, and correctness regressions in incremental JSONL parsing. Both are fully manageable with targeted mitigation: screenshot baselines at 5+ day/night cycle points before replacing the filter, and truncation/inode detection built before the offset logic. The implementation order should prioritize I/O changes first (isolated to the main process, no visual risk) before touching the GPU pipeline.
 
 ## Key Findings
 
 ### Recommended Stack
 
-Only two new npm dependencies are needed. Everything else uses Electron built-in APIs and existing PixiJS 8.16.0 features that are already available in the installed version. The stack additions are minimal and targeted.
+No new packages are needed. All 12 optimizations use existing APIs verified against official documentation.
 
-**Core technologies:**
-- `electron-log` (^5.4): Persistent file logging across main + renderer processes -- auto-catches critical Electron events, provides IPC-based renderer-to-main log transport with 5MB file rotation
-- `electron-unhandled` (^5.0.0): Catches uncaughtException + unhandledRejection in both processes -- prevents the most common cause of silent exits (unhandled promise rejections)
-- Electron built-in `crashReporter`: Local crash dump collection via Crashpad without needing a remote server -- must be called before `app.on('ready')`
-- Electron built-in memory APIs: `process.getHeapStatistics()`, `process.getProcessMemoryInfo()`, `process.getBlinkMemoryInfo()`, `app.getAppMetrics()` -- covers V8 heap, native memory, Blink/DOM, and per-process metrics
-- PixiJS 8.16.0 unified `GCSystem`: Already installed but unconfigured -- needs `gcActive`, `gcMaxUnusedTime` (30s), `gcFrequency` (15s) tuned for a long-running 5-30fps app rather than the 60fps defaults
+**Core APIs in use:**
+- `Container.tint` (PixiJS 8.0.0+): Replaces `ColorMatrixFilter` — inherited by all children, applied during the normal draw batch with no additional render pass. Accepts hex integers, strings, or RGB arrays.
+- `Container.cacheAsTexture()` (PixiJS 8.x): Renders static containers to a single GPU texture. Appropriate for tilemap and scenery layers (never change after init); NOT for the night glow layer (updates every tick).
+- `fs.promises` (Node.js 10+): Async equivalents of every sync call in `session-detector.ts`. Same API shape, non-blocking.
+- `fs.createReadStream({ start: offset })` (Node.js 0.x+): Enables incremental JSONL parsing by seeking to the byte position of the last completed read.
+- `app.ticker.maxFPS` (PixiJS 8.x): Already in use for adaptive FPS. The existing `GameLoop.isIdle` flag gates particle throttling decisions with no new infrastructure.
 
-**What NOT to add:** Sentry/BugSplat (cloud crash reporting for a local-only app), Winston/Bunyan (overengineered for this use case), node-memwatch/heapdump (native addon complications with Electron), APM tools (enterprise monitoring for a personal tool), forced GC calls (masks root causes and causes animation jank).
+**Version compatibility:** All APIs confirmed available against installed versions. No version-gating required.
 
 ### Expected Features
 
-**Must have (table stakes for a long-running always-on app):**
-- Crash event handlers in both main and renderer processes (currently zero exist)
-- Renderer crash recovery with auto-reload (max 3 reloads in 5 minutes to prevent infinite loops)
-- Error boundary wrapping the ticker callback (one throw currently kills the world permanently)
-- Periodic memory usage logging (heap, RSS, GPU process, agent count, uptime)
-- PixiJS Graphics resource cleanup audit across all particle systems
-- Unbounded collection pruning (dismissedSessions, mtimeCache, cwdCache, usageAggregator.cache)
-- DayNightCycle elapsed counter overflow fix
-- Stream cleanup hardening in JSONL reader
+**Must have (table stakes for the performance milestone):**
+- Replace stage `ColorMatrixFilter` with `Container.tint` — eliminates the double render pass; the single highest-impact GPU optimization
+- Day/night threshold-gated updates — skip ~98% of frames where nightIntensity change is imperceptible (threshold 0.005)
+- Async session discovery — unblocks main process event loop during the 3-second poll cycle
+- Incremental JSONL usage parsing — reduces per-poll I/O from 2–18MB full re-stream to typically 1–50KB delta read
+- Combined JSONL tail reads — single `readSessionTail()` replaces two separate file opens per session per poll
 
-**Should have (beyond basic stability):**
-- Structured crash log file written on crash for post-mortem diagnosis
-- PixiJS texture/GPU resource counter with threshold warnings
-- Health heartbeat (main pings renderer to detect freezes vs crashes)
-- Uptime display in dashboard footer
-- Crash recovery notification on next startup
+**Should have (meaningful, included in milestone):**
+- Night glow change guards — dirty flag prevents 19+ alpha writes per tick when intensity is unchanged
+- Building highlight caching — `highlightsDirty` flag prevents per-tick agent iteration on stable state
+- Poll interval backoff — reduce idle polling to 5–10s maximum (with immediate reset on activity detection)
+- Particle throttling at idle FPS — skip smoke and spark subsystems at idle; keep the 54 ambient particles running (54 particles is too cheap to throttle)
+- Swap-and-pop particle removal — O(1) vs. O(n) splice for small particle arrays
+- DOM diffing for dashboard — in-place text updates instead of `innerHTML = ''` full rebuild
 
-**Defer (after crash is fixed):**
-- Memory trend chart in dashboard (HIGH complexity, LOW immediate value)
-- Full scene graph rebuild timer (destroys state, masks root causes)
-- OffscreenCanvas/Web Worker rendering (PixiJS 8 does not support it)
+**Defer (P3 / post-milestone):**
+- Per-agent state consolidation into `AgentTrackingState` — correct refactor but touches 13+ Maps and dozens of access sites; do after all other optimizations are stable to avoid merge conflicts
+
+**Anti-features confirmed by research (do not implement):**
+- `@pixi/tilemap` — incompatible with Electron Webpack (v1.1 decision); `cacheAsTexture` achieves the same result
+- Web Workers for JSONL parsing — the bottleneck is sync I/O, not CPU; worker serialization overhead exceeds savings for delta reads
+- `ParticleContainer` for ambient effects — only 54 particles; `ParticleContainer` strips features and its setup cost exceeds gains at this scale
+- Combining detector tail-reads with aggregator full-reads — different data volumes, different cache semantics; combining risks cache coherence bugs and forces O(n) cost on every poll
 
 ### Architecture Approach
 
-The existing architecture is sound -- Electron main process handles session detection and IPC, renderer process manages the PixiJS scene graph with adaptive frame rates. The hardening work adds a thin diagnostic layer on top without restructuring. Four new components are needed: HealthMonitor (main process periodic sampling), CrashGuard (render-process-gone handler with auto-restart), ResourcePool (generic Graphics object pool for particles), and a cleanup sweep integrated into World.tick(). All existing components that create/destroy Graphics need refactoring to use the pool pattern instead.
+The 12 optimizations divide cleanly along process boundaries. I/O changes live entirely in the main process (`session-detector.ts`, `jsonl-reader.ts`, `usage-aggregator.ts`, `session-store.ts`) and carry no visual risk. GPU/rendering changes live in the renderer process (`world.ts`, `day-night-cycle.ts`, `night-glow-layer.ts`) and require visual regression testing. The dependency graph is shallow: the only hard ordering constraint is that the combined JSONL read refactor (#5) should precede the async conversion (#6) — refactor first, then make it async.
 
-**Major components to add:**
-1. `HealthMonitor` (src/main/health-monitor.ts) -- 60-second sampling of V8 heap, process memory, per-process metrics; logs every 5 minutes or immediately at warning thresholds (512MB heap warning, 1024MB critical)
-2. `CrashGuard` (integrated into src/main/index.ts) -- `render-process-gone` handler that logs crash reason, delays 1 second, reloads renderer; crash count tracking prevents infinite reload loops
-3. `ResourcePool<Graphics>` (src/renderer/resource-pool.ts) -- Pre-allocated pool of Graphics objects for smoke and spark particles; borrow/return instead of create/destroy eliminates GPU allocation churn
-4. Cleanup sweep (integrated into src/renderer/world.ts) -- Every 5 minutes prune dismissedSessions, stale cache entries; call existing but never-invoked `usageAggregator.clearSession()`
+**Major components and what touches them:**
 
-**Major components to modify:**
-- `Building.tick()` and `AmbientParticles.tick()` -- Pool smoke/spark Graphics instead of create/destroy
-- `palette-swap.ts` -- Add lifecycle management (destroy textures when agents are removed; LRU eviction or bounded cache)
-- `LevelUpEffect` -- Explicitly destroy GlowFilter before container.destroy() (PixiJS does not auto-destroy filters)
-- `game-loop.ts` -- Wrap ticker callback in try/catch error boundary
-- `jsonl-reader.ts` -- Add `stream.destroy()` in finally block
-- `DayNightCycle` -- Bounded accumulator: `elapsed = (elapsed + deltaMs) % DAY_NIGHT_CYCLE_MS`
+1. `FilesystemSessionDetector` / `jsonl-reader.ts` — Combined tail read, async conversion, incremental parsing. The hot path for main-process I/O.
+2. `UsageAggregator` — Incremental parsing with extended cache shape: `{ mtimeMs, totals, byteOffset, ino }`.
+3. `SessionStore` — Dynamic poll interval with `consecutiveEmpty` counter and `setTimeout` chain replacing `setInterval`.
+4. `World` / `DayNightCycle` — Filter removal, tint update with threshold gate, glow guards, building highlight dirty flag. The hot path for renderer CPU/GPU.
+5. `AmbientParticles` / `Building` — Idle throttling for smoke/sparks; swap-and-pop removal.
+6. `DashboardPanel` — In-place DOM updates with event delegation preserving click-to-expand state.
 
 ### Critical Pitfalls
 
-1. **Palette-swapped textures never destroyed** -- The module-level `swapCache` Map grows unboundedly as agents cycle through the system. Each entry holds `Texture[]` backed by offscreen `<canvas>` elements and GPU-uploaded texture data. When `AnimatedSprite.textures` is reassigned, old textures are silently leaked (PixiJS 8 confirmed behavior via issue #11407). Over hours, this exhausts GPU memory and triggers Chromium's silent OOM kill. **Fix:** Track cache keys per session; destroy textures and remove cache entries when agents are removed.
+1. **Visual regression from filter-to-tint migration** — `ColorMatrixFilter` operates post-composite on the full stage; `Container.tint` is applied per-child before compositing. The night tint uses `NIGHT_TINT_B = 1.1` (boosting blue above 1.0), which `tint` cannot reproduce (clamped to 0–1). Screenshot baseline at 5+ cycle points before any code changes; clamp RGB multipliers to 1.0; apply day/night tint to a world container that excludes the agents container (or compensate agent status tints).
 
-2. **Diagnosing the wrong leak type** -- JavaScript heap snapshots do not show GPU memory, native memory, or file descriptors. A developer can see a stable 40MB JS heap while GPU memory climbs to crash. **Fix:** Build a multi-dimensional health reporter that logs JS heap, RSS, GPU process memory, Blink memory, file handle count, and canvas element count simultaneously.
+2. **Compound tint multiplication darkens agent status colors** — Parent day/night tint multiplies with child status tints: warm day tint × agent waiting-blue = muddy result; dark night tint × active building warm-highlight = near-invisible. Decide tinting strategy before Phase 2: either apply day/night tint only to the background containers (tilemap, buildings, scenery) and exempt agents, or accept the color shift and verify distinguishability at all 5 cycle points.
 
-3. **GlowFilter GPU resources never released** -- Each LevelUpEffect creates a GlowFilter with shader programs and render textures. `Container.destroy({ children: true })` does NOT destroy filters -- this is by PixiJS design. After dozens of celebrations, GPU shader/texture resources accumulate. **Fix:** Explicitly call `filter.destroy()` on all filters before calling `container.destroy()`.
+3. **Async I/O race conditions in session discovery** — Converting `readdirSync` to `await readdir` introduces TOCTOU windows and non-deterministic ordering. Use sequential `for...of` + `await` (not `Promise.all`) for the outer project-directory scan; handle `ENOENT` at every `await stat`/`await read` site; capture mtime from a single `stat()` call and use it atomically for both the cache check and cache write.
 
-4. **Graphics create/destroy churn in particle systems** -- 4 buildings generating smoke = ~2,880 Graphics create/destroy cycles per hour. Even with PixiJS 8.16.0 leak fixes, this pattern fragments GPU memory over hours. **Fix:** Object pooling -- pre-allocate a fixed pool of Graphics objects, reuse via visibility/position reset.
+4. **Incremental JSONL offset tracking breaks on truncation and file replacement** — Stored offset points past end-of-file after truncation; new file content is silently skipped after rotation (delete + create). Check `stat.size < storedOffset` (truncation) AND `stat.ino !== cachedIno` (replacement) before every incremental read; fall back to full re-parse on either condition.
 
-5. **File descriptor leak from JSONL stream errors** -- `readUsageTotals()` uses `createReadStream` + `readline` without explicit `stream.destroy()` in finally block. Over hours, file descriptor exhaustion causes session detection to silently fail. **Fix:** Add `finally { stream.destroy() }` -- one-line fix.
-
----
+5. **Dirty-flag threshold too large causes visible color stepping at dawn/dusk** — The sine-wave derivative peaks at transitions; a threshold of 0.01 produces visible jumps during the 30–60 second transition windows. Use threshold 0.005 or a per-channel integer comparison (update when any 0–255 channel value changes by >= 1). Verify with a screen recording at 2x speed through a full 10-minute cycle.
 
 ## Implications for Roadmap
 
-Based on research, suggested phase structure:
+Based on research, the process-boundary isolation, dependency graph, and risk profiles suggest a 4-phase structure. This matches both the FEATURES.md phased recommendation and the ARCHITECTURE.md build order.
 
-### Phase 1: Crash Diagnosis Infrastructure
-**Rationale:** You cannot fix what you cannot see. The app has zero crash handlers, zero memory monitoring, and zero diagnostic output. Every other fix is blind without instrumentation. This phase must come first.
-**Delivers:** Crash telemetry, memory health monitoring, error boundaries, renderer auto-recovery
-**Addresses:** Crash event handlers, renderer crash recovery, error boundary for tick(), memory usage logging (all P1 table stakes from FEATURES.md)
-**Avoids:** Pitfall 6 (silent crashes with no diagnostic trail), Pitfall 8 (diagnosing the wrong leak type)
-**Stack:** Install `electron-log` + `electron-unhandled`, configure `crashReporter`, add HealthMonitor + HealthReporter modules, configure PixiJS GCSystem
-**Verification:** Deliberately crash renderer; verify crash.log contains reason. Health metrics logged every 60 seconds.
+### Phase 1: I/O Pipeline (Main Process)
 
-### Phase 2: Resource Leak Fixes
-**Rationale:** With instrumentation in place, fix the specific leak sources identified by code review and PixiJS issue tracking. Each fix can be verified against the health metrics baseline established in Phase 1.
-**Delivers:** Elimination of all identified memory/GPU/handle leak vectors
-**Addresses:** PixiJS resource audit, unbounded collection pruning, DayNightCycle overflow, stream cleanup, palette-swap cache lifecycle (all P1/P2 from FEATURES.md)
-**Avoids:** Pitfall 1 (palette swap texture leak), Pitfall 2 (Graphics create/destroy churn), Pitfall 3 (timer precision drift), Pitfall 4 (dismissedSessions growth), Pitfall 5 (file descriptor leak), Pitfall 7 (GlowFilter leak), Pitfall 10 (cache accumulation)
-**Stack:** ResourcePool<Graphics> implementation, palette-swap.ts lifecycle management, explicit filter cleanup
-**Verification:** 1-hour soak test after each fix; renderer RSS growth must be < 5MB/hour. Trigger 10 celebrations; GPU memory returns to baseline.
+**Rationale:** Main process changes are fully isolated from the renderer. No visual risk. Unblocking the event loop benefit is immediately measurable. Doing I/O first also establishes a stable async foundation before the higher-risk renderer changes.
 
-### Phase 3: Soak Testing & Observability
-**Rationale:** After fixing leaks, verify stability with an 8-hour soak test. If stable, add optional observability features for ongoing monitoring. The soak test is the definition of done for this milestone.
-**Delivers:** Confirmed stability, crash log file, optional health dashboard features
-**Addresses:** Structured crash log, crash count display, PixiJS resource counter, uptime display, health heartbeat (all P2/P3 from FEATURES.md)
-**Avoids:** Pitfall 9 (whack-a-mole -- fixing one leak and missing another)
-**Verification:** 8-hour continuous run with < 50MB total renderer process memory growth. All health metrics stable or periodic (no monotonic growth).
+**Delivers:** Non-blocking session polling; 50% reduction in per-session syscalls per poll; 90%+ reduction in bytes read for usage aggregation on large JSONL files; adaptive idle polling reducing filesystem pressure to near-zero.
+
+**Implements from FEATURES.md:** Combined JSONL tail read (`readSessionTail()`), async `discoverSessions()` with `fs.promises`, incremental usage parsing, poll backoff (5–10s hard cap, instant reset on activity).
+
+**Avoids:** TOCTOU race conditions (sequential `for...of` over project dirs), cache desync between detector and aggregator reads (keep them separate), offset corruption after truncation/rotation (size + inode checks before every incremental read), excessive backoff latency (5–10s cap prevents the session-appears-to-be-broken UX pitfall).
+
+### Phase 2: GPU / Render Pipeline
+
+**Rationale:** Highest visual impact (eliminates double render pass every frame) but highest visual regression risk. Must be done with a screenshot baseline in place. Independent of Phase 1 — could run in parallel if desired, but sequential is safer.
+
+**Delivers:** Elimination of the off-screen framebuffer render pass; threshold-gated tint updates reducing GPU writes by ~98% on plateau frames; glow layer updates skipped when intensity is unchanged; static layers cached to single textures.
+
+**Implements from FEATURES.md:** Remove `ColorMatrixFilter` from `app.stage`; add `DayNightCycle.getTintHex()`; apply day/night tint to world container (not stage, not agents container); cache last tint hex and skip assignment when unchanged; night glow alpha guard; `cacheAsTexture()` for tilemap and scenery layers.
+
+**Avoids:** Visual regression from filter vs. tint compositing difference (screenshot baseline + 5-point comparison after migration), compound tint multiplication on agent status colors (world-container-level tint, agents exempted), color stepping at transitions (threshold <= 0.005), mistakenly caching the night glow layer (updates every tick — do not cache).
+
+### Phase 3: CPU Tick Loop Micro-Optimizations
+
+**Rationale:** Smaller individual gains but cumulative benefit for the always-on steady-state. Low risk. Can be reviewed as a single pass.
+
+**Delivers:** Building highlight iteration eliminated on ~99% of ticks; ambient particle subsystems (smoke, sparks) skipped at idle FPS; O(1) particle removal; dashboard renders without full reflow on every 3-second update.
+
+**Implements from FEATURES.md:** Building highlight `highlightsDirty` flag, `ambientParticles.tick(deltaMs, nightIntensity, isIdle)` with idle skip for smoke/sparks only (NOT fireflies/dust/leaves — too cheap to throttle and visually jerky if skipped), `swapRemove()` helper with reverse-iteration invariant, dashboard in-place DOM updates with event delegation.
+
+**Avoids:** Particle jerkiness from over-throttling (do NOT skip fireflies/dust/leaves — 54 particles costs < 1ms/frame), swap-and-pop in forward-iteration loops (extract helper, enforce reverse-loop invariant comment), dashboard click-to-expand state loss (event delegation + in-place text mutation, not element replacement; expanded rows must survive 3+ data update cycles).
+
+### Phase 4: Structural Refactor (Agent State Consolidation)
+
+**Rationale:** Correctness improvement and maintenance simplification, but touches 13+ Maps and dozens of access sites in `world.ts`. Must come last to avoid merge conflicts with the tick-loop changes in Phase 3.
+
+**Delivers:** Single `Map<string, AgentTrackingState>` replacing 13+ separate Maps; single `this.agentStates.delete(sessionId)` replacing 13 individual deletes on agent removal; improved cache locality for per-agent tick operations.
+
+**Implements from FEATURES.md:** `AgentTrackingState` interface bundling agent, speechBubble, timers, debounce, and status fields; all tick-loop access sites updated to read through the consolidated object.
+
+**Avoids:** Merge conflicts with Phase 3 changes (must be last); behavioral regressions from the wide refactor (no logic changes, only data structure consolidation).
 
 ### Phase Ordering Rationale
 
-- **Instrumentation before fixes:** Without crash telemetry and memory monitoring, you cannot confirm the crash cause, verify that fixes work, or detect new regressions. Phase 1 creates the diagnostic foundation.
-- **Leak fixes grouped together:** All leak fixes in Phase 2 are independent of each other and can be implemented in parallel. However, each should be verified against Phase 1's baseline metrics before moving to the next.
-- **Soak test as gate:** Phase 3 begins with a soak test that either confirms Phase 2 was successful or reveals remaining leaks. Only after passing the soak test should observability features be added.
-- **Feature dependency chain:** Crash event handlers enable crash recovery, which enables crash log, which enables crash count display. This chain naturally maps to Phase 1 then Phase 3 ordering.
-- **Anti-features excluded:** Forced GC, scene graph rebuilds, renderer kill-on-threshold, and cloud crash reporting are explicitly excluded per research consensus.
+- **I/O before GPU:** Main process isolation means Phase 1 can be validated and confirmed stable before introducing the higher-risk renderer changes in Phase 2. The async refactor also has no visual side effects to debug in parallel with color regression investigations.
+- **Combined read before async conversion:** Refactor `readSessionTail()` into a single-file-open function first, then convert that one function to async — cleaner than converting two separate sync functions to async and then merging them.
+- **GPU before CPU micro-opts:** The filter removal changes the tint update mechanism. Threshold-gating and glow guards build directly on the new tint path; implementing them on the old filter path would require rework.
+- **State consolidation last:** Widest code surface area in the codebase. Every other optimization that touches `world.ts` should be committed and stable before this refactor.
 
 ### Research Flags
 
-Phases likely needing deeper research during planning:
-- **Phase 2 (Graphics object pooling):** The pool must correctly reset all Graphics state (position, alpha, scale, tint, visibility, geometry) on return. PixiJS 8's Graphics API may have state that is not obvious to reset. Test with DevTools WebGL inspector to verify no buffer accumulation.
-- **Phase 2 (Palette swap cache lifecycle):** Destroying textures that were created via `new Texture(new ImageSource({ resource: canvas }))` requires `texture.destroy(true)` to also destroy the source. Need to verify this actually releases the canvas element and GPU upload. May need `/gsd:research-phase` during planning.
+Phases needing care during implementation (not additional research, but deliberate decisions):
 
-Phases with standard patterns (skip research-phase):
-- **Phase 1 (Crash telemetry):** Electron's crash handling APIs are well-documented with official examples. `electron-log` and `electron-unhandled` have straightforward integration guides.
-- **Phase 2 (Unbounded collection pruning):** Standard Map/Set pruning -- no framework-specific concerns.
-- **Phase 2 (Timer overflow fix):** One-line modulo fix with zero risk.
-- **Phase 2 (Stream cleanup):** Standard Node.js `finally { stream.destroy() }` pattern.
+- **Phase 2 (GPU — visual regression):** Requires a screenshot baseline at 5+ day/night cycle points before any code changes. The compound tint multiplication with agent status tints requires a deliberate design decision (exempt agents container from day/night tint, or accept color shift and verify distinguishability). Decide before writing any code.
+- **Phase 1 (I/O — incremental parsing):** Truncation and inode detection must be implemented before the offset logic, not after. The truncation fallback is the safety net for everything else in the incremental path.
 
----
+Phases with standard patterns (no additional research needed):
+
+- **Phase 1 (async I/O):** `fs.promises` is well-documented with official examples. The sequential-`for...of` pattern for async directory scanning is established.
+- **Phase 3:** Dirty flags, swap-and-pop, idle FPS gating, and DOM in-place updates are all documented patterns with clear implementations in ARCHITECTURE.md.
+- **Phase 4:** Straightforward interface extraction and Map consolidation. No novel patterns.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | Only 2 new dependencies, both well-maintained with high download counts. All other APIs are Electron/PixiJS built-ins verified against official docs. |
-| Features | HIGH | Feature list derived from direct codebase audit of all 30 source files. Every identified leak has a specific file/line reference. Feature dependencies mapped from code structure. |
-| Architecture | HIGH | Full scene graph analysis, data flow tracing, and integration point mapping. Anti-patterns identified with specific PixiJS GitHub issues confirming the behavior. |
-| Pitfalls | HIGH | 10 pitfalls identified, each with specific codebase evidence, PixiJS/Electron issue references, and verified fix patterns. Palette swap leak confirmed by PixiJS issue #11407. Graphics churn confirmed by issues #10549, #10586, #11550. |
+| Stack | HIGH | All APIs verified against official PixiJS 8 docs and Node.js docs. Zero new dependencies. Version compatibility confirmed for all 8 APIs used. |
+| Features | HIGH | Prioritization grounded in measured bottlenecks from prior audit. Anti-features validated with technical rationale. P1/P2/P3 distinctions are defensible. |
+| Architecture | HIGH | Based on direct source code analysis of all affected files plus official documentation. Integration points and data flow changes specify actual line numbers. |
+| Pitfalls | HIGH | 11 pitfalls identified, each verified against official documentation or primary source analysis. Includes concrete warning signs, verification steps, and recovery strategies. |
 
 **Overall confidence:** HIGH
 
 ### Gaps to Address
 
-- **PixiJS 8.16.0 Graphics destroy completeness:** While 8.16.0 includes fixes for the severe Graphics memory leaks in earlier 8.x, it is unclear whether the fixes are 100% complete at ~3,360 create/destroy cycles per hour. Object pooling makes this a non-issue, but if pooling is deferred, a soak test with pure create/destroy is needed to verify.
-- **Palette swap `texture.destroy(true)` effectiveness:** Need to verify during implementation that destroying a Texture created from `new ImageSource({ resource: canvas })` actually releases the canvas element from the DOM and the GPU upload. If not, explicit `canvas.width = 0; canvas.height = 0` may be needed.
-- **ColorMatrixFilter matrix allocation per tick:** The stage filter's matrix is replaced with a new array literal every frame (~108,000 allocations/hour). This creates GC pressure but is likely not the crash cause. Verify during Phase 2 whether assigning to existing array indices reduces GC pauses.
-- **Electron IPC memory overhead:** Documented Electron issue suggests `setInterval` + `ipc.send()` can leak 10-15MB/hour. The 3-second poll interval is relatively slow. Monitor during Phase 1 soak testing to see if IPC overhead is significant.
-
----
+- **Acceptable visual delta for night colors:** The filter-to-tint migration will produce slightly less-vivid night colors (blue channel cannot exceed 1.0 with tint). Whether to compensate with brighter night glow halos or accept the visual change is a product decision. Decide before Phase 2 begins.
+- **Agent tint strategy during day/night:** Three options exist — (1) exempt agents container from day/night tint, (2) accept compound multiplication and verify status-color distinguishability at all cycle points, or (3) compensate agent status tints mathematically. Research identifies all three as viable; the right choice depends on visual preference. Decide before Phase 2 implementation.
+- **`cacheAsTexture` discrepancy:** STACK.md recommends it for static layers; FEATURES.md lists it as an anti-feature citing day/night tint interaction. The correct resolution: `cacheAsTexture` works correctly with parent-tint inheritance (the cache stores untinted content; the parent tint is applied at compositing time). FEATURES.md's concern is moot once day/night tint is applied at the container level rather than via a stage filter. Implement `cacheAsTexture` for tilemap and scenery layers in Phase 2.
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- [Electron crashReporter API](https://www.electronjs.org/docs/latest/api/crash-reporter) -- local crash dump collection, Crashpad storage
-- [Electron process API](https://www.electronjs.org/docs/latest/api/process) -- getHeapStatistics, getProcessMemoryInfo, getBlinkMemoryInfo
-- [Electron webContents API](https://www.electronjs.org/docs/latest/api/web-contents) -- render-process-gone, unresponsive events
-- [Electron app.getAppMetrics()](https://www.electronjs.org/docs/latest/api/app) -- per-process CPU/memory metrics
-- [PixiJS 8.x Garbage Collection Guide](https://pixijs.com/8.x/guides/concepts/garbage-collection) -- GCSystem config, texture idle threshold
-- [PixiJS 8.16.0 Release Notes](https://pixijs.com/blog/8.16.0) -- GC marks renderGroups dirty, memory leak fixes
-- [PixiJS #11407](https://github.com/pixijs/pixijs/issues/11407) -- AnimatedSprite lacks destroyTexture option in v8
-- [PixiJS #10549](https://github.com/pixijs/pixijs/issues/10549) -- Redrawing Graphics leaks memory
-- [PixiJS #11550](https://github.com/pixijs/pixijs/issues/11550) -- Memory leak regression in Graphics WebGL
-- [PixiJS #10586](https://github.com/pixijs/pixijs/issues/10586) -- Memory leak in Graphics destruction in v8
-- [electron-log on GitHub](https://github.com/megahertz/electron-log) -- v5 features, error handler, file transport
-- [electron-unhandled on GitHub](https://github.com/sindresorhus/electron-unhandled) -- v5.0.0, Electron 30+ requirement
-- Direct codebase analysis of all 30 source files in `src/`
+- [PixiJS 8 Container API docs](https://pixijs.download/dev/docs/scene.Container.html) — tint property, cacheAsTexture()
+- [PixiJS 8 Scene Objects guide](https://pixijs.com/8.x/guides/components/scene-objects) — tint inheritance in v8, cacheAsTexture options
+- [PixiJS 8 cacheAsTexture guide](https://pixijs.com/8.x/guides/components/scene-objects/container/cache-as-texture) — full API, texture pool integration
+- [PixiJS cacheAsTexture PR #11031](https://github.com/pixijs/pixijs/pull/11031) — implementation details confirming compositing behavior
+- [PixiJS v8 launch blog](https://pixijs.com/blog/pixi-v8-launches) — tint inheritance confirmed new in v8
+- [PixiJS 8 Filters Guide](https://pixijs.com/8.x/guides/components/filters) — filter pipeline: breaks batch, renders to framebuffer, composites back
+- [PixiJS Issue #2288](https://github.com/pixijs/pixijs/issues/2288) — confirmed: any filter on stage doubles render passes
+- [Node.js fs API docs](https://nodejs.org/api/fs.html) — fs.promises equivalents, createReadStream start option, FileHandle API
+- [Electron Performance guide](https://www.electronjs.org/docs/latest/tutorial/performance) — prefer async I/O in main process
+- [Game Programming Patterns — Dirty Flag](https://gameprogrammingpatterns.com/dirty-flag.html) — threshold and dirty-flag semantics
+- Direct source code analysis of Agent World `src/` — world.ts, day-night-cycle.ts, session-detector.ts, usage-aggregator.ts, jsonl-reader.ts, ambient-particles.ts, building.ts, graphics-pool.ts, agent.ts, game-loop.ts, dashboard-panel.ts
 
 ### Secondary (MEDIUM confidence)
-- [PixiJS #11331](https://github.com/pixijs/pixijs/issues/11331) -- Severe VRAM Management Degradation in v8
-- [PixiJS #11592](https://github.com/pixijs/pixijs/issues/11592) -- Canvas leak after Application.destroy
-- [Electron #705](https://github.com/electron/electron/issues/705) -- IPC memory leak with setInterval
-- [Electron #7604](https://github.com/electron/electron/issues/7604) -- Render process crashes after hours
-- [Electron #40426](https://github.com/electron/electron/issues/40426) -- OOM sometimes reported as crashed
-- [Debugging Electron Memory Usage (Seena Burns)](https://seenaburns.com/debugging-electron-memory-usage/) -- RSS vs heap distinction
-- [Node.js #1834](https://github.com/nodejs/node/issues/1834) -- createReadStream file descriptor leak on abort
+- [PixiJS Performance Deep Dive (Medium)](https://medium.com/@turkmergin/maximising-performance-a-deep-dive-into-pixijs-optimization-6689688ead93) — cacheAsTexture patterns, sprite vs. Graphics performance
+- [Swap-and-Pop vs Splice](https://tomoharutsutsumi.medium.com/instead-of-splice-use-swap-and-pop-javascript-22103d90bf5c) — O(1) vs. O(n) removal, ordering implications
+- [melonJS Performance Issue #192](https://github.com/melonjs/melonJS/issues/192) — Array.splice is slow in game loops
+
+### Tertiary (reference only)
+- [Elastic Filebeat — Log Rotation](https://www.elastic.co/guide/en/beats/filebeat/current/file-log-rotation.html) — offset tracking across truncation and rotation (pattern reference for incremental parsing)
+- [morphdom DOM diffing](https://github.com/patrick-steele-idem/morphdom) — alternative to manual keying (not recommended for this use case; manual in-place updates preferred)
 
 ---
-*Research completed: 2026-03-16*
+*Research completed: 2026-03-18*
 *Ready for roadmap: yes*
