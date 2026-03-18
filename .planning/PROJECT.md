@@ -71,14 +71,18 @@ Instantly see the status of all Claude Code sessions so you know which one needs
 
 ### Active
 
-## Current Milestone: v2.1 Hardening and Bug Fixes
+## Current Milestone: v2.2 Performance Optimization
 
-**Goal:** Fix the silent crash that occurs after hours of running, and audit the codebase for brittleness.
+**Goal:** Eliminate the highest-impact CPU, GPU, and I/O inefficiencies identified by a comprehensive 4-agent performance audit.
 
 **Target features:**
-- Diagnose and fix the silent crash (likely memory leak or resource exhaustion)
-- Audit animation loop, polling, JSONL parsing, and PixiJS resources for leaks
-- Harden any brittle patterns found during the audit
+- Remove stage-level ColorMatrixFilter (doubles GPU work) and replace with per-container tints
+- Cache day/night filter values and gate updates on actual change thresholds
+- Throttle ambient particle updates at idle FPS and skip invisible subsystems
+- Combine redundant JSONL file reads into single-pass operations
+- Convert synchronous file I/O in session discovery to async (unblock main process)
+- Implement incremental JSONL usage parsing (offset-based, not full re-read)
+- Fix medium-impact items: night glow guards, per-agent state consolidation, building highlight caching, poll backoff, splice-to-swap-and-pop, DOM diffing, and more
 
 ### Out of Scope
 
@@ -175,4 +179,4 @@ Instantly see the status of all Claude Code sessions so you know which one needs
 | nightIntensity as central signal (v2.0) | Single value threaded from cycle → glow, smoke, particles; no duplication | ✓ Good |
 
 ---
-*Last updated: 2026-03-16 after v2.1 milestone start*
+*Last updated: 2026-03-18 after v2.2 milestone start*

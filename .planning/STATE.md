@@ -1,36 +1,36 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.1
-milestone_name: Hardening and Bug Fixes
+milestone: v2.2
+milestone_name: Performance Optimization
 status: in-progress
-stopped_at: "25-01 Task 3 checkpoint: awaiting 8-hour soak test"
-last_updated: "2026-03-16T21:47:00.000Z"
-last_activity: 2026-03-16 -- Phase 25 Plan 01 Tasks 1-2 complete, soak test scripts ready
+stopped_at: null
+last_updated: "2026-03-18T20:35:00.000Z"
+last_activity: 2026-03-18 -- Milestone v2.2 started
 progress:
-  total_phases: 3
-  completed_phases: 2
-  total_plans: 5
-  completed_plans: 4
-  percent: 80
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-16)
+See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** Instantly see the status of all Claude Code sessions so you know which one needs attention next.
-**Current focus:** v2.1 Hardening and Bug Fixes -- Phase 25: Soak Testing and Verification
+**Current focus:** v2.2 Performance Optimization -- Defining requirements
 
 ## Current Position
 
-Phase: 25 of 25 (Soak Testing and Verification) -- third/final phase of v2.1
-Plan: 1 of 1 in current phase (IN PROGRESS -- checkpoint at Task 3)
-Status: Awaiting 8-hour soak test
-Last activity: 2026-03-17 - Completed quick task 8: Fix audio not playing when window unfocused
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-18 — Milestone v2.2 started
 
-Progress: [████████░░] 80%
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
@@ -48,6 +48,10 @@ Progress: [████████░░] 80%
 - **v1.5 Usage Dashboard** (2026-03-01): Token usage tracking, cost estimation, live dashboard, 30-day history
 - **v2.0 World & Character Detail** (2026-03-03): Outdoor scenery, building exteriors, unique agent identity, day/night cycle, atmospheric particles
 
+## Parked Milestones
+
+- **v2.1 Hardening and Bug Fixes** (parked 2026-03-18): Phases 23-24 complete (crash diagnosis, resource leak fixes). Phase 25 soak test scripts built, awaiting 8-hour verification run. STAB-03 pending.
+
 ## Accumulated Context
 
 ### Decisions
@@ -55,26 +59,14 @@ Progress: [████████░░] 80%
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- [v2.1]: Instrumentation before fixes -- cannot verify leak fixes without baseline health metrics (from research)
-- [v2.1]: Object pooling over create/destroy -- eliminates GPU allocation churn risk entirely rather than relying on PixiJS 8.16.0 fix completeness
-- [v2.1]: Soak test as definition of done -- 8 hours with <50MB growth proves stability
-- [Phase 23]: Used electron-log/main sub-path import for correct v5 module resolution
-- [Phase 23]: CrashLogger accepts userDataPath parameter for testability
-- [Phase 23]: IPC crash listeners at module level in index.ts for early availability
-- [Phase 23]: Extracted checkTrend as pure function for testability instead of mocking performance.memory
-- [Phase 23]: Used performance.memory (Chromium-specific) since renderer is sandboxed with nodeIntegration: false
-- [Phase 23]: ErrorTracker co-located in game-loop.ts for single import adjacency
-- [Phase 24]: Pre-draw particle geometry once with fill alpha 1.0, use gfx.alpha for runtime fade
-- [Phase 24]: Exposed swapCache via _getSwapCacheForTesting() for test-only cache manipulation
-- [Phase 24]: Save agent characterClass/paletteIndex before destroy() since destroy invalidates the object
-- [Phase 24]: pruneByAge exported as pure function from world.ts for testability (same pattern as Phase 23 checkTrend)
-- [Phase 24]: pruneStaleEntries as optional method on SessionDetector interface to avoid runtime casting
-- [Phase 24]: dismissedSessions pruning: 5 min interval, 30 min max age
+- [v2.2]: Performance audit identified 6 high-impact and 16 medium-impact issues across rendering, memory, I/O, and game loop
+- [v2.2]: Stage-level ColorMatrixFilter is the single most impactful GPU issue -- forces full-scene double-render every frame
+- [v2.2]: All session discovery file I/O is synchronous, blocking Electron main process event loop every 3s
+- [v2.2]: readLastJsonlLine + readLastToolUse open the same file twice per changed session per poll
 
 ### Blockers/Concerns
 
-- Research flag: Graphics object pool must correctly reset all state (position, alpha, scale, tint, visibility, geometry) on return. May need investigation during Phase 24 planning.
-- Research flag: palette swap texture.destroy(true) effectiveness needs verification during Phase 24 implementation.
+None
 
 ### Quick Tasks Completed
 
@@ -83,11 +75,9 @@ Recent decisions affecting current work:
 | 6 | Fix avatar working in wrong area and disappearing behind bottom-left section | 2026-03-03 | 074b9e8 | [6-there-are-jobs-being-done-in-the-top-lef](./quick/6-there-are-jobs-being-done-in-the-top-lef/) |
 | 7 | Add ambient idle agents at campfire | 2026-03-03 | 37f9087 | [7-can-we-have-a-couple-of-idle-agents-arou](./quick/7-can-we-have-a-couple-of-idle-agents-arou/) |
 | 8 | Fix audio not playing when window unfocused | 2026-03-17 | 2c31f80 | [8-when-the-window-doesn-t-have-focus-it-no](./quick/8-when-the-window-doesn-t-have-focus-it-no/) |
-| Phase 23 P01 | 3min | 2 tasks | 7 files |
-| Phase 23 P02 | 3min | 3 tasks | 5 files |
 
 ## Session Continuity
 
-Last session: 2026-03-16T21:47:00.000Z
-Stopped at: "25-01 Task 3 checkpoint: awaiting 8-hour soak test"
-Resume file: .planning/phases/25-soak-testing-and-verification/25-01-PLAN.md
+Last session: 2026-03-18
+Stopped at: null
+Resume file: null
