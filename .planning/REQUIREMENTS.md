@@ -16,8 +16,8 @@ Requirements for performance optimization release. Each maps to roadmap phases.
 
 ### I/O Pipeline
 
-- [ ] **IO-01**: readLastJsonlLine and readLastToolUse combined into single file open/read/parse pass
-- [ ] **IO-02**: discoverSessions converted from synchronous to async fs.promises (unblocks main process)
+- [x] **IO-01**: readLastJsonlLine and readLastToolUse combined into single file open/read/parse pass
+- [x] **IO-02**: discoverSessions converted from synchronous to async fs.promises (unblocks main process)
 - [ ] **IO-03**: UsageAggregator uses incremental offset-based JSONL parsing instead of full file re-read
 - [ ] **IO-04**: Poll interval backs off to 10-30s when no active sessions detected for consecutive cycles
 
@@ -67,8 +67,8 @@ Carried from v2.1, pending soak test verification.
 | GPU-02 | Phase 27 | Pending |
 | GPU-03 | Phase 27 | Pending |
 | GPU-04 | Phase 27 | Pending |
-| IO-01 | Phase 26 | Pending |
-| IO-02 | Phase 26 | Pending |
+| IO-01 | Phase 26 | Complete |
+| IO-02 | Phase 26 | Complete |
 | IO-03 | Phase 26 | Pending |
 | IO-04 | Phase 26 | Pending |
 | CPU-01 | Phase 28 | Pending |
