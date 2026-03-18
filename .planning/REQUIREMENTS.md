@@ -1,31 +1,45 @@
 # Requirements: Agent World
 
-**Defined:** 2026-03-16
+**Defined:** 2026-03-18
 **Core Value:** Instantly see the status of all Claude Code sessions so you know which one needs attention next.
 
-## v2.1 Requirements
+## v2.2 Requirements
 
-Requirements for hardening and bug fix release. Each maps to roadmap phases.
+Requirements for performance optimization release. Each maps to roadmap phases.
 
-### Crash Diagnosis
+### GPU Rendering
 
-- [x] **DIAG-01**: App captures crash events (render-process-gone, uncaughtException, window.onerror) and logs them to a persistent file
-- [x] **DIAG-02**: Game loop tick is wrapped in an error boundary so a single exception doesn't silently freeze the app
-- [x] **DIAG-03**: Crash events are logged to a persistent file via electron-log with timestamps and stack traces
-- [x] **DIAG-04**: Memory health monitor periodically logs heap statistics to detect growing memory before crash
+- [ ] **GPU-01**: Stage-level ColorMatrixFilter replaced with Container.tint for day/night coloring (eliminates double render pass)
+- [ ] **GPU-02**: Day/night tint and filter values only update when change exceeds perceptible threshold (~0.005)
+- [ ] **GPU-03**: Static layers (scenery, building exteriors) use cacheAsTexture for single-draw rendering
+- [ ] **GPU-04**: Night glow layer alpha updates gated on nightIntensity change threshold
 
-### Resource Leak Fixes
+### I/O Pipeline
 
-- [x] **LEAK-01**: Smoke and spark particles use object pooling instead of creating/destroying Graphics objects every tick
-- [x] **LEAK-02**: Palette swap texture cache destroys textures when agents are removed and uses LRU eviction
-- [x] **LEAK-03**: GlowFilter GPU resources are explicitly destroyed after celebration effects complete
-- [x] **LEAK-04**: Stale entries in dismissedSessions, mtimeCache, cwdCache, and usageAggregator cache are pruned periodically
+- [ ] **IO-01**: readLastJsonlLine and readLastToolUse combined into single file open/read/parse pass
+- [ ] **IO-02**: discoverSessions converted from synchronous to async fs.promises (unblocks main process)
+- [ ] **IO-03**: UsageAggregator uses incremental offset-based JSONL parsing instead of full file re-read
+- [ ] **IO-04**: Poll interval backs off to 10-30s when no active sessions detected for consecutive cycles
 
-### Long-Running Stability
+### CPU Tick Loop
 
-- [x] **STAB-01**: Timer accumulators (DayNightCycle.elapsed, particle phase, breathTimer) use modulo wrap to prevent floating-point precision drift
-- [x] **STAB-02**: JSONL readline streams are properly cleaned up with finally { stream.destroy() }
-- [ ] **STAB-03**: Milestone passes an 8-hour soak test with less than 50MB total memory growth
+- [ ] **CPU-01**: Ambient particle subsystems throttled or skipped at idle FPS (5fps) and when invisible (dust at night, fireflies at day)
+- [ ] **CPU-02**: Array.splice in particle removal loops replaced with swap-and-pop O(1) pattern
+- [ ] **CPU-03**: Building highlight tint tracked incrementally on state transitions instead of recomputed every frame
+- [ ] **CPU-04**: Per-agent tracking consolidated from 13+ separate Maps into single AgentTrackingState map
+- [ ] **CPU-05**: Agent reparenting and setAnimation moved to state transition handlers instead of per-frame polling
+
+### DOM / Memory
+
+- [ ] **DOM-01**: Dashboard session list uses DOM diffing (update in place) instead of full innerHTML rebuild
+- [ ] **DOM-02**: Per-tick temporary allocations eliminated (reusable arrays, Sets, filter matrix, tint tuple)
+- [ ] **DOM-03**: Unused chokidar dependency removed from package.json
+
+## v2.1 Requirements (Parked)
+
+Carried from v2.1, pending soak test verification.
+
+- **STAB-03**: Milestone passes an 8-hour soak test with less than 50MB total memory growth
 
 ## Future Requirements
 
@@ -38,32 +52,39 @@ Requirements for hardening and bug fix release. Each maps to roadmap phases.
 
 | Feature | Reason |
 |---------|--------|
+| PixiJS version upgrade | 8.16.0 already has needed APIs; upgrade risk not justified |
+| Web Workers for parsing | Bottleneck is sync I/O blocking, not CPU; wrong solution |
+| ParticleContainer | Only 54 particles; restrictions outweigh benefits at this scale |
+| Worker threads for file I/O | Async fs.promises is sufficient; worker thread overhead not justified |
 | Crash upload/telemetry service | Local-only app, no server infrastructure |
-| Automated restart on crash | Over-engineering; fix the root cause instead |
 | Performance profiling UI | Dev tooling, not user-facing |
-| PixiJS version upgrade | 8.16.0 already includes Graphics leak fixes; upgrade risk not justified |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DIAG-01 | Phase 23 | Complete |
-| DIAG-02 | Phase 23 | Complete |
-| DIAG-03 | Phase 23 | Complete |
-| DIAG-04 | Phase 23 | Complete |
-| LEAK-01 | Phase 24 | Complete |
-| LEAK-02 | Phase 24 | Complete |
-| LEAK-03 | Phase 24 | Complete |
-| LEAK-04 | Phase 24 | Complete |
-| STAB-01 | Phase 24 | Complete |
-| STAB-02 | Phase 24 | Complete |
-| STAB-03 | Phase 25 | Pending |
+| GPU-01 | Pending | Pending |
+| GPU-02 | Pending | Pending |
+| GPU-03 | Pending | Pending |
+| GPU-04 | Pending | Pending |
+| IO-01 | Pending | Pending |
+| IO-02 | Pending | Pending |
+| IO-03 | Pending | Pending |
+| IO-04 | Pending | Pending |
+| CPU-01 | Pending | Pending |
+| CPU-02 | Pending | Pending |
+| CPU-03 | Pending | Pending |
+| CPU-04 | Pending | Pending |
+| CPU-05 | Pending | Pending |
+| DOM-01 | Pending | Pending |
+| DOM-02 | Pending | Pending |
+| DOM-03 | Pending | Pending |
 
 **Coverage:**
-- v2.1 requirements: 11 total
-- Mapped to phases: 11
-- Unmapped: 0
+- v2.2 requirements: 16 total
+- Mapped to phases: 0
+- Unmapped: 16 ⚠️
 
 ---
-*Requirements defined: 2026-03-16*
-*Last updated: 2026-03-16 after roadmap creation*
+*Requirements defined: 2026-03-18*
+*Last updated: 2026-03-18 after initial definition*
