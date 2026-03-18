@@ -109,7 +109,7 @@ See: [`.planning/milestones/v2.0-ROADMAP.md`](milestones/v2.0-ROADMAP.md) for fu
 
 **Milestone Goal:** Eliminate the highest-impact CPU, GPU, and I/O inefficiencies so the always-on app uses fewer resources with no visual or behavioral regression.
 
-- [ ] **Phase 26: I/O Pipeline** - Non-blocking session discovery, combined file reads, incremental JSONL parsing, adaptive poll backoff
+- [x] **Phase 26: I/O Pipeline** - Non-blocking session discovery, combined file reads, incremental JSONL parsing, adaptive poll backoff (completed 2026-03-18)
 - [ ] **Phase 27: GPU Rendering** - Replace stage filter with container tint, threshold-gated updates, static layer caching, glow guards
 - [ ] **Phase 28: CPU Tick Loop** - Particle throttling, swap-and-pop removal, dirty-flag highlights, state transition guards, DOM diffing, allocation cleanup, dependency removal
 - [ ] **Phase 29: Agent State Consolidation** - Unify 13+ per-agent Maps into single AgentTrackingState structure
@@ -196,7 +196,7 @@ Phases execute in numeric order: 26 → 27 → 28 → 29
 | 23. Crash Diagnosis Infrastructure | v2.1 | 2/2 | Complete | 2026-03-16 |
 | 24. Resource Leak Fixes | v2.1 | 2/2 | Complete | 2026-03-16 |
 | 25. Soak Testing and Verification | v2.1 | 0/1 | Parked | - |
-| 26. I/O Pipeline | 2/3 | In Progress|  | - |
+| 26. I/O Pipeline | 3/3 | Complete   | 2026-03-18 | - |
 | 27. GPU Rendering | v2.2 | 0/? | Not started | - |
 | 28. CPU Tick Loop | v2.2 | 0/? | Not started | - |
 | 29. Agent State Consolidation | v2.2 | 0/? | Not started | - |
