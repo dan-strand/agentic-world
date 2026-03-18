@@ -1,6 +1,8 @@
 import type { ActivityType, CharacterClass, AgentSlot, SessionStatus } from './types';
 
 export const POLL_INTERVAL_MS = 3000;       // 3 seconds per user decision (3-5s range)
+export const MAX_POLL_INTERVAL_MS = 30_000;  // 30s maximum poll interval during backoff
+export const BACKOFF_STEP_MS = 3_000;        // Each consecutive empty poll adds 3s to interval
 export const IDLE_THRESHOLD_MS = 30_000;     // 30 seconds per user decision
 export const STALE_SESSION_MS = 30 * 60 * 1000; // 30 minutes -- sessions older than this are not shown
 
