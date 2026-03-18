@@ -1,6 +1,6 @@
 import { BrowserWindow } from 'electron';
 import { SessionInfo, IPC_CHANNELS, DashboardData, DashboardSession, TodayTotals } from '../shared/types';
-import { POLL_INTERVAL_MS } from '../shared/constants';
+import { POLL_INTERVAL_MS, MAX_POLL_INTERVAL_MS, BACKOFF_STEP_MS } from '../shared/constants';
 import { SessionDetector } from './session-detector';
 import { UsageAggregator } from './usage-aggregator';
 import { HistoryStore } from './history-store';
@@ -10,15 +10,17 @@ import { HistoryStore } from './history-store';
  * Orchestrates periodic detection and pushes updates to the renderer via IPC.
  *
  * Key behaviors:
- * - Polls detector every POLL_INTERVAL_MS (3s)
+ * - Polls using adaptive setTimeout recursion (not setInterval)
+ * - Backs off from 3s to 30s when no sessions are active
+ * - Resets to 3s immediately when a session appears
  * - Only pushes IPC updates when session data actually changes
- * - Completed/ended sessions persist until app restart (never removed from map)
  * - Runs an immediate first poll on start (no waiting for interval)
  */
 export class SessionStore {
   private sessions: Map<string, SessionInfo> = new Map();
   private detector: SessionDetector;
-  private pollInterval: NodeJS.Timeout | null = null;
+  private pollTimeout: ReturnType<typeof setTimeout> | null = null;
+  private consecutiveEmpty = 0;
   private mainWindow: BrowserWindow | null = null;
 
   constructor(
@@ -31,7 +33,7 @@ export class SessionStore {
 
   /**
    * Begin polling for session changes and pushing updates to the renderer.
-   * Runs an immediate first poll, then starts the interval.
+   * Runs an immediate first poll, then schedules adaptive polling via setTimeout.
    */
   start(mainWindow: BrowserWindow): void {
     this.mainWindow = mainWindow;
@@ -39,22 +41,44 @@ export class SessionStore {
     // Immediate first poll so the renderer has data right away
     this.poll();
 
-    // Start periodic polling
-    this.pollInterval = setInterval(() => {
-      this.poll();
-    }, POLL_INTERVAL_MS);
+    // Schedule adaptive polling (setTimeout recursion, not setInterval)
+    this.schedulePoll();
   }
 
   /**
    * Stop polling and clean up resources.
    */
   stop(): void {
-    if (this.pollInterval !== null) {
-      clearInterval(this.pollInterval);
-      this.pollInterval = null;
+    if (this.pollTimeout !== null) {
+      clearTimeout(this.pollTimeout);
+      this.pollTimeout = null;
     }
     this.mainWindow = null;
     console.log('[session-store] Polling stopped');
+  }
+
+  /**
+   * Schedule the next poll using setTimeout with adaptive interval.
+   * Interval grows linearly when no sessions are active, resets when sessions appear.
+   */
+  private schedulePoll(): void {
+    const interval = this.getNextInterval();
+    this.pollTimeout = setTimeout(() => {
+      this.poll();
+      this.schedulePoll();
+    }, interval);
+  }
+
+  /**
+   * Calculate the next poll interval based on consecutive empty polls.
+   * Returns POLL_INTERVAL_MS (3s) when active, backs off linearly to MAX_POLL_INTERVAL_MS (30s).
+   */
+  private getNextInterval(): number {
+    if (this.consecutiveEmpty === 0) return POLL_INTERVAL_MS;
+    return Math.min(
+      MAX_POLL_INTERVAL_MS,
+      POLL_INTERVAL_MS + this.consecutiveEmpty * BACKOFF_STEP_MS
+    );
   }
 
   /**
@@ -115,6 +139,13 @@ export class SessionStore {
       // Prune stale entries from detector and usage caches
       this.detector.pruneStaleEntries?.(discoveredIds);
       this.usageAggregator.pruneStaleEntries(discoveredIds);
+
+      // Adaptive backoff: track consecutive empty polls
+      if (discoveredIds.size === 0) {
+        this.consecutiveEmpty++;
+      } else {
+        this.consecutiveEmpty = 0;
+      }
 
       if (hasChanges) {
         this.pushUpdate();
