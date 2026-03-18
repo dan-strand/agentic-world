@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import { promises as fsp } from 'fs';
 import * as readline from 'readline';
 import { JSONL_TAIL_BUFFER_SIZE } from '../shared/constants';
 
@@ -18,6 +19,8 @@ export interface JsonlEntry {
  *
  * Handles race conditions where Claude Code is mid-write by falling back
  * to the second-to-last line if the last line fails to parse.
+ *
+ * @deprecated Use readSessionTail instead -- combines lastEntry + lastToolName in one file open.
  */
 export function readLastJsonlLine(
   filePath: string,
@@ -83,6 +86,8 @@ export function readLastJsonlLine(
  *
  * Uses same buffer size as status reader -- assistant entries with tool_use
  * can be very large (100KB+), pushing tool_use entries far from file tail.
+ *
+ * @deprecated Use readSessionTail instead -- combines lastEntry + lastToolName in one file open.
  */
 export function readLastToolUse(
   filePath: string,
@@ -125,6 +130,100 @@ export function readLastToolUse(
   } finally {
     if (fd !== null) {
       try { fs.closeSync(fd); } catch { /* ignore */ }
+    }
+  }
+}
+
+export interface SessionTailResult {
+  lastEntry: JsonlEntry | null;
+  lastToolName: string | null;
+}
+
+/**
+ * Combined tail read: extracts both lastEntry and lastToolName from a single file open.
+ * Replaces the separate readLastJsonlLine + readLastToolUse calls to eliminate
+ * one redundant file open per changed session per poll cycle.
+ *
+ * Uses fs.promises.open for async I/O -- does not block the main process event loop.
+ * Reads the last `bufferSize` bytes (default 64KB), then scans backward through lines:
+ *   - lastEntry: first valid JSON object with typeof obj.type === 'string'
+ *   - lastToolName: first assistant entry with a tool_use content block whose name is a string
+ * Stops scanning early when both are found.
+ */
+export async function readSessionTail(
+  filePath: string,
+  bufferSize: number = JSONL_TAIL_BUFFER_SIZE
+): Promise<SessionTailResult> {
+  let fh: fsp.FileHandle | null = null;
+  try {
+    fh = await fsp.open(filePath, 'r');
+    const stat = await fh.stat();
+
+    if (stat.size === 0) {
+      return { lastEntry: null, lastToolName: null };
+    }
+
+    const readSize = Math.min(bufferSize, stat.size);
+    const buffer = Buffer.alloc(readSize);
+    await fh.read(buffer, 0, readSize, stat.size - readSize);
+
+    const text = buffer.toString('utf-8');
+    const lines = text.split('\n').filter(l => l.trim().length > 0);
+
+    if (lines.length === 0) {
+      return { lastEntry: null, lastToolName: null };
+    }
+
+    let lastEntry: JsonlEntry | null = null;
+    let lastToolName: string | null = null;
+
+    // Scan backward through all lines
+    for (let i = lines.length - 1; i >= 0; i--) {
+      try {
+        const obj = JSON.parse(lines[i]);
+        if (!obj || typeof obj !== 'object' || typeof obj.type !== 'string') {
+          continue;
+        }
+
+        // Capture lastEntry (first valid entry scanning backward)
+        if (lastEntry === null) {
+          lastEntry = obj as JsonlEntry;
+        }
+
+        // Capture lastToolName (first assistant entry with tool_use scanning backward)
+        if (lastToolName === null && obj.type === 'assistant') {
+          const content = obj.message?.content;
+          if (Array.isArray(content)) {
+            for (const c of content) {
+              if (c.type === 'tool_use' && typeof c.name === 'string') {
+                lastToolName = c.name;
+                break;
+              }
+            }
+          }
+        }
+
+        // Stop early when both found
+        if (lastEntry !== null && lastToolName !== null) {
+          break;
+        }
+      } catch {
+        // Parse failed (mid-write race) -- skip and try previous line
+        continue;
+      }
+    }
+
+    return { lastEntry, lastToolName };
+  } catch (err) {
+    // File may not exist, permission error, etc.
+    return { lastEntry: null, lastToolName: null };
+  } finally {
+    if (fh) {
+      try {
+        await fh.close();
+      } catch {
+        // Ignore close errors
+      }
     }
   }
 }
