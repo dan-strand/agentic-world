@@ -1,16 +1,17 @@
-import * as fs from 'fs';
+import { promises as fsp } from 'fs';
+import type { Dirent } from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { SessionInfo, SessionStatus, ActivityType } from '../shared/types';
 import { IDLE_THRESHOLD_MS, STALE_SESSION_MS, TOOL_TO_ACTIVITY } from '../shared/constants';
-import { readLastJsonlLine, readLastToolUse, JsonlEntry } from './jsonl-reader';
+import { readSessionTail, JsonlEntry } from './jsonl-reader';
 
 /**
  * Abstract interface for session detection.
  * Allows future implementations (e.g., API-based detection) without changing consumers.
  */
 export interface SessionDetector {
-  discoverSessions(): SessionInfo[];
+  discoverSessions(): Promise<SessionInfo[]>;
   /** Prune cached entries for sessions no longer in the active set. Optional. */
   pruneStaleEntries?(activeSessionIds: Set<string>): void;
 }
@@ -21,6 +22,8 @@ const UUID_JSONL_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a
 /**
  * Filesystem-based session detector.
  * Scans ~/.claude/projects/ for JSONL session files and determines their status.
+ *
+ * Fully async using fs.promises -- does not block the main process event loop.
  *
  * Caches the cwd mapping per sessionId so completed/unchanged sessions
  * don't require re-reading JSONL content on every poll.
@@ -42,22 +45,29 @@ export class FilesystemSessionDetector implements SessionDetector {
   /**
    * Discover all Claude Code sessions from the filesystem.
    * Never throws -- always returns a (possibly empty) array.
+   * Uses async fs.promises calls to avoid blocking the main process event loop.
    */
-  discoverSessions(): SessionInfo[] {
+  async discoverSessions(): Promise<SessionInfo[]> {
     const sessions: SessionInfo[] = [];
 
     try {
-      if (!fs.existsSync(this.claudeProjectsDir)) {
-        console.warn(`[session-detector] Claude projects directory not found: ${this.claudeProjectsDir}`);
+      let projectDirs: Dirent[];
+      try {
+        projectDirs = (await fsp.readdir(this.claudeProjectsDir, { withFileTypes: true }))
+          .filter(d => d.isDirectory());
+      } catch (err) {
+        const code = (err as NodeJS.ErrnoException).code;
+        if (code === 'ENOENT') {
+          console.warn(`[session-detector] Claude projects directory not found: ${this.claudeProjectsDir}`);
+        } else {
+          console.warn('[session-detector] Error reading projects directory:', (err as Error).message);
+        }
         return [];
       }
 
-      const projectDirs = fs.readdirSync(this.claudeProjectsDir, { withFileTypes: true })
-        .filter(d => d.isDirectory());
-
       for (const dir of projectDirs) {
         const dirPath = path.join(this.claudeProjectsDir, dir.name);
-        this.scanProjectDirectory(dirPath, dir.name, sessions);
+        await this.scanProjectDirectory(dirPath, dir.name, sessions);
       }
     } catch (err) {
       console.warn('[session-detector] Error scanning projects directory:', (err as Error).message);
@@ -70,13 +80,13 @@ export class FilesystemSessionDetector implements SessionDetector {
    * Scan a single project directory for UUID-named JSONL files.
    * Skips subdirectories (subagent files are out of scope for Phase 1).
    */
-  private scanProjectDirectory(
+  private async scanProjectDirectory(
     dirPath: string,
     dirName: string,
     sessions: SessionInfo[]
-  ): void {
+  ): Promise<void> {
     try {
-      const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+      const entries = await fsp.readdir(dirPath, { withFileTypes: true });
 
       for (const entry of entries) {
         // Only process files matching UUID.jsonl pattern -- skip subdirectories
@@ -87,13 +97,17 @@ export class FilesystemSessionDetector implements SessionDetector {
         const filePath = path.join(dirPath, entry.name);
         const sessionId = entry.name.replace('.jsonl', '');
 
-        const sessionInfo = this.processSessionFile(filePath, sessionId, dirName);
+        const sessionInfo = await this.processSessionFile(filePath, sessionId, dirName);
         if (sessionInfo) {
           sessions.push(sessionInfo);
         }
       }
     } catch (err) {
-      // Directory may have been removed between listing and access
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT') {
+        // Directory was removed between listing and access -- expected race condition
+        return;
+      }
       console.warn(`[session-detector] Error reading directory ${dirPath}:`, (err as Error).message);
     }
   }
@@ -102,13 +116,13 @@ export class FilesystemSessionDetector implements SessionDetector {
    * Process a single JSONL session file into a SessionInfo.
    * Uses caching to avoid re-reading unchanged files.
    */
-  private processSessionFile(
+  private async processSessionFile(
     filePath: string,
     sessionId: string,
     dirName: string
-  ): SessionInfo | null {
+  ): Promise<SessionInfo | null> {
     try {
-      const stat = fs.statSync(filePath);
+      const stat = await fsp.stat(filePath);
       const now = Date.now();
 
       // Skip stale sessions (not modified in over 30 minutes)
@@ -143,8 +157,8 @@ export class FilesystemSessionDetector implements SessionDetector {
         return cached.sessionInfo;
       }
 
-      // Mtime changed or new session -- read JSONL last line
-      const lastEntry = readLastJsonlLine(filePath);
+      // Mtime changed or new session -- read JSONL tail (single file open for both entry + tool name)
+      const { lastEntry, lastToolName } = await readSessionTail(filePath);
       const lastEntryType = lastEntry?.type ?? 'unknown';
       const hasToolUse = this.hasToolUseContent(lastEntry);
       const status = this.determineStatus(lastEntryType, stat.mtimeMs, now, hasToolUse);
@@ -154,7 +168,6 @@ export class FilesystemSessionDetector implements SessionDetector {
       // ancient sessions from claiming building slots over active projects.
       // Default to 'coding' for active/waiting sessions when tool detection fails
       // (large JSONL files may not have tool_use in the tail buffer).
-      const lastToolName = readLastToolUse(filePath);
       const timeSinceModified = now - stat.mtimeMs;
       const fallbackActivity: ActivityType = (status === 'active' || status === 'waiting') ? 'coding' : 'idle';
       const activityType: ActivityType =
@@ -179,7 +192,7 @@ export class FilesystemSessionDetector implements SessionDetector {
           projectName = cwdCached.projectName;
         } else {
           // Last resort: extract project name from Claude's mangled directory name
-          // e.g. "C--Users-dlaws-Projects-freeflow" → "freeflow"
+          // e.g. "C--Users-dlaws-Projects-freeflow" -> "freeflow"
           const segments = dirName.split('-').filter(s => s.length > 0);
           projectPath = dirName;
           projectName = segments.length > 0 ? segments[segments.length - 1] : dirName;
@@ -204,7 +217,11 @@ export class FilesystemSessionDetector implements SessionDetector {
 
       return sessionInfo;
     } catch (err) {
-      // File may have been deleted between listing and stat
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT') {
+        // File was deleted between readdir and stat -- expected race condition
+        return null;
+      }
       console.warn(`[session-detector] Error processing ${filePath}:`, (err as Error).message);
       return null;
     }

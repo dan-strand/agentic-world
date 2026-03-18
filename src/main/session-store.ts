@@ -74,7 +74,7 @@ export class SessionStore {
    */
   private async poll(): Promise<void> {
     try {
-      const discovered = this.detector.discoverSessions();
+      const discovered = await this.detector.discoverSessions();
       let hasChanges = false;
 
       // Track which sessions were returned by the detector this cycle
