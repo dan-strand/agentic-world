@@ -20,6 +20,15 @@ interface SmokeParticle {
   vy: number;
 }
 
+/** O(1) removal: swap target with last element, then pop. Reverse-iteration safe. */
+function swapRemove<T>(arr: T[], index: number): void {
+  const last = arr.length - 1;
+  if (index !== last) {
+    arr[index] = arr[last];
+  }
+  arr.pop();
+}
+
 /** Theme colors for tool name banner backgrounds per building type. */
 const BUILDING_BANNER_COLORS: Record<BuildingType, number> = {
   wizard_tower: 0x4422aa,      // Dark purple
@@ -352,9 +361,10 @@ export class Building extends Container {
    * @param deltaMs - Milliseconds since last tick
    * @param nightIntensity - 0 = day, 1 = full night (from DayNightCycle)
    */
-  tick(deltaMs: number, nightIntensity: number = 0): void {
+  tick(deltaMs: number, nightIntensity: number = 0, isIdle: boolean = false): void {
     // Skip smoke for campfire (no chimney)
     if (this.buildingType === 'campfire') return;
+    if (isIdle) return; // Skip chimney smoke at idle FPS -- imperceptible at 5fps
 
     const dt = deltaMs / 1000;
     const chimneyPos = CHIMNEY_POSITIONS[this.buildingType];
@@ -413,7 +423,7 @@ export class Building extends Container {
       // Return particles that exceed lifetime to pool (no destroy())
       if (p.age >= p.lifetime) {
         this.smokePool.return(p.gfx);
-        this.smokeParticles.splice(i, 1);
+        swapRemove(this.smokeParticles, i); // O(1) swap-and-pop (reverse-iteration invariant)
       }
     }
   }

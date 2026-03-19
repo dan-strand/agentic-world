@@ -71,6 +71,15 @@ interface LeafParticle {
   phase: number;
 }
 
+/** O(1) removal: swap target with last element, then pop. Reverse-iteration safe. */
+function swapRemove<T>(arr: T[], index: number): void {
+  const last = arr.length - 1;
+  if (index !== last) {
+    arr[index] = arr[last];
+  }
+  arr.pop();
+}
+
 /**
  * AmbientParticles -- Persistent floating firefly/magic dust particles,
  * forge sparks, dust motes, and drifting leaves.
@@ -193,7 +202,7 @@ export class AmbientParticles extends Container {
    * @param deltaMs - Milliseconds since last tick
    * @param nightIntensity - 0 = day, 1 = full night (from DayNightCycle)
    */
-  tick(deltaMs: number, nightIntensity: number = 0): void {
+  tick(deltaMs: number, nightIntensity: number = 0, isIdle: boolean = false): void {
     const dt = deltaMs / 1000;
 
     // --- Fireflies (night-boosted alpha) ---
@@ -221,35 +230,37 @@ export class AmbientParticles extends Container {
     }
 
     // --- Sparks (near Training Grounds forge, pooled Phase 24) ---
-    this.sparkTimer += deltaMs;
-    if (this.sparkTimer >= SPARK_SPAWN_MS && this.sparkParticles.length < SPARK_COUNT) {
-      this.sparkTimer -= SPARK_SPAWN_MS;
-      // Borrow a pre-allocated spark Graphics from pool (no new Graphics())
-      const gfx = this.sparkPool.borrow();
-      if (gfx) {
-        gfx.position.set(
-          SPARK_ORIGIN.x + (Math.random() - 0.5) * 20,
-          SPARK_ORIGIN.y,
-        );
-        this.sparkParticles.push({
-          gfx,
-          age: 0,
-          vx: (Math.random() - 0.5) * SPARK_DRIFT_SPEED * 2,
-          vy: -SPARK_RISE_SPEED * (0.8 + Math.random() * 0.4),
-        });
+    if (!isIdle) {
+      this.sparkTimer += deltaMs;
+      if (this.sparkTimer >= SPARK_SPAWN_MS && this.sparkParticles.length < SPARK_COUNT) {
+        this.sparkTimer -= SPARK_SPAWN_MS;
+        // Borrow a pre-allocated spark Graphics from pool (no new Graphics())
+        const gfx = this.sparkPool.borrow();
+        if (gfx) {
+          gfx.position.set(
+            SPARK_ORIGIN.x + (Math.random() - 0.5) * 20,
+            SPARK_ORIGIN.y,
+          );
+          this.sparkParticles.push({
+            gfx,
+            age: 0,
+            vx: (Math.random() - 0.5) * SPARK_DRIFT_SPEED * 2,
+            vy: -SPARK_RISE_SPEED * (0.8 + Math.random() * 0.4),
+          });
+        }
       }
-    }
-    // Update existing sparks
-    for (let i = this.sparkParticles.length - 1; i >= 0; i--) {
-      const s = this.sparkParticles[i];
-      s.age += deltaMs;
-      s.gfx.x += s.vx * dt;
-      s.gfx.y += s.vy * dt;
-      const lifeT = s.age / SPARK_LIFETIME_MS;
-      s.gfx.alpha = Math.max(0, 1 - lifeT);
-      if (s.age >= SPARK_LIFETIME_MS) {
-        this.sparkPool.return(s.gfx);
-        this.sparkParticles.splice(i, 1);
+      // Update existing sparks
+      for (let i = this.sparkParticles.length - 1; i >= 0; i--) {
+        const s = this.sparkParticles[i];
+        s.age += deltaMs;
+        s.gfx.x += s.vx * dt;
+        s.gfx.y += s.vy * dt;
+        const lifeT = s.age / SPARK_LIFETIME_MS;
+        s.gfx.alpha = Math.max(0, 1 - lifeT);
+        if (s.age >= SPARK_LIFETIME_MS) {
+          this.sparkPool.return(s.gfx);
+          swapRemove(this.sparkParticles, i); // O(1) swap-and-pop (reverse-iteration invariant)
+        }
       }
     }
 
