@@ -1,4 +1,4 @@
-import { Application, Container, Graphics, Sprite, ColorMatrixFilter } from 'pixi.js';
+import { Application, Container, Graphics, Sprite } from 'pixi.js';
 import type { SessionInfo, ActivityType, SessionStatus } from '../shared/types';
 import {
   BACKGROUND_COLOR,
@@ -64,13 +64,14 @@ interface StatusDebounce {
  * agents, vehicles, speech bubbles into a living fantasy RPG world.
  *
  * Scene hierarchy:
- *   app.stage [dynamic ColorMatrixFilter -- day/night color temperature]
- *   +-- tilemapLayer (canvas-rendered grass + dirt star-pattern paths + pond)
- *   +-- buildingsContainer (campfire waypoint + 4 quest zone buildings in 2x2 grid)
- *   +-- sceneryLayer (trees, bushes, flowers, village props, fences, lanterns, torches)
- *   +-- nightGlowLayer (soft glow halos at lanterns, torches, windows, campfire)
- *   +-- ambientParticles (floating firefly particles)
- *   +-- agentsContainer (dynamic Agent children)
+ *   app.stage [no filter, no tint -- clean pass-through]
+ *   +-- worldContainer [Container.tint = day/night hex -- all children inherit]
+ *       +-- tilemapLayer (canvas-rendered grass + dirt star-pattern paths + pond)
+ *       +-- buildingsContainer (campfire waypoint + 4 quest zone buildings in 2x2 grid)
+ *       +-- sceneryLayer (trees, bushes, flowers, village props, fences, lanterns, torches)
+ *       +-- nightGlowLayer (soft glow halos at lanterns, torches, windows, campfire)
+ *       +-- ambientParticles (floating firefly particles)
+ *       +-- agentsContainer (dynamic Agent children)
  */
 export class World {
   private app!: Application;
@@ -85,9 +86,10 @@ export class World {
   private ambientParticles!: AmbientParticles;
   private agentsContainer!: Container;
 
-  // Day/night cycle (Phase 22)
+  // Day/night cycle (Phase 22) -- worldContainer receives tint; lastTintHex gates updates
   private dayNightCycle: DayNightCycle = new DayNightCycle();
-  private stageFilter!: ColorMatrixFilter;
+  private worldContainer!: Container;
+  private lastTintHex = 0xFFFFFF;
 
   // Ambient idle agents (always at campfire, decorative)
   private ambientAgents: Agent[] = [];
@@ -169,11 +171,16 @@ export class World {
 
     container.appendChild(this.app.canvas);
 
+    // World container: all scene children are added here instead of app.stage.
+    // Day/night tint is applied to this container; children inherit it multiplicatively.
+    this.worldContainer = new Container();
+    this.app.stage.addChild(this.worldContainer);
+
     // Tilemap ground layer
     this.tilemapLayer = new Container();
     this.tilemapLayer.eventMode = 'none';
     this.tilemapLayer.interactiveChildren = false;
-    this.app.stage.addChild(this.tilemapLayer);
+    this.worldContainer.addChild(this.tilemapLayer);
 
     const tilemap = buildWorldTilemap(
       CAMPFIRE_POS,
@@ -183,7 +190,7 @@ export class World {
 
     // Buildings container (campfire + 4 quest zone buildings in 2x2 grid)
     this.buildingsContainer = new Container();
-    this.app.stage.addChild(this.buildingsContainer);
+    this.worldContainer.addChild(this.buildingsContainer);
 
     // Position center for campfire
     this.centerX = WORLD_WIDTH / 2;
@@ -217,20 +224,20 @@ export class World {
 
     // Scenery layer: trees, props, lanterns placed between buildings (Phase 20)
     this.sceneryLayer = buildSceneryLayer();
-    this.app.stage.addChild(this.sceneryLayer);
+    this.worldContainer.addChild(this.sceneryLayer);
 
     // Night glow layer: soft halos at light sources, visible at night (Phase 22)
     const glowResult = buildNightGlowLayer();
     this.nightGlowLayer = glowResult.container;
     this.nightGlows = glowResult.glows;
-    this.app.stage.addChild(this.nightGlowLayer);
+    this.worldContainer.addChild(this.nightGlowLayer);
 
     // Ambient floating particles (between night glow and agents in z-order)
     this.ambientParticles = new AmbientParticles();
-    this.app.stage.addChild(this.ambientParticles);
+    this.worldContainer.addChild(this.ambientParticles);
 
     this.agentsContainer = new Container();
-    this.app.stage.addChild(this.agentsContainer);
+    this.worldContainer.addChild(this.agentsContainer);
 
     // Spawn ambient idle agents at campfire (decorative, always visible)
     for (const ambientId of AMBIENT_AGENT_IDS) {
@@ -248,9 +255,6 @@ export class World {
       this.ambientAgents.push(agent);
     }
 
-    // Day/night cycle dynamic color temperature filter (replaces static warm tint)
-    this.stageFilter = new ColorMatrixFilter();
-    this.app.stage.filters = [this.stageFilter];
   }
 
   /**
@@ -280,16 +284,12 @@ export class World {
     this.dayNightCycle.tick(deltaMs);
     const nightIntensity = this.dayNightCycle.getNightIntensity();
 
-    // Update stage color temperature filter
-    const [r, g, b] = this.dayNightCycle.getTintRGB();
-    // Apply RGB multipliers using ColorMatrixFilter matrix
-    // The matrix multiplies each channel: [r,0,0,0,0, 0,g,0,0,0, 0,0,b,0,0, 0,0,0,1,0]
-    this.stageFilter.matrix = [
-      r, 0, 0, 0, 0,
-      0, g, 0, 0, 0,
-      0, 0, b, 0, 0,
-      0, 0, 0, 1, 0,
-    ];
+    // Update day/night tint only when hex value actually changes (~98.5% skip rate)
+    const tintHex = this.dayNightCycle.getTintHex();
+    if (tintHex !== this.lastTintHex) {
+      this.worldContainer.tint = tintHex;
+      this.lastTintHex = tintHex;
+    }
 
     // Update night glow sprites
     updateNightGlowLayer(this.nightGlows, nightIntensity);
