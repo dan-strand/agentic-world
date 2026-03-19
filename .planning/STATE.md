@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: Performance Optimization
-status: in-progress
-stopped_at: Completed 27-01-PLAN.md
-last_updated: "2026-03-19T01:31:55.953Z"
-last_activity: 2026-03-19 -- Completed 27-01 (ColorMatrixFilter to Container.tint)
+status: completed
+stopped_at: Completed 27-02-PLAN.md
+last_updated: "2026-03-19T01:38:12.126Z"
+last_activity: 2026-03-19 -- Completed 27-02 (Static layer caching + night glow threshold)
 progress:
   total_phases: 4
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 5
-  completed_plans: 4
-  percent: 80
+  completed_plans: 5
+  percent: 100
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 ## Current Position
 
 Phase: 27 of 29 (GPU Rendering)
-Plan: 01 of 02
-Status: Plan 01 complete, Plan 02 remaining
-Last activity: 2026-03-19 -- Completed 27-01 (ColorMatrixFilter to Container.tint)
+Plan: 02 of 02
+Status: Phase 27 complete, all plans executed
+Last activity: 2026-03-19 -- Completed 27-02 (Static layer caching + night glow threshold)
 
-Progress: [████████░░] 80%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -67,6 +67,7 @@ Recent decisions affecting current work:
 - [Phase 26]: Back up 1 byte on non-zero offset to safely discard partial first line in incremental reads
 - [27-01]: Adjusted tint change-count test upper bound from 200 to 300 (actual sine curve produces 269 unique hex values)
 - [27-01]: Accept compound multiplicative tinting for agents/buildings (physically correct color shift)
+- [Phase 27-02]: antialias: false on cacheAsTexture to match pixel art aesthetic and minimize GPU memory
 
 ### Blockers/Concerns
 
@@ -83,9 +84,10 @@ None
 | Phase 26 P02 | 5min | 2 tasks | 4 files |
 | Phase 26 P03 | 3min | 2 tasks | 3 files |
 | Phase 27 P01 | 4min | 2 tasks | 3 files |
+| Phase 27 P02 | 3min | 2 tasks | 2 files |
 
 ## Session Continuity
 
-Last session: 2026-03-19T01:31:55.110Z
-Stopped at: Completed 27-01-PLAN.md
+Last session: 2026-03-19T01:38:12.124Z
+Stopped at: Completed 27-02-PLAN.md
 Resume file: None
