@@ -86,7 +86,18 @@ Instantly see the status of all Claude Code sessions so you know which one needs
 
 ### Active
 
-(None — next milestone not yet started)
+## Current Milestone: v2.3 Performance Polish
+
+**Goal:** Address remaining LOW-priority performance audit items that have measurable benefit — GPU texture consolidation, night-gated smoke, cached DOM helpers, async startup, and minor allocation cleanup.
+
+**Target features:**
+- Atlas palette-swapped animation frames into single GPU texture per agent
+- Replace night glow concentric circle Graphics with radial gradient sprites
+- Gate building smoke baseAlpha on nightIntensity threshold
+- Cache escapeHtml div element, throttle console.warn
+- Pass mtime from SessionDetector to eliminate redundant statSync
+- Replace spread in removeAgent with for-of loop
+- Move module-level sync constructors after app.ready
 
 ### Out of Scope
 
@@ -192,4 +203,4 @@ Instantly see the status of all Claude Code sessions so you know which one needs
 | Dirty-flag building highlights (v2.2) | Recompute only on occupancy change, not every frame | ✓ Good |
 
 ---
-*Last updated: 2026-03-19 after v2.2 milestone*
+*Last updated: 2026-03-19 after v2.3 milestone start*

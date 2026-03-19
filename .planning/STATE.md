@@ -1,42 +1,42 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.2
-milestone_name: Performance Optimization
-status: completed
-stopped_at: Completed 29-01-PLAN.md
-last_updated: "2026-03-19T02:42:29.921Z"
-last_activity: 2026-03-19 -- Completed 29-01 (Agent state consolidation - 14 Maps into AgentTrackingState)
+milestone: v2.3
+milestone_name: Performance Polish
+status: in-progress
+stopped_at: null
+last_updated: "2026-03-19T03:00:00.000Z"
+last_activity: 2026-03-19 -- Milestone v2.3 started
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 9
-  completed_plans: 9
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-18)
+See: .planning/PROJECT.md (updated 2026-03-19)
 
 **Core value:** Instantly see the status of all Claude Code sessions so you know which one needs attention next.
-**Current focus:** v2.2 Performance Optimization -- All phases complete
+**Current focus:** v2.3 Performance Polish -- Defining requirements
 
 ## Current Position
 
-Phase: 29 of 29 (Agent State Consolidation)
-Plan: 01 of 01
-Status: All plans complete (29-01)
-Last activity: 2026-03-19 -- Completed 29-01 (Agent state consolidation - 14 Maps into AgentTrackingState)
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-19 — Milestone v2.3 started
 
-Progress: [██████████] 100%
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 46 (v1.0: 9, v1.1: 9, v1.2: 4, v1.3: 4, v1.4: 6, v1.5: 6, v2.0: 7, v2.1: 4+)
-- Total execution time: ~5 days
+- Total plans completed: 55 (v1.0: 9, v1.1: 9, v1.2: 4, v1.3: 4, v1.4: 6, v1.5: 6, v2.0: 7, v2.1: 4+, v2.2: 9)
+- Total execution time: ~6 days
 
 ## Shipped Milestones
 
@@ -47,6 +47,7 @@ Progress: [██████████] 100%
 - **v1.4 Enhanced Session Workspaces** (2026-02-27): Detailed interiors, agent stations, tool overlays, campfire waypoint
 - **v1.5 Usage Dashboard** (2026-03-01): Token usage tracking, cost estimation, live dashboard, 30-day history
 - **v2.0 World & Character Detail** (2026-03-03): Outdoor scenery, building exteriors, unique agent identity, day/night cycle, atmospheric particles
+- **v2.2 Performance Optimization** (2026-03-19): Async I/O, Container.tint, static layer caching, particle throttling, AgentTrackingState consolidation
 
 ## Parked Milestones
 
@@ -57,23 +58,6 @@ Progress: [██████████] 100%
 ### Decisions
 
 Decisions are logged in PROJECT.md Key Decisions table.
-Recent decisions affecting current work:
-
-- [v2.2]: I/O changes first (main process isolation, no visual risk, establishes async foundation)
-- [v2.2]: GPU phase second (highest visual impact, needs screenshot baseline, builds on stable I/O)
-- [v2.2]: Agent state consolidation last (widest code surface, must avoid merge conflicts with tick loop changes)
-- [v2.2]: Research flags Phase 27 for visual regression risk -- screenshot baseline required before code changes
-- [26-01]: Used FileHandle.read() with position offset for async tail read; kept deprecated functions exported
-- [Phase 26]: Back up 1 byte on non-zero offset to safely discard partial first line in incremental reads
-- [27-01]: Adjusted tint change-count test upper bound from 200 to 300 (actual sine curve produces 269 unique hex values)
-- [27-01]: Accept compound multiplicative tinting for agents/buildings (physically correct color shift)
-- [Phase 27-02]: antialias: false on cacheAsTexture to match pixel art aesthetic and minimize GPU memory
-- [28-03]: textContent mutation for in-place DOM updates instead of innerHTML rebuild
-- [28-03]: Event delegation on sessionList container replaces per-row click handlers
-- [28-02]: Kept reparenting in tick() with lastTickState guard (agent transitions happen in agent.tick(), not manageAgents)
-- [29-01]: Partial cleanup resets fields instead of deleting state object, preserving speechBubble/lastActivity across session disappearance
-- [29-01]: Mutable state object fields (direct property assignment) matching existing codebase patterns
-- [Phase 29]: Partial cleanup resets fields instead of deleting state object, preserving speechBubble/lastActivity across session disappearance
 
 ### Blockers/Concerns
 
@@ -86,19 +70,9 @@ None
 | 6 | Fix avatar working in wrong area and disappearing behind bottom-left section | 2026-03-03 | 074b9e8 | [6-there-are-jobs-being-done-in-the-top-lef](./quick/6-there-are-jobs-being-done-in-the-top-lef/) |
 | 7 | Add ambient idle agents at campfire | 2026-03-03 | 37f9087 | [7-can-we-have-a-couple-of-idle-agents-arou](./quick/7-can-we-have-a-couple-of-idle-agents-arou/) |
 | 8 | Fix audio not playing when window unfocused | 2026-03-17 | 2c31f80 | [8-when-the-window-doesn-t-have-focus-it-no](./quick/8-when-the-window-doesn-t-have-focus-it-no/) |
-| Phase 26 P01 | 4min | 2 tasks | 5 files |
-| Phase 26 P02 | 5min | 2 tasks | 4 files |
-| Phase 26 P03 | 3min | 2 tasks | 3 files |
-| Phase 27 P01 | 4min | 2 tasks | 3 files |
-| Phase 27 P02 | 3min | 2 tasks | 2 files |
-| Phase 28 P03 | 2min | 2 tasks | 3 files |
-| Phase 28-cpu-tick-loop P01 | 3min | 2 tasks | 3 files |
-| Phase 28-cpu-tick-loop P02 | 4min | 2 tasks | 1 files |
-| Phase 29-agent-state-consolidation P01 | 5min | 2 tasks | 1 files |
-| Phase 29 P01 | 5min | 2 tasks | 1 files |
 
 ## Session Continuity
 
-Last session: 2026-03-19T02:29:31.092Z
-Stopped at: Completed 29-01-PLAN.md
-Resume file: None
+Last session: 2026-03-19
+Stopped at: null
+Resume file: null
