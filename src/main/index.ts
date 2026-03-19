@@ -19,42 +19,34 @@ if (require('electron-squirrel-startup')) {
 // Remove default menu bar (no File/Edit/View/Help menus)
 Menu.setApplicationMenu(null);
 
-// Create detector and store at module level so they're accessible for cleanup
+// Pure constructors at module level (no file I/O)
 const detector = new FilesystemSessionDetector();
 const usageAggregator = new UsageAggregator();
-const historyStore = new HistoryStore(app.getPath('userData'));
-const store = new SessionStore(detector, usageAggregator, historyStore);
 
-// Initialize crash logging infrastructure
-const crashLogger = new CrashLogger(app.getPath('userData'));
-crashLogger.checkPreviousCrash();
+// Deferred until app.ready (these constructors do sync file I/O)
+let historyStore: HistoryStore;
+let store: SessionStore;
+let crashLogger: CrashLogger;
 
-// Catch uncaught exceptions in the main process -- log and exit
+// Pre-ready crash handler: log to stderr and exit (crashLogger not yet available)
 process.on('uncaughtException', (error) => {
-  crashLogger.logCrash('main-uncaughtException', error.message, error.stack);
-  // Allow time for electron-log to flush, then exit
-  setTimeout(() => app.exit(1), 1000);
+  if (crashLogger) {
+    crashLogger.logCrash('main-uncaughtException', error.message, error.stack);
+    setTimeout(() => app.exit(1), 1000);
+  } else {
+    console.error('[main] Pre-ready uncaughtException:', error.message, error.stack);
+    app.exit(1);
+  }
 });
 
-// Catch unhandled promise rejections in the main process
 process.on('unhandledRejection', (reason) => {
   const msg = reason instanceof Error ? reason.message : String(reason);
   const stack = reason instanceof Error ? reason.stack : undefined;
-  crashLogger.logError('main-unhandledRejection', msg + (stack ? '\n' + stack : ''));
-});
-
-// IPC listeners for renderer crash logging
-ipcMain.on(IPC_CHANNELS.CRASH_LOG_ERROR, (_event, source: string, message: string, stack?: string) => {
-  crashLogger.logError(source, stack ? message + '\n' + stack : message);
-});
-ipcMain.on(IPC_CHANNELS.CRASH_LOG_CRITICAL, (_event, source: string, message: string) => {
-  crashLogger.logCrash(source, message);
-});
-ipcMain.on(IPC_CHANNELS.CRASH_MEMORY_STATS, (_event, stats: { heapUsedMB: number; rssMB: number }) => {
-  crashLogger.logMemoryStats(stats);
-});
-ipcMain.on(IPC_CHANNELS.CRASH_MEMORY_WARNING, (_event, message: string) => {
-  crashLogger.logMemoryWarning(message);
+  if (crashLogger) {
+    crashLogger.logError('main-unhandledRejection', msg + (stack ? '\n' + stack : ''));
+  } else {
+    console.error('[main] Pre-ready unhandledRejection:', msg, stack);
+  }
 });
 
 const createWindow = (): void => {
@@ -112,10 +104,7 @@ const createWindow = (): void => {
   });
 };
 
-// Register IPC handlers with the store so get-initial-sessions can serve live data
-registerIpcHandlers(store, historyStore);
-
-// Window control IPC handlers
+// Window control IPC handlers (no dependency on deferred objects)
 ipcMain.on('window-minimize', (event) => {
   BrowserWindow.fromWebContents(event.sender)?.minimize();
 });
@@ -123,7 +112,7 @@ ipcMain.on('window-close', (event) => {
   BrowserWindow.fromWebContents(event.sender)?.close();
 });
 
-// Custom window drag — poll cursor from main process since renderer
+// Custom window drag -- poll cursor from main process since renderer
 // mousemove stops firing when cursor leaves window bounds
 let dragState: { win: BrowserWindow; offsetX: number; offsetY: number; interval: ReturnType<typeof setInterval> } | null = null;
 ipcMain.on('window-drag-start', (event) => {
@@ -144,17 +133,42 @@ ipcMain.on('window-drag-end', () => {
   }
 });
 
-// Create window when Electron is ready
-app.on('ready', createWindow);
+// Initialize everything that does sync file I/O after Electron is ready
+app.on('ready', () => {
+  // Construct objects that do sync file I/O in their constructors
+  historyStore = new HistoryStore(app.getPath('userData'));
+  store = new SessionStore(detector, usageAggregator, historyStore);
+  crashLogger = new CrashLogger(app.getPath('userData'));
+  crashLogger.checkPreviousCrash();
+
+  // Register IPC handlers that depend on store/historyStore
+  registerIpcHandlers(store, historyStore);
+
+  // IPC listeners for renderer crash logging (depend on crashLogger)
+  ipcMain.on(IPC_CHANNELS.CRASH_LOG_ERROR, (_event, source: string, message: string, stack?: string) => {
+    crashLogger.logError(source, stack ? message + '\n' + stack : message);
+  });
+  ipcMain.on(IPC_CHANNELS.CRASH_LOG_CRITICAL, (_event, source: string, message: string) => {
+    crashLogger.logCrash(source, message);
+  });
+  ipcMain.on(IPC_CHANNELS.CRASH_MEMORY_STATS, (_event, stats: { heapUsedMB: number; rssMB: number }) => {
+    crashLogger.logMemoryStats(stats);
+  });
+  ipcMain.on(IPC_CHANNELS.CRASH_MEMORY_WARNING, (_event, message: string) => {
+    crashLogger.logMemoryWarning(message);
+  });
+
+  createWindow();
+});
 
 // Quit when all windows are closed (Windows behavior)
 app.on('window-all-closed', () => {
   app.quit();
 });
 
-// Clean up polling on quit
+// Clean up polling on quit (guard with optional chaining -- may fire before ready)
 app.on('before-quit', () => {
-  historyStore.flush();
-  store.stop();
+  historyStore?.flush();
+  store?.stop();
   console.log('[main] Cleanup complete');
 });
