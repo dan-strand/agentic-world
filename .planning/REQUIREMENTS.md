@@ -25,14 +25,14 @@ Requirements for performance optimization release. Each maps to roadmap phases.
 
 - [x] **CPU-01**: Ambient particle subsystems throttled or skipped at idle FPS (5fps) and when invisible (dust at night, fireflies at day)
 - [x] **CPU-02**: Array.splice in particle removal loops replaced with swap-and-pop O(1) pattern
-- [ ] **CPU-03**: Building highlight tint tracked incrementally on state transitions instead of recomputed every frame
+- [x] **CPU-03**: Building highlight tint tracked incrementally on state transitions instead of recomputed every frame
 - [ ] **CPU-04**: Per-agent tracking consolidated from 13+ separate Maps into single AgentTrackingState map
-- [ ] **CPU-05**: Agent reparenting and setAnimation moved to state transition handlers instead of per-frame polling
+- [x] **CPU-05**: Agent reparenting and setAnimation moved to state transition handlers instead of per-frame polling
 
 ### DOM / Memory
 
 - [x] **DOM-01**: Dashboard session list uses DOM diffing (update in place) instead of full innerHTML rebuild
-- [ ] **DOM-02**: Per-tick temporary allocations eliminated (reusable arrays, Sets, filter matrix, tint tuple)
+- [x] **DOM-02**: Per-tick temporary allocations eliminated (reusable arrays, Sets, filter matrix, tint tuple)
 - [x] **DOM-03**: Unused chokidar dependency removed from package.json
 
 ## v2.1 Requirements (Parked)
@@ -73,11 +73,11 @@ Carried from v2.1, pending soak test verification.
 | IO-04 | Phase 26 | Complete |
 | CPU-01 | Phase 28 | Complete |
 | CPU-02 | Phase 28 | Complete |
-| CPU-03 | Phase 28 | Pending |
+| CPU-03 | Phase 28 | Complete |
 | CPU-04 | Phase 29 | Pending |
-| CPU-05 | Phase 28 | Pending |
+| CPU-05 | Phase 28 | Complete |
 | DOM-01 | Phase 28 | Complete |
-| DOM-02 | Phase 28 | Pending |
+| DOM-02 | Phase 28 | Complete |
 | DOM-03 | Phase 28 | Complete |
 
 **Coverage:**
