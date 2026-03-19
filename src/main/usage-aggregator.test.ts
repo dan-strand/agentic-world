@@ -207,4 +207,58 @@ describe('UsageAggregator', () => {
     assert.equal(typeof cached.byteOffset, 'number');
     assert.ok(cached.byteOffset > 0, 'byteOffset should be > 0 after reading a non-empty file');
   });
+
+  it('returns cached result when lastModified matches cached mtimeMs (skips stat)', async () => {
+    const filePath = writeTempJsonl([
+      assistantEntry({ input_tokens: 42, output_tokens: 7 }),
+    ]);
+    tempFiles.push(filePath);
+
+    const agg = new UsageAggregator();
+    // First call without lastModified -- populates cache via stat
+    const result1 = await agg.getUsage('session-lm', filePath);
+    assert.notEqual(result1, null);
+
+    // Read cached mtimeMs from the private cache
+    const cachedMtime = (agg as any).cache.get('session-lm').mtimeMs;
+
+    // Second call WITH lastModified matching cached mtimeMs -- should return same object (cache hit, no stat)
+    const result2 = await agg.getUsage('session-lm', filePath, cachedMtime);
+    assert.equal(result1, result2, 'Should return same object reference (cache hit via lastModified)');
+  });
+
+  it('falls back to stat when lastModified not provided', async () => {
+    const filePath = writeTempJsonl([
+      assistantEntry({ input_tokens: 55, output_tokens: 11 }),
+    ]);
+    tempFiles.push(filePath);
+
+    const agg = new UsageAggregator();
+    // Call without lastModified -- should still work (existing behavior)
+    const result = await agg.getUsage('session-nolm', filePath);
+    assert.notEqual(result, null);
+    assert.equal(result!.inputTokens, 55);
+    assert.equal(result!.outputTokens, 11);
+  });
+
+  it('getUsageWithCost passes lastModified through to getUsage', async () => {
+    const filePath = writeTempJsonl([
+      assistantEntry({ input_tokens: 100, output_tokens: 50, model: 'claude-opus-4-6' }),
+    ]);
+    tempFiles.push(filePath);
+
+    const agg = new UsageAggregator();
+    // First call to populate cache
+    const result1 = await agg.getUsageWithCost('session-cost-lm', filePath);
+    assert.notEqual(result1, null);
+
+    // Read cached mtimeMs
+    const cachedMtime = (agg as any).cache.get('session-cost-lm').mtimeMs;
+
+    // Second call with lastModified -- should use cache (same underlying totals)
+    const result2 = await agg.getUsageWithCost('session-cost-lm', filePath, cachedMtime);
+    assert.notEqual(result2, null);
+    assert.equal(result2!.inputTokens, 100);
+    assert.equal(result2!.outputTokens, 50);
+  });
 });
