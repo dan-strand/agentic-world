@@ -25,18 +25,19 @@ describe('palette-swap cache lifecycle', () => {
     assert.equal(getSwapCacheSize(), 2);
   });
 
-  it('destroyCachedTextures removes matching entries and calls source.destroy() + texture.destroy()', () => {
+  it('destroyCachedTextures removes matching entries and calls source.destroy() once + texture.destroy() for each', () => {
     const cache = _getSwapCacheForTesting();
     const destroyCalls: string[] = [];
 
-    // Create mock textures with tracked destroy calls
+    // Atlas-consolidated textures share a single source
+    const sharedSource = { destroy() { destroyCalls.push('shared-source'); } };
     const mockTex1 = {
       destroy() { destroyCalls.push('tex1'); },
-      source: { destroy() { destroyCalls.push('source1'); } },
+      source: sharedSource,
     };
     const mockTex2 = {
       destroy() { destroyCalls.push('tex2'); },
-      source: { destroy() { destroyCalls.push('source2'); } },
+      source: sharedSource,
     };
 
     cache.set('mage_0_100', [mockTex1 as any, mockTex2 as any]);
@@ -45,9 +46,10 @@ describe('palette-swap cache lifecycle', () => {
     destroyCachedTextures('mage' as any, 0);
 
     assert.equal(getSwapCacheSize(), 0, 'cache entry should be removed');
-    assert.ok(destroyCalls.includes('source1'), 'source1 should be destroyed');
+    // Shared source should be destroyed exactly once (via first texture)
+    const sourceDestroyCount = destroyCalls.filter(c => c === 'shared-source').length;
+    assert.equal(sourceDestroyCount, 1, 'shared source should be destroyed exactly once');
     assert.ok(destroyCalls.includes('tex1'), 'tex1 should be destroyed');
-    assert.ok(destroyCalls.includes('source2'), 'source2 should be destroyed');
     assert.ok(destroyCalls.includes('tex2'), 'tex2 should be destroyed');
   });
 

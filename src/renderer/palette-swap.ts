@@ -1,4 +1,4 @@
-import { Texture, ImageSource } from 'pixi.js';
+import { Texture, ImageSource, Rectangle } from 'pixi.js';
 import type { CharacterClass } from '../shared/types';
 import { PALETTE_DEFS, TEMPLATE_COLORS } from '../shared/constants';
 import type { PaletteDef } from '../shared/constants';
@@ -48,31 +48,40 @@ export function createPaletteSwappedTextures(
     { tmpl: template.accent, repl: palette.accent },
   ];
 
-  const swapped: Texture[] = [];
+  // Determine frame dimensions from the first base texture
+  const firstFrame = baseTextures[0].frame;
+  const fw = Math.round(firstFrame.width);
+  const fh = Math.round(firstFrame.height);
+  const frameCount = baseTextures.length;
 
-  for (const tex of baseTextures) {
-    // Get the source image from the texture
+  // Create ONE atlas canvas sized (frameCount * frameWidth) x frameHeight
+  const atlasCanvas = document.createElement('canvas');
+  atlasCanvas.width = fw * frameCount;
+  atlasCanvas.height = fh;
+  const atlasCtx = atlasCanvas.getContext('2d')!;
+
+  // Process each frame and draw into the atlas at the correct x offset
+  for (let idx = 0; idx < frameCount; idx++) {
+    const tex = baseTextures[idx];
     const source = tex.source;
     const resource = source.resource as HTMLImageElement | HTMLCanvasElement | ImageBitmap;
 
-    // Determine frame bounds within the atlas
+    // Determine frame bounds within the original atlas
     const frame = tex.frame;
-    const fw = Math.round(frame.width);
-    const fh = Math.round(frame.height);
     const fx = Math.round(frame.x);
     const fy = Math.round(frame.y);
 
-    // Create offscreen canvas at frame size
-    const canvas = document.createElement('canvas');
-    canvas.width = fw;
-    canvas.height = fh;
-    const ctx = canvas.getContext('2d')!;
+    // Use a temporary canvas at frame size for pixel manipulation
+    const tmpCanvas = document.createElement('canvas');
+    tmpCanvas.width = fw;
+    tmpCanvas.height = fh;
+    const tmpCtx = tmpCanvas.getContext('2d')!;
 
     // Draw just the frame region from the atlas source
-    ctx.drawImage(resource as CanvasImageSource, fx, fy, fw, fh, 0, 0, fw, fh);
+    tmpCtx.drawImage(resource as CanvasImageSource, fx, fy, fw, fh, 0, 0, fw, fh);
 
     // Read pixel data
-    const imageData = ctx.getImageData(0, 0, fw, fh);
+    const imageData = tmpCtx.getImageData(0, 0, fw, fh);
     const data = imageData.data;
 
     // Swap colors pixel by pixel
@@ -101,11 +110,20 @@ export function createPaletteSwappedTextures(
       }
     }
 
-    ctx.putImageData(imageData, 0, 0);
+    // Write swapped pixels into the atlas at the correct x offset
+    atlasCtx.putImageData(imageData, idx * fw, 0);
+  }
 
-    // Create a new Texture from the modified canvas
-    const newSource = new ImageSource({ resource: canvas });
-    const newTex = new Texture({ source: newSource });
+  // Create ONE ImageSource from the consolidated atlas canvas
+  const atlasSource = new ImageSource({ resource: atlasCanvas });
+
+  // Create individual Texture wrappers with frame rectangles into the shared atlas
+  const swapped: Texture[] = [];
+  for (let idx = 0; idx < frameCount; idx++) {
+    const newTex = new Texture({
+      source: atlasSource,
+      frame: new Rectangle(idx * fw, 0, fw, fh),
+    });
     swapped.push(newTex);
   }
 
@@ -124,8 +142,11 @@ export function destroyCachedTextures(characterClass: CharacterClass, paletteInd
   const prefix = `${characterClass}_${paletteIndex}_`;
   for (const [key, textures] of swapCache) {
     if (key.startsWith(prefix)) {
+      // All textures share a single atlas ImageSource -- destroy it once via the first texture
+      const sharedSource = textures[0]?.source;
+      if (sharedSource) sharedSource.destroy();
+      // Destroy individual Texture wrappers (does not re-destroy the source)
       for (const tex of textures) {
-        tex.source?.destroy();
         tex.destroy();
       }
       swapCache.delete(key);
