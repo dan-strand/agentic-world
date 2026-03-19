@@ -11,6 +11,7 @@
 - ✅ **v2.0 World & Character Detail** - Phases 20-22 (shipped 2026-03-03)
 - Parked **v2.1 Hardening and Bug Fixes** - Phases 23-25 (Phase 25 soak test pending)
 - ✅ **v2.2 Performance Optimization** - Phases 26-29 (shipped 2026-03-19)
+- 🚧 **v2.3 Performance Polish** - Phases 30-31 (in progress)
 
 ## Phases
 
@@ -105,78 +106,50 @@ See: [`.planning/milestones/v2.0-ROADMAP.md`](milestones/v2.0-ROADMAP.md) for fu
 
 </details>
 
-### v2.2 Performance Optimization (In Progress)
-
-**Milestone Goal:** Eliminate the highest-impact CPU, GPU, and I/O inefficiencies so the always-on app uses fewer resources with no visual or behavioral regression.
+<details>
+<summary>✅ v2.2 Performance Optimization (Phases 26-29) — SHIPPED 2026-03-19</summary>
 
 - [x] **Phase 26: I/O Pipeline** - Non-blocking session discovery, combined file reads, incremental JSONL parsing, adaptive poll backoff (completed 2026-03-18)
 - [x] **Phase 27: GPU Rendering** - Replace stage filter with container tint, threshold-gated updates, static layer caching, glow guards (completed 2026-03-19)
 - [x] **Phase 28: CPU Tick Loop** - Particle throttling, swap-and-pop removal, dirty-flag highlights, state transition guards, DOM diffing, allocation cleanup, dependency removal (completed 2026-03-19)
 - [x] **Phase 29: Agent State Consolidation** - Unify 13+ per-agent Maps into single AgentTrackingState structure (completed 2026-03-19)
 
+</details>
+
+### v2.3 Performance Polish (In Progress)
+
+**Milestone Goal:** Address remaining LOW-priority performance audit items -- GPU texture consolidation, glow sprite replacement, minor tick-loop and DOM allocation cleanup, and async startup.
+
+- [ ] **Phase 30: GPU and Renderer Cleanup** - Atlas agent textures, replace glow Graphics with sprites, gate smoke on nightIntensity, throttle console.warn, eliminate spread allocation, cache escapeHtml element
+- [ ] **Phase 31: I/O and Startup Cleanup** - Pass mtime to eliminate redundant statSync, defer sync constructors to after app.ready
+
 ## Phase Details
 
-### Phase 26: I/O Pipeline
-**Goal**: The main process never blocks its event loop during session polling, reads the minimum bytes necessary per poll cycle, and backs off polling when idle
-**Depends on**: Phase 25 (v2.1 parked -- no hard dependency; can proceed independently)
-**Requirements**: IO-01, IO-02, IO-03, IO-04
+### Phase 30: GPU and Renderer Cleanup
+**Goal**: The renderer uses fewer GPU textures per agent, replaces dynamic Graphics glow objects with static sprites, and eliminates unnecessary per-tick allocations in the render path
+**Depends on**: Phase 29 (v2.2 complete)
+**Requirements**: TEX-01, TEX-02, TICK-01, TICK-02, TICK-03, DOMCL-01
 **Success Criteria** (what must be TRUE):
-  1. Session discovery completes without blocking IPC, timers, or other async operations on the main process event loop (no synchronous fs calls in the poll path)
-  2. Each changed session triggers one file open instead of two -- `readLastJsonlLine` and `readLastToolUse` consolidated into a single pass
-  3. UsageAggregator reads only newly-appended bytes from JSONL files (not the full 2-18MB) and correctly falls back to full re-parse on file truncation or inode change
-  4. When no sessions are active for consecutive poll cycles, the poll interval stretches to 10-30s; when a session becomes active, polling resets to the normal 3s interval immediately
-**Plans**: 3 plans
-Plans:
-- [ ] 26-01-PLAN.md -- Combined JSONL tail read + async session discovery (IO-01, IO-02)
-- [ ] 26-02-PLAN.md -- Incremental offset-based JSONL usage parsing (IO-03)
-- [ ] 26-03-PLAN.md -- Adaptive poll backoff with setTimeout recursion (IO-04)
+  1. Each agent's palette-swapped animation frames are consolidated into a single GPU texture atlas instead of individual textures per frame -- GPU texture count drops from ~12-16 per agent to 1 per agent
+  2. Night glow points render as pre-built radial gradient sprites instead of concentric circle Graphics objects -- the 80 fill operations per glow update are replaced by 20 sprite alpha changes
+  3. Building smoke particles skip their baseAlpha/maxSmoke/spawnInterval updates when nightIntensity is below the 0.005 threshold (same guard pattern used by glow alpha)
+  4. Console.warn calls in the visibility check are throttled to at most once per second per agent, and the removeAgent spread operator is replaced with a for-of early-return loop (zero temporary array allocations)
+  5. The escapeHtml utility reuses a single cached div element across all calls instead of creating a new element per invocation
+**Plans**: TBD
 
-### Phase 27: GPU Rendering
-**Goal**: The renderer draws the scene in a single pass (no off-screen framebuffer) with threshold-gated updates that skip GPU writes on 98% of frames during day/night plateaus
-**Depends on**: Phase 26
-**Requirements**: GPU-01, GPU-02, GPU-03, GPU-04
+### Phase 31: I/O and Startup Cleanup
+**Goal**: The main process eliminates a redundant filesystem stat call per session per poll cycle and defers synchronous module-level constructors to after Electron's app.ready event
+**Depends on**: Phase 30
+**Requirements**: IOCL-01, IOCL-02
 **Success Criteria** (what must be TRUE):
-  1. The day/night color shift renders correctly across all 5 cycle points (dawn, day, dusk, night, midnight) with no stage-level filter -- visual comparison against pre-migration screenshot baseline shows acceptable match
-  2. Day/night tint values only update when the computed value changes by more than the perceptible threshold (~0.005); plateau frames perform zero tint writes
-  3. Static scenery and tilemap layers are cached as single GPU textures and do not re-render their children each frame
-  4. Night glow alpha values only update when nightIntensity changes beyond threshold; unchanged ticks skip all 19+ glow object writes
-**Plans**: 2 plans
-Plans:
-- [ ] 27-01-PLAN.md -- WorldContainer tint migration + threshold-gated updates (GPU-01, GPU-02)
-- [ ] 27-02-PLAN.md -- Static layer caching + glow threshold guard (GPU-03, GPU-04)
-
-### Phase 28: CPU Tick Loop
-**Goal**: Per-tick CPU work is minimized through dirty flags, idle-aware throttling, efficient data structures, and in-place DOM updates
-**Depends on**: Phase 27
-**Requirements**: CPU-01, CPU-02, CPU-03, CPU-05, DOM-01, DOM-02, DOM-03
-**Success Criteria** (what must be TRUE):
-  1. Smoke and spark particle subsystems skip their update logic at idle FPS (5fps); fireflies, dust, and leaves continue updating at all times (too cheap to throttle, too visible to skip)
-  2. Particle removal uses O(1) swap-and-pop instead of O(n) Array.splice; no forward-iteration loop uses this pattern (reverse-only invariant)
-  3. Building highlight tints only recompute when agent occupancy changes (dirty flag set on state transitions), not on every frame
-  4. Agent reparenting between containers and setAnimation calls happen inside state transition handlers, not in the per-frame tick poll
-  5. Dashboard session list updates existing DOM elements in place (text content mutation, not element replacement); click-to-expand state survives data refreshes
-**Plans**: 3 plans
-Plans:
-- [ ] 28-01-PLAN.md -- Particle idle throttling + swap-and-pop removal (CPU-01, CPU-02)
-- [ ] 28-02-PLAN.md -- Dirty-flag highlights + state-driven reparenting + allocation cleanup (CPU-03, CPU-05, DOM-02)
-- [ ] 28-03-PLAN.md -- Dashboard in-place DOM updates + chokidar removal (DOM-01, DOM-03)
-
-### Phase 29: Agent State Consolidation
-**Goal**: Per-agent tracking data lives in one Map instead of 13+, making agent lifecycle operations (create, update, delete) access a single location
-**Depends on**: Phase 28
-**Requirements**: CPU-04
-**Success Criteria** (what must be TRUE):
-  1. A single `Map<string, AgentTrackingState>` replaces the 13+ separate Maps in world.ts; no per-agent data remains in standalone Maps
-  2. Agent removal executes one `agentStates.delete(sessionId)` instead of 13 individual Map deletes
-  3. All existing agent behaviors (status transitions, speech bubbles, wander, celebrate, fade-out) work identically after the refactor -- no logic changes, only data structure consolidation
-**Plans**: 1 plan
-Plans:
-- [ ] 29-01-PLAN.md -- AgentTrackingState interface + consolidated agentStates Map (CPU-04)
+  1. SessionDetector passes lastModified through SessionInfo so UsageAggregator can skip its own statSync -- one fewer synchronous fs call per active session per poll cycle
+  2. Module-level sync constructors (HistoryStore.load, CrashLogger.checkPreviousCrash) execute after app.ready instead of at import time -- Electron's ready event is never blocked by file I/O during startup
+**Plans**: TBD
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 26 → 27 → 28 → 29
+Phases execute in numeric order: 30 → 31
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -208,4 +181,6 @@ Phases execute in numeric order: 26 → 27 → 28 → 29
 | 26. I/O Pipeline | v2.2 | 3/3 | Complete | 2026-03-18 |
 | 27. GPU Rendering | v2.2 | 2/2 | Complete | 2026-03-19 |
 | 28. CPU Tick Loop | v2.2 | 3/3 | Complete | 2026-03-19 |
-| 29. Agent State Consolidation | 1/1 | Complete    | 2026-03-19 | - |
+| 29. Agent State Consolidation | v2.2 | 1/1 | Complete | 2026-03-19 |
+| 30. GPU and Renderer Cleanup | v2.3 | 0/? | Not started | - |
+| 31. I/O and Startup Cleanup | v2.3 | 0/? | Not started | - |

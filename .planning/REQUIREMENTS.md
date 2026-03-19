@@ -55,20 +55,20 @@ Requirements for performance polish release. Each maps to roadmap phases.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| TEX-01 | Pending | Pending |
-| TEX-02 | Pending | Pending |
-| TICK-01 | Pending | Pending |
-| TICK-02 | Pending | Pending |
-| TICK-03 | Pending | Pending |
-| IOCL-01 | Pending | Pending |
-| IOCL-02 | Pending | Pending |
-| DOMCL-01 | Pending | Pending |
+| TEX-01 | Phase 30 | Pending |
+| TEX-02 | Phase 30 | Pending |
+| TICK-01 | Phase 30 | Pending |
+| TICK-02 | Phase 30 | Pending |
+| TICK-03 | Phase 30 | Pending |
+| DOMCL-01 | Phase 30 | Pending |
+| IOCL-01 | Phase 31 | Pending |
+| IOCL-02 | Phase 31 | Pending |
 
 **Coverage:**
 - v2.3 requirements: 8 total
-- Mapped to phases: 0
-- Unmapped: 8 ⚠️
+- Mapped to phases: 8
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-19*
-*Last updated: 2026-03-19 after initial definition*
+*Last updated: 2026-03-19 after roadmap creation*
