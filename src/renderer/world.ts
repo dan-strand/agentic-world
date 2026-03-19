@@ -188,6 +188,8 @@ export class World {
       Object.values(QUEST_ZONE_POSITIONS),
     );
     this.tilemapLayer.addChild(tilemap);
+    // Cache tilemap as single GPU texture -- this layer never changes after init
+    this.tilemapLayer.cacheAsTexture({ antialias: false });
 
     // Buildings container (campfire + 4 quest zone buildings in 2x2 grid)
     this.buildingsContainer = new Container();
@@ -226,6 +228,8 @@ export class World {
     // Scenery layer: trees, props, lanterns placed between buildings (Phase 20)
     this.sceneryLayer = buildSceneryLayer();
     this.worldContainer.addChild(this.sceneryLayer);
+    // Cache scenery as single GPU texture -- trees, props, fences never change after init
+    this.sceneryLayer.cacheAsTexture({ antialias: false });
 
     // Night glow layer: soft halos at light sources, visible at night (Phase 22)
     const glowResult = buildNightGlowLayer();
