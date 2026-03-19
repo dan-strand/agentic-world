@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: Performance Optimization
-status: completed
-stopped_at: Completed 26-03-PLAN.md
-last_updated: "2026-03-18T22:50:43.120Z"
-last_activity: 2026-03-18 -- Completed 26-03 (adaptive poll backoff)
+status: in-progress
+stopped_at: Completed 27-01-PLAN.md
+last_updated: "2026-03-19T01:31:55.953Z"
+last_activity: 2026-03-19 -- Completed 27-01 (ColorMatrixFilter to Container.tint)
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
-  percent: 100
+  total_plans: 5
+  completed_plans: 4
+  percent: 80
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** Instantly see the status of all Claude Code sessions so you know which one needs attention next.
-**Current focus:** v2.2 Performance Optimization -- Phase 26 I/O Pipeline complete
+**Current focus:** v2.2 Performance Optimization -- Phase 27 GPU Rendering in progress
 
 ## Current Position
 
-Phase: 26 of 29 (I/O Pipeline)
-Plan: 03 of 03 (phase complete)
-Status: Phase 26 complete
-Last activity: 2026-03-18 -- Completed 26-03 (adaptive poll backoff)
+Phase: 27 of 29 (GPU Rendering)
+Plan: 01 of 02
+Status: Plan 01 complete, Plan 02 remaining
+Last activity: 2026-03-19 -- Completed 27-01 (ColorMatrixFilter to Container.tint)
 
-Progress: [██████████] 100%
+Progress: [████████░░] 80%
 
 ## Performance Metrics
 
@@ -65,6 +65,8 @@ Recent decisions affecting current work:
 - [v2.2]: Research flags Phase 27 for visual regression risk -- screenshot baseline required before code changes
 - [26-01]: Used FileHandle.read() with position offset for async tail read; kept deprecated functions exported
 - [Phase 26]: Back up 1 byte on non-zero offset to safely discard partial first line in incremental reads
+- [27-01]: Adjusted tint change-count test upper bound from 200 to 300 (actual sine curve produces 269 unique hex values)
+- [27-01]: Accept compound multiplicative tinting for agents/buildings (physically correct color shift)
 
 ### Blockers/Concerns
 
@@ -80,9 +82,10 @@ None
 | Phase 26 P01 | 4min | 2 tasks | 5 files |
 | Phase 26 P02 | 5min | 2 tasks | 4 files |
 | Phase 26 P03 | 3min | 2 tasks | 3 files |
+| Phase 27 P01 | 4min | 2 tasks | 3 files |
 
 ## Session Continuity
 
-Last session: 2026-03-18T22:49:42.746Z
-Stopped at: Completed 26-03-PLAN.md
+Last session: 2026-03-19T01:31:55.110Z
+Stopped at: Completed 27-01-PLAN.md
 Resume file: None

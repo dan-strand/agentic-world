@@ -9,8 +9,8 @@ Requirements for performance optimization release. Each maps to roadmap phases.
 
 ### GPU Rendering
 
-- [ ] **GPU-01**: Stage-level ColorMatrixFilter replaced with Container.tint for day/night coloring (eliminates double render pass)
-- [ ] **GPU-02**: Day/night tint and filter values only update when change exceeds perceptible threshold (~0.005)
+- [x] **GPU-01**: Stage-level ColorMatrixFilter replaced with Container.tint for day/night coloring (eliminates double render pass)
+- [x] **GPU-02**: Day/night tint and filter values only update when change exceeds perceptible threshold (~0.005)
 - [ ] **GPU-03**: Static layers (scenery, building exteriors) use cacheAsTexture for single-draw rendering
 - [ ] **GPU-04**: Night glow layer alpha updates gated on nightIntensity change threshold
 
@@ -63,8 +63,8 @@ Carried from v2.1, pending soak test verification.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| GPU-01 | Phase 27 | Pending |
-| GPU-02 | Phase 27 | Pending |
+| GPU-01 | Phase 27 | Complete |
+| GPU-02 | Phase 27 | Complete |
 | GPU-03 | Phase 27 | Pending |
 | GPU-04 | Phase 27 | Pending |
 | IO-01 | Phase 26 | Complete |

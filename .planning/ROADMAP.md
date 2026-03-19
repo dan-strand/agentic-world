@@ -200,6 +200,6 @@ Phases execute in numeric order: 26 → 27 → 28 → 29
 | 24. Resource Leak Fixes | v2.1 | 2/2 | Complete | 2026-03-16 |
 | 25. Soak Testing and Verification | v2.1 | 0/1 | Parked | - |
 | 26. I/O Pipeline | v2.2 | 3/3 | Complete | 2026-03-18 |
-| 27. GPU Rendering | v2.2 | 0/2 | Not started | - |
+| 27. GPU Rendering | 1/2 | In Progress|  | - |
 | 28. CPU Tick Loop | v2.2 | 0/? | Not started | - |
 | 29. Agent State Consolidation | v2.2 | 0/? | Not started | - |
