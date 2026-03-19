@@ -90,6 +90,7 @@ export class World {
   private dayNightCycle: DayNightCycle = new DayNightCycle();
   private worldContainer!: Container;
   private lastTintHex = 0xFFFFFF;
+  private lastGlowIntensity = -1; // Force first update
 
   // Ambient idle agents (always at campfire, decorative)
   private ambientAgents: Agent[] = [];
@@ -291,8 +292,11 @@ export class World {
       this.lastTintHex = tintHex;
     }
 
-    // Update night glow sprites
-    updateNightGlowLayer(this.nightGlows, nightIntensity);
+    // Only update glow alphas when intensity meaningfully changes (~0.005 threshold)
+    if (Math.abs(nightIntensity - this.lastGlowIntensity) >= 0.005) {
+      updateNightGlowLayer(this.nightGlows, nightIntensity);
+      this.lastGlowIntensity = nightIntensity;
+    }
 
     // Tick ambient agents (idle animation at campfire)
     for (const ambient of this.ambientAgents) {
