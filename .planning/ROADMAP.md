@@ -169,7 +169,9 @@ Plans:
   1. A single `Map<string, AgentTrackingState>` replaces the 13+ separate Maps in world.ts; no per-agent data remains in standalone Maps
   2. Agent removal executes one `agentStates.delete(sessionId)` instead of 13 individual Map deletes
   3. All existing agent behaviors (status transitions, speech bubbles, wander, celebrate, fade-out) work identically after the refactor -- no logic changes, only data structure consolidation
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 29-01-PLAN.md -- AgentTrackingState interface + consolidated agentStates Map (CPU-04)
 
 ## Progress
 
@@ -205,5 +207,5 @@ Phases execute in numeric order: 26 → 27 → 28 → 29
 | 25. Soak Testing and Verification | v2.1 | 0/1 | Parked | - |
 | 26. I/O Pipeline | v2.2 | 3/3 | Complete | 2026-03-18 |
 | 27. GPU Rendering | v2.2 | 2/2 | Complete | 2026-03-19 |
-| 28. CPU Tick Loop | 3/3 | Complete    | 2026-03-19 | - |
-| 29. Agent State Consolidation | v2.2 | 0/? | Not started | - |
+| 28. CPU Tick Loop | v2.2 | 3/3 | Complete | 2026-03-19 |
+| 29. Agent State Consolidation | v2.2 | 0/1 | Not started | - |
