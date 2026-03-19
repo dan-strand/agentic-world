@@ -17,6 +17,7 @@ import {
   AMBIENT_AGENT_COUNT,
   AMBIENT_AGENT_IDS,
   hashSessionId,
+  FPS_IDLE,
 } from '../shared/constants';
 import type { BuildingType } from '../shared/constants';
 import { Agent } from './agent';
@@ -288,6 +289,7 @@ export class World {
     // Advance day/night cycle and update lighting
     this.dayNightCycle.tick(deltaMs);
     const nightIntensity = this.dayNightCycle.getNightIntensity();
+    const isIdle = this.app.ticker.maxFPS <= FPS_IDLE;
 
     // Update day/night tint only when hex value actually changes (~98.5% skip rate)
     const tintHex = this.dayNightCycle.getTintHex();
@@ -419,11 +421,11 @@ export class World {
 
     // Tick building smoke particles (Phase 20, night-modulated Phase 22)
     for (const building of this.questZones.values()) {
-      building.tick(deltaMs, nightIntensity);
+      building.tick(deltaMs, nightIntensity, isIdle);
     }
 
     // Tick ambient particles (night-modulated Phase 22)
-    this.ambientParticles.tick(deltaMs, nightIntensity);
+    this.ambientParticles.tick(deltaMs, nightIntensity, isIdle);
 
     // Tick speech bubbles (skip for fading agents)
     for (const [sessionId, bubble] of this.speechBubbles) {
