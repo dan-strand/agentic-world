@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: Performance Optimization
-status: completed
-stopped_at: Completed 27-02-PLAN.md
-last_updated: "2026-03-19T01:39:09.669Z"
-last_activity: 2026-03-19 -- Completed 27-02 (Static layer caching + night glow threshold)
+status: in-progress
+stopped_at: Completed 28-03-PLAN.md
+last_updated: "2026-03-19T01:55:16.354Z"
+last_activity: 2026-03-19 -- Completed 28-03 (Dashboard DOM diffing + chokidar removal)
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 5
-  completed_plans: 5
-  percent: 100
+  total_plans: 8
+  completed_plans: 6
+  percent: 75
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** Instantly see the status of all Claude Code sessions so you know which one needs attention next.
-**Current focus:** v2.2 Performance Optimization -- Phase 27 GPU Rendering in progress
+**Current focus:** v2.2 Performance Optimization -- Phase 28 CPU Tick Loop in progress
 
 ## Current Position
 
-Phase: 27 of 29 (GPU Rendering)
-Plan: 02 of 02
-Status: Phase 27 complete, all plans executed
-Last activity: 2026-03-19 -- Completed 27-02 (Static layer caching + night glow threshold)
+Phase: 28 of 29 (CPU Tick Loop)
+Plan: 03 of 03
+Status: Plan 28-03 complete (Dashboard DOM diffing)
+Last activity: 2026-03-19 -- Completed 28-03 (Dashboard DOM diffing + chokidar removal)
 
-Progress: [██████████] 100%
+Progress: [████████░░] 75%
 
 ## Performance Metrics
 
@@ -68,6 +68,8 @@ Recent decisions affecting current work:
 - [27-01]: Adjusted tint change-count test upper bound from 200 to 300 (actual sine curve produces 269 unique hex values)
 - [27-01]: Accept compound multiplicative tinting for agents/buildings (physically correct color shift)
 - [Phase 27-02]: antialias: false on cacheAsTexture to match pixel art aesthetic and minimize GPU memory
+- [28-03]: textContent mutation for in-place DOM updates instead of innerHTML rebuild
+- [28-03]: Event delegation on sessionList container replaces per-row click handlers
 
 ### Blockers/Concerns
 
@@ -85,9 +87,10 @@ None
 | Phase 26 P03 | 3min | 2 tasks | 3 files |
 | Phase 27 P01 | 4min | 2 tasks | 3 files |
 | Phase 27 P02 | 3min | 2 tasks | 2 files |
+| Phase 28 P03 | 2min | 2 tasks | 3 files |
 
 ## Session Continuity
 
-Last session: 2026-03-19T01:38:12.124Z
-Stopped at: Completed 27-02-PLAN.md
+Last session: 2026-03-19T01:54:28Z
+Stopped at: Completed 28-03-PLAN.md
 Resume file: None

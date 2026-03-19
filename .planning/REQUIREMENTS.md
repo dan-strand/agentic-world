@@ -31,9 +31,9 @@ Requirements for performance optimization release. Each maps to roadmap phases.
 
 ### DOM / Memory
 
-- [ ] **DOM-01**: Dashboard session list uses DOM diffing (update in place) instead of full innerHTML rebuild
+- [x] **DOM-01**: Dashboard session list uses DOM diffing (update in place) instead of full innerHTML rebuild
 - [ ] **DOM-02**: Per-tick temporary allocations eliminated (reusable arrays, Sets, filter matrix, tint tuple)
-- [ ] **DOM-03**: Unused chokidar dependency removed from package.json
+- [x] **DOM-03**: Unused chokidar dependency removed from package.json
 
 ## v2.1 Requirements (Parked)
 
@@ -76,9 +76,9 @@ Carried from v2.1, pending soak test verification.
 | CPU-03 | Phase 28 | Pending |
 | CPU-04 | Phase 29 | Pending |
 | CPU-05 | Phase 28 | Pending |
-| DOM-01 | Phase 28 | Pending |
+| DOM-01 | Phase 28 | Complete |
 | DOM-02 | Phase 28 | Pending |
-| DOM-03 | Phase 28 | Pending |
+| DOM-03 | Phase 28 | Complete |
 
 **Coverage:**
 - v2.2 requirements: 16 total
