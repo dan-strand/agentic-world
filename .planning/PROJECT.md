@@ -84,20 +84,16 @@ Instantly see the status of all Claude Code sessions so you know which one needs
 - ✓ Zero-allocation tick loop (reusable buffers/Sets) — v2.2 Phase 28
 - ✓ AgentTrackingState: 14 per-agent Maps consolidated into single Map — v2.2 Phase 29
 
+- ✓ Palette-swapped frames atlased into single GPU texture per agent — v2.3 Phase 30
+- ✓ Night glow concentric Graphics replaced with gradient sprites — v2.3 Phase 30
+- ✓ Smoke params gated on nightIntensity threshold — v2.3 Phase 30
+- ✓ Console.warn throttled, spread eliminated, escapeHtml cached — v2.3 Phase 30
+- ✓ lastModified passthrough eliminates redundant statSync — v2.3 Phase 31
+- ✓ Module-level sync constructors deferred to after app.ready — v2.3 Phase 31
+
 ### Active
 
-## Current Milestone: v2.3 Performance Polish
-
-**Goal:** Address remaining LOW-priority performance audit items that have measurable benefit — GPU texture consolidation, night-gated smoke, cached DOM helpers, async startup, and minor allocation cleanup.
-
-**Target features:**
-- Atlas palette-swapped animation frames into single GPU texture per agent
-- Replace night glow concentric circle Graphics with radial gradient sprites
-- Gate building smoke baseAlpha on nightIntensity threshold
-- Cache escapeHtml div element, throttle console.warn
-- Pass mtime from SessionDetector to eliminate redundant statSync
-- Replace spread in removeAgent with for-of loop
-- Move module-level sync constructors after app.ready
+(None — next milestone not yet started)
 
 ### Out of Scope
 
@@ -203,4 +199,4 @@ Instantly see the status of all Claude Code sessions so you know which one needs
 | Dirty-flag building highlights (v2.2) | Recompute only on occupancy change, not every frame | ✓ Good |
 
 ---
-*Last updated: 2026-03-19 after v2.3 milestone start*
+*Last updated: 2026-03-19 after v2.3 milestone*
