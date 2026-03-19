@@ -120,7 +120,7 @@ See: [`.planning/milestones/v2.0-ROADMAP.md`](milestones/v2.0-ROADMAP.md) for fu
 
 **Milestone Goal:** Address remaining LOW-priority performance audit items -- GPU texture consolidation, glow sprite replacement, minor tick-loop and DOM allocation cleanup, and async startup.
 
-- [ ] **Phase 30: GPU and Renderer Cleanup** - Atlas agent textures, replace glow Graphics with sprites, gate smoke on nightIntensity, throttle console.warn, eliminate spread allocation, cache escapeHtml element
+- [x] **Phase 30: GPU and Renderer Cleanup** - Atlas agent textures, replace glow Graphics with sprites, gate smoke on nightIntensity, throttle console.warn, eliminate spread allocation, cache escapeHtml element (completed 2026-03-19)
 - [ ] **Phase 31: I/O and Startup Cleanup** - Pass mtime to eliminate redundant statSync, defer sync constructors to after app.ready
 
 ## Phase Details
@@ -185,5 +185,5 @@ Phases execute in numeric order: 30 → 31
 | 27. GPU Rendering | v2.2 | 2/2 | Complete | 2026-03-19 |
 | 28. CPU Tick Loop | v2.2 | 3/3 | Complete | 2026-03-19 |
 | 29. Agent State Consolidation | v2.2 | 1/1 | Complete | 2026-03-19 |
-| 30. GPU and Renderer Cleanup | 1/2 | In Progress|  | - |
+| 30. GPU and Renderer Cleanup | 2/2 | Complete   | 2026-03-19 | - |
 | 31. I/O and Startup Cleanup | v2.3 | 0/? | Not started | - |

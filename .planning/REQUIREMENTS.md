@@ -9,8 +9,8 @@ Requirements for performance polish release. Each maps to roadmap phases.
 
 ### GPU Texture
 
-- [ ] **TEX-01**: Palette-swapped animation frames atlased into single GPU texture per agent (reduces GPU texture count from ~12-16 per agent to 1)
-- [ ] **TEX-02**: Night glow concentric circle Graphics replaced with pre-rendered radial gradient sprites (80 fills → 20 sprite draws)
+- [x] **TEX-01**: Palette-swapped animation frames atlased into single GPU texture per agent (reduces GPU texture count from ~12-16 per agent to 1)
+- [x] **TEX-02**: Night glow concentric circle Graphics replaced with pre-rendered radial gradient sprites (80 fills → 20 sprite draws)
 
 ### Tick Efficiency
 
@@ -55,8 +55,8 @@ Requirements for performance polish release. Each maps to roadmap phases.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| TEX-01 | Phase 30 | Pending |
-| TEX-02 | Phase 30 | Pending |
+| TEX-01 | Phase 30 | Complete |
+| TEX-02 | Phase 30 | Complete |
 | TICK-01 | Phase 30 | Complete |
 | TICK-02 | Phase 30 | Complete |
 | TICK-03 | Phase 30 | Complete |

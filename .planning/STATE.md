@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: Performance Polish
 status: executing
-stopped_at: Completed 30-02-PLAN.md
-last_updated: "2026-03-19T03:40:54.436Z"
-last_activity: 2026-03-19 -- Completed plan 30-02 tick-loop and DOM micro-optimizations
+stopped_at: Completed 30-01-PLAN.md
+last_updated: "2026-03-19T03:43:04Z"
+last_activity: 2026-03-19 -- Completed plan 30-01 GPU texture consolidation and sprite glow
 progress:
   total_phases: 2
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
-  percent: 50
+  completed_plans: 2
+  percent: 100
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-19)
 
 **Core value:** Instantly see the status of all Claude Code sessions so you know which one needs attention next.
-**Current focus:** v2.3 Performance Polish -- Phase 30 in progress (plan 02 complete)
+**Current focus:** v2.3 Performance Polish -- Phase 30 complete (both plans done)
 
 ## Current Position
 
-Phase: 30 of 31 (GPU and Renderer Cleanup)
+Phase: 30 of 31 (GPU and Renderer Cleanup) -- COMPLETE
 Plan: 2 of 2
-Status: In progress
-Last activity: 2026-03-19 -- Completed plan 30-02 tick-loop and DOM micro-optimizations
+Status: Phase complete
+Last activity: 2026-03-19 -- Completed plan 30-01 GPU texture consolidation and sprite glow
 
-Progress: [█████░░░░░] 50%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -59,6 +59,8 @@ Progress: [█████░░░░░] 50%
 
 Decisions are logged in PROJECT.md Key Decisions table.
 - [Phase 30]: Used 0.005 nightIntensity threshold consistent with Phase 27 glow update pattern
+- [Phase 30]: Kept GlowSprite field name 'gfx' when switching from Graphics to Sprite for minimal diff
+- [Phase 30]: Atlas consolidation uses putImageData per-frame for pixel-accurate color swap
 
 ### Blockers/Concerns
 
@@ -72,9 +74,10 @@ None
 | 7 | Add ambient idle agents at campfire | 2026-03-03 | 37f9087 | [7-can-we-have-a-couple-of-idle-agents-arou](./quick/7-can-we-have-a-couple-of-idle-agents-arou/) |
 | 8 | Fix audio not playing when window unfocused | 2026-03-17 | 2c31f80 | [8-when-the-window-doesn-t-have-focus-it-no](./quick/8-when-the-window-doesn-t-have-focus-it-no/) |
 | Phase 30 P02 | 2min | 2 tasks | 3 files |
+| Phase 30 P01 | 5min | 2 tasks | 5 files |
 
 ## Session Continuity
 
-Last session: 2026-03-19T03:40:54.433Z
-Stopped at: Completed 30-02-PLAN.md
+Last session: 2026-03-19T03:43:04Z
+Stopped at: Completed 30-01-PLAN.md (Phase 30 fully complete)
 Resume file: None
