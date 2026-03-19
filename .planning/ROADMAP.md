@@ -135,7 +135,10 @@ See: [`.planning/milestones/v2.0-ROADMAP.md`](milestones/v2.0-ROADMAP.md) for fu
   3. Building smoke particles skip their baseAlpha/maxSmoke/spawnInterval updates when nightIntensity is below the 0.005 threshold (same guard pattern used by glow alpha)
   4. Console.warn calls in the visibility check are throttled to at most once per second per agent, and the removeAgent spread operator is replaced with a for-of early-return loop (zero temporary array allocations)
   5. The escapeHtml utility reuses a single cached div element across all calls instead of creating a new element per invocation
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 30-01-PLAN.md -- GPU texture atlas consolidation and gradient sprite glow replacement
+- [ ] 30-02-PLAN.md -- Smoke threshold gate, warn throttle, spread removal, escapeHtml cache
 
 ### Phase 31: I/O and Startup Cleanup
 **Goal**: The main process eliminates a redundant filesystem stat call per session per poll cycle and defers synchronous module-level constructors to after Electron's app.ready event
@@ -182,5 +185,5 @@ Phases execute in numeric order: 30 → 31
 | 27. GPU Rendering | v2.2 | 2/2 | Complete | 2026-03-19 |
 | 28. CPU Tick Loop | v2.2 | 3/3 | Complete | 2026-03-19 |
 | 29. Agent State Consolidation | v2.2 | 1/1 | Complete | 2026-03-19 |
-| 30. GPU and Renderer Cleanup | v2.3 | 0/? | Not started | - |
+| 30. GPU and Renderer Cleanup | v2.3 | 0/2 | Not started | - |
 | 31. I/O and Startup Cleanup | v2.3 | 0/? | Not started | - |
