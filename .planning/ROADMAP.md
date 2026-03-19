@@ -140,7 +140,10 @@ Plans:
   2. Day/night tint values only update when the computed value changes by more than the perceptible threshold (~0.005); plateau frames perform zero tint writes
   3. Static scenery and tilemap layers are cached as single GPU textures and do not re-render their children each frame
   4. Night glow alpha values only update when nightIntensity changes beyond threshold; unchanged ticks skip all 19+ glow object writes
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 27-01-PLAN.md -- WorldContainer tint migration + threshold-gated updates (GPU-01, GPU-02)
+- [ ] 27-02-PLAN.md -- Static layer caching + glow threshold guard (GPU-03, GPU-04)
 
 ### Phase 28: CPU Tick Loop
 **Goal**: Per-tick CPU work is minimized through dirty flags, idle-aware throttling, efficient data structures, and in-place DOM updates
@@ -196,7 +199,7 @@ Phases execute in numeric order: 26 → 27 → 28 → 29
 | 23. Crash Diagnosis Infrastructure | v2.1 | 2/2 | Complete | 2026-03-16 |
 | 24. Resource Leak Fixes | v2.1 | 2/2 | Complete | 2026-03-16 |
 | 25. Soak Testing and Verification | v2.1 | 0/1 | Parked | - |
-| 26. I/O Pipeline | 3/3 | Complete    | 2026-03-18 | - |
-| 27. GPU Rendering | v2.2 | 0/? | Not started | - |
+| 26. I/O Pipeline | v2.2 | 3/3 | Complete | 2026-03-18 |
+| 27. GPU Rendering | v2.2 | 0/2 | Not started | - |
 | 28. CPU Tick Loop | v2.2 | 0/? | Not started | - |
 | 29. Agent State Consolidation | v2.2 | 0/? | Not started | - |
