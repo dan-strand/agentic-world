@@ -75,4 +75,15 @@ export class DayNightCycle {
       DAY_TINT_B + (NIGHT_TINT_B - DAY_TINT_B) * t,
     ];
   }
+
+  /**
+   * Get the current tint as a hex integer (0xRRGGBB).
+   * Each channel clamped to [0, 255] for Container.tint compatibility.
+   */
+  getTintHex(): number {
+    const [r, g, b] = this.getTintRGB();
+    return (Math.round(Math.min(r, 1) * 255) << 16)
+         | (Math.round(Math.min(g, 1) * 255) << 8)
+         | Math.round(Math.min(b, 1) * 255);
+  }
 }

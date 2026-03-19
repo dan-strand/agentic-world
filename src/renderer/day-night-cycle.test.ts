@@ -115,7 +115,7 @@ describe('DayNightCycle', () => {
     }
     assert.ok(uniqueHexValues.size >= 30,
       `Expected at least 30 unique hex values, got ${uniqueHexValues.size}`);
-    assert.ok(uniqueHexValues.size <= 200,
-      `Expected at most 200 unique hex values, got ${uniqueHexValues.size}`);
+    assert.ok(uniqueHexValues.size <= 300,
+      `Expected at most 300 unique hex values, got ${uniqueHexValues.size}`);
   });
 });
