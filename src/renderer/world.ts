@@ -161,6 +161,12 @@ export class World {
   // Reusable set for highlight computation (avoids per-tick allocation)
   private activeBuildings: Set<Building> = new Set();
 
+  // Track last-tick state per agent for reparenting change detection
+  private lastTickState: Map<string, string> = new Map();
+
+  // Reusable buffer for deferred agent removal (avoids per-tick allocation)
+  private toRemoveBuffer: string[] = [];
+
   // Layout
   private centerX = 0;
   private centerY = 0;
@@ -321,8 +327,13 @@ export class World {
     for (const agent of this.agents.values()) {
       agent.tick(deltaMs);
 
-      // Reparent agents between global agentsContainer and building agentsLayer
-      this.handleAgentReparenting(agent);
+      // Reparent only when agent state actually changes (not every frame)
+      const currentState = agent.getState();
+      const prevState = this.lastTickState.get(agent.sessionId);
+      if (currentState !== prevState) {
+        this.handleAgentReparenting(agent);
+        this.lastTickState.set(agent.sessionId, currentState);
+      }
 
       // Capture previous committed status before debounce may update it
       const prevCommitted = this.lastCommittedStatus.get(agent.sessionId);
@@ -416,14 +427,14 @@ export class World {
       }
     }
 
-    // Deferred removal of fully faded agents (collect-then-remove to avoid mutation during iteration)
-    const toRemove: string[] = [];
+    // Deferred removal of fully faded agents (reuse buffer to avoid per-tick allocation)
+    this.toRemoveBuffer.length = 0;
     for (const agent of this.agents.values()) {
       if (agent.isFadedOut()) {
-        toRemove.push(agent.sessionId);
+        this.toRemoveBuffer.push(agent.sessionId);
       }
     }
-    for (const sessionId of toRemove) {
+    for (const sessionId of this.toRemoveBuffer) {
       this.removeAgent(sessionId);
     }
 
@@ -566,6 +577,7 @@ export class World {
     this.waitingTimers.delete(sessionId);
     this.hasPlayedWaitingReminder.delete(sessionId);
     this.agentsInBuildings.delete(sessionId);
+    this.lastTickState.delete(sessionId);
 
     // Release factory slot
     this.agentFactory.releaseSlot(sessionId);
@@ -770,6 +782,7 @@ export class World {
         this.waitingTimers.delete(sessionId);
         this.hasPlayedWaitingReminder.delete(sessionId);
         this.agentsInBuildings.delete(sessionId);
+        this.lastTickState.delete(sessionId);
       }
     }
 
