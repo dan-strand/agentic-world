@@ -1,45 +1,31 @@
 # Requirements: Agent World
 
-**Defined:** 2026-03-18
+**Defined:** 2026-03-19
 **Core Value:** Instantly see the status of all Claude Code sessions so you know which one needs attention next.
 
-## v2.2 Requirements
+## v2.3 Requirements
 
-Requirements for performance optimization release. Each maps to roadmap phases.
+Requirements for performance polish release. Each maps to roadmap phases.
 
-### GPU Rendering
+### GPU Texture
 
-- [x] **GPU-01**: Stage-level ColorMatrixFilter replaced with Container.tint for day/night coloring (eliminates double render pass)
-- [x] **GPU-02**: Day/night tint and filter values only update when change exceeds perceptible threshold (~0.005)
-- [x] **GPU-03**: Static layers (scenery, building exteriors) use cacheAsTexture for single-draw rendering
-- [x] **GPU-04**: Night glow layer alpha updates gated on nightIntensity change threshold
+- [ ] **TEX-01**: Palette-swapped animation frames atlased into single GPU texture per agent (reduces GPU texture count from ~12-16 per agent to 1)
+- [ ] **TEX-02**: Night glow concentric circle Graphics replaced with pre-rendered radial gradient sprites (80 fills → 20 sprite draws)
 
-### I/O Pipeline
+### Tick Efficiency
 
-- [x] **IO-01**: readLastJsonlLine and readLastToolUse combined into single file open/read/parse pass
-- [x] **IO-02**: discoverSessions converted from synchronous to async fs.promises (unblocks main process)
-- [x] **IO-03**: UsageAggregator uses incremental offset-based JSONL parsing instead of full file re-read
-- [x] **IO-04**: Poll interval backs off to 10-30s when no active sessions detected for consecutive cycles
+- [ ] **TICK-01**: Building smoke baseAlpha/maxSmoke/spawnInterval gated on nightIntensity threshold (same 0.005 pattern as glow guard)
+- [ ] **TICK-02**: Console.warn in visibility check throttled to once per second per agent
+- [ ] **TICK-03**: Spread operator in removeAgent replaced with for-of early-return loop
 
-### CPU Tick Loop
+### I/O Cleanup
 
-- [x] **CPU-01**: Ambient particle subsystems throttled or skipped at idle FPS (5fps) and when invisible (dust at night, fireflies at day)
-- [x] **CPU-02**: Array.splice in particle removal loops replaced with swap-and-pop O(1) pattern
-- [x] **CPU-03**: Building highlight tint tracked incrementally on state transitions instead of recomputed every frame
-- [x] **CPU-04**: Per-agent tracking consolidated from 13+ separate Maps into single AgentTrackingState map
-- [x] **CPU-05**: Agent reparenting and setAnimation moved to state transition handlers instead of per-frame polling
+- [ ] **IOCL-01**: Redundant statSync in UsageAggregator eliminated by passing lastModified from SessionDetector through SessionInfo
+- [ ] **IOCL-02**: Module-level sync constructors (HistoryStore.load, CrashLogger.checkPreviousCrash) deferred to after app.ready
 
-### DOM / Memory
+### DOM Cleanup
 
-- [x] **DOM-01**: Dashboard session list uses DOM diffing (update in place) instead of full innerHTML rebuild
-- [x] **DOM-02**: Per-tick temporary allocations eliminated (reusable arrays, Sets, filter matrix, tint tuple)
-- [x] **DOM-03**: Unused chokidar dependency removed from package.json
-
-## v2.1 Requirements (Parked)
-
-Carried from v2.1, pending soak test verification.
-
-- **STAB-03**: Milestone passes an 8-hour soak test with less than 50MB total memory growth
+- [ ] **DOMCL-01**: escapeHtml caches a single reusable div element instead of creating one per call
 
 ## Future Requirements
 
@@ -48,43 +34,41 @@ Carried from v2.1, pending soak test verification.
 - **OBS-01**: Dashboard displays uptime counter and current memory usage
 - **OBS-02**: Health heartbeat pings to detect frozen renderer
 
+### Stability (Parked from v2.1)
+
+- **STAB-03**: Milestone passes an 8-hour soak test with less than 50MB total memory growth
+
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| PixiJS version upgrade | 8.16.0 already has needed APIs; upgrade risk not justified |
-| Web Workers for parsing | Bottleneck is sync I/O blocking, not CPU; wrong solution |
-| ParticleContainer | Only 54 particles; restrictions outweigh benefits at this scale |
-| Worker threads for file I/O | Async fs.promises is sufficient; worker thread overhead not justified |
-| Crash upload/telemetry service | Local-only app, no server infrastructure |
-| Performance profiling UI | Dev tooling, not user-facing |
+| SpeechBubble Graphics pre-caching | Event-driven, infrequent — not worth the complexity |
+| Building banner Graphics caching | Event-driven, infrequent — fires only on tool name change |
+| Set in assignStation | 3-element array, linear scan is faster than Set construction |
+| LevelUpEffect sparkle pooling | Celebrations are rare (seconds apart at most) |
+| repositionIdleAgents temp arrays | Runs every 3s, agent count is 1-8 |
+| Window drag 60fps→30fps polling | Only during drag, imperceptible difference |
+| ParticleContainer | Only 54 particles; restrictions outweigh benefits |
+| PixiJS version upgrade | 8.16.0 has all needed APIs |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| GPU-01 | Phase 27 | Complete |
-| GPU-02 | Phase 27 | Complete |
-| GPU-03 | Phase 27 | Complete |
-| GPU-04 | Phase 27 | Complete |
-| IO-01 | Phase 26 | Complete |
-| IO-02 | Phase 26 | Complete |
-| IO-03 | Phase 26 | Complete |
-| IO-04 | Phase 26 | Complete |
-| CPU-01 | Phase 28 | Complete |
-| CPU-02 | Phase 28 | Complete |
-| CPU-03 | Phase 28 | Complete |
-| CPU-04 | Phase 29 | Complete |
-| CPU-05 | Phase 28 | Complete |
-| DOM-01 | Phase 28 | Complete |
-| DOM-02 | Phase 28 | Complete |
-| DOM-03 | Phase 28 | Complete |
+| TEX-01 | Pending | Pending |
+| TEX-02 | Pending | Pending |
+| TICK-01 | Pending | Pending |
+| TICK-02 | Pending | Pending |
+| TICK-03 | Pending | Pending |
+| IOCL-01 | Pending | Pending |
+| IOCL-02 | Pending | Pending |
+| DOMCL-01 | Pending | Pending |
 
 **Coverage:**
-- v2.2 requirements: 16 total
-- Mapped to phases: 16
-- Unmapped: 0
+- v2.3 requirements: 8 total
+- Mapped to phases: 0
+- Unmapped: 8 ⚠️
 
 ---
-*Requirements defined: 2026-03-18*
-*Last updated: 2026-03-18 after roadmap creation*
+*Requirements defined: 2026-03-19*
+*Last updated: 2026-03-19 after initial definition*
