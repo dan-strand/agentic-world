@@ -23,8 +23,8 @@ Requirements for performance optimization release. Each maps to roadmap phases.
 
 ### CPU Tick Loop
 
-- [ ] **CPU-01**: Ambient particle subsystems throttled or skipped at idle FPS (5fps) and when invisible (dust at night, fireflies at day)
-- [ ] **CPU-02**: Array.splice in particle removal loops replaced with swap-and-pop O(1) pattern
+- [x] **CPU-01**: Ambient particle subsystems throttled or skipped at idle FPS (5fps) and when invisible (dust at night, fireflies at day)
+- [x] **CPU-02**: Array.splice in particle removal loops replaced with swap-and-pop O(1) pattern
 - [ ] **CPU-03**: Building highlight tint tracked incrementally on state transitions instead of recomputed every frame
 - [ ] **CPU-04**: Per-agent tracking consolidated from 13+ separate Maps into single AgentTrackingState map
 - [ ] **CPU-05**: Agent reparenting and setAnimation moved to state transition handlers instead of per-frame polling
@@ -71,8 +71,8 @@ Carried from v2.1, pending soak test verification.
 | IO-02 | Phase 26 | Complete |
 | IO-03 | Phase 26 | Complete |
 | IO-04 | Phase 26 | Complete |
-| CPU-01 | Phase 28 | Pending |
-| CPU-02 | Phase 28 | Pending |
+| CPU-01 | Phase 28 | Complete |
+| CPU-02 | Phase 28 | Complete |
 | CPU-03 | Phase 28 | Pending |
 | CPU-04 | Phase 29 | Pending |
 | CPU-05 | Phase 28 | Pending |

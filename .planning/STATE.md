@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: Performance Optimization
-status: in-progress
-stopped_at: Completed 28-03-PLAN.md
-last_updated: "2026-03-19T01:55:16.354Z"
+status: completed
+stopped_at: Completed 28-01-PLAN.md
+last_updated: "2026-03-19T01:56:51.017Z"
 last_activity: 2026-03-19 -- Completed 28-03 (Dashboard DOM diffing + chokidar removal)
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 8
-  completed_plans: 6
+  completed_plans: 7
   percent: 75
 ---
 
@@ -27,10 +27,10 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 
 Phase: 28 of 29 (CPU Tick Loop)
 Plan: 03 of 03
-Status: Plan 28-03 complete (Dashboard DOM diffing)
-Last activity: 2026-03-19 -- Completed 28-03 (Dashboard DOM diffing + chokidar removal)
+Status: Plans 28-01 and 28-03 complete, 28-02 remaining
+Last activity: 2026-03-19 -- Completed 28-01 (Idle-aware particle throttling + swap-and-pop)
 
-Progress: [████████░░] 75%
+Progress: [█████████░] 88%
 
 ## Performance Metrics
 
@@ -88,9 +88,10 @@ None
 | Phase 27 P01 | 4min | 2 tasks | 3 files |
 | Phase 27 P02 | 3min | 2 tasks | 2 files |
 | Phase 28 P03 | 2min | 2 tasks | 3 files |
+| Phase 28-cpu-tick-loop P01 | 3min | 2 tasks | 3 files |
 
 ## Session Continuity
 
-Last session: 2026-03-19T01:54:28Z
-Stopped at: Completed 28-03-PLAN.md
+Last session: 2026-03-19T01:56:51.014Z
+Stopped at: Completed 28-01-PLAN.md
 Resume file: None
