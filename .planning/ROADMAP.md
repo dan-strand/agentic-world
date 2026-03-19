@@ -112,7 +112,7 @@ See: [`.planning/milestones/v2.0-ROADMAP.md`](milestones/v2.0-ROADMAP.md) for fu
 - [x] **Phase 26: I/O Pipeline** - Non-blocking session discovery, combined file reads, incremental JSONL parsing, adaptive poll backoff (completed 2026-03-18)
 - [x] **Phase 27: GPU Rendering** - Replace stage filter with container tint, threshold-gated updates, static layer caching, glow guards (completed 2026-03-19)
 - [x] **Phase 28: CPU Tick Loop** - Particle throttling, swap-and-pop removal, dirty-flag highlights, state transition guards, DOM diffing, allocation cleanup, dependency removal (completed 2026-03-19)
-- [ ] **Phase 29: Agent State Consolidation** - Unify 13+ per-agent Maps into single AgentTrackingState structure
+- [x] **Phase 29: Agent State Consolidation** - Unify 13+ per-agent Maps into single AgentTrackingState structure (completed 2026-03-19)
 
 ## Phase Details
 
@@ -208,4 +208,4 @@ Phases execute in numeric order: 26 → 27 → 28 → 29
 | 26. I/O Pipeline | v2.2 | 3/3 | Complete | 2026-03-18 |
 | 27. GPU Rendering | v2.2 | 2/2 | Complete | 2026-03-19 |
 | 28. CPU Tick Loop | v2.2 | 3/3 | Complete | 2026-03-19 |
-| 29. Agent State Consolidation | v2.2 | 0/1 | Not started | - |
+| 29. Agent State Consolidation | 1/1 | Complete   | 2026-03-19 | - |

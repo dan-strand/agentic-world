@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: Performance Optimization
 status: completed
-stopped_at: Completed 28-02-PLAN.md
-last_updated: "2026-03-19T02:05:07.556Z"
-last_activity: 2026-03-19 -- Completed 28-02 (Dirty-flagged highlights + state-gated reparenting)
+stopped_at: Completed 29-01-PLAN.md
+last_updated: "2026-03-19T02:29:31.094Z"
+last_activity: 2026-03-19 -- Completed 29-01 (Agent state consolidation - 14 Maps into AgentTrackingState)
 progress:
   total_phases: 4
-  completed_phases: 3
-  total_plans: 8
-  completed_plans: 8
+  completed_phases: 4
+  total_plans: 9
+  completed_plans: 9
   percent: 100
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** Instantly see the status of all Claude Code sessions so you know which one needs attention next.
-**Current focus:** v2.2 Performance Optimization -- Phase 28 CPU Tick Loop in progress
+**Current focus:** v2.2 Performance Optimization -- All phases complete
 
 ## Current Position
 
-Phase: 28 of 29 (CPU Tick Loop)
-Plan: 03 of 03
-Status: All plans complete (28-01, 28-02, 28-03)
-Last activity: 2026-03-19 -- Completed 28-02 (Dirty-flagged highlights + state-gated reparenting)
+Phase: 29 of 29 (Agent State Consolidation)
+Plan: 01 of 01
+Status: All plans complete (29-01)
+Last activity: 2026-03-19 -- Completed 29-01 (Agent state consolidation - 14 Maps into AgentTrackingState)
 
 Progress: [██████████] 100%
 
@@ -71,6 +71,9 @@ Recent decisions affecting current work:
 - [28-03]: textContent mutation for in-place DOM updates instead of innerHTML rebuild
 - [28-03]: Event delegation on sessionList container replaces per-row click handlers
 - [28-02]: Kept reparenting in tick() with lastTickState guard (agent transitions happen in agent.tick(), not manageAgents)
+- [29-01]: Partial cleanup resets fields instead of deleting state object, preserving speechBubble/lastActivity across session disappearance
+- [29-01]: Mutable state object fields (direct property assignment) matching existing codebase patterns
+- [Phase 29]: Partial cleanup resets fields instead of deleting state object, preserving speechBubble/lastActivity across session disappearance
 
 ### Blockers/Concerns
 
@@ -91,9 +94,11 @@ None
 | Phase 28 P03 | 2min | 2 tasks | 3 files |
 | Phase 28-cpu-tick-loop P01 | 3min | 2 tasks | 3 files |
 | Phase 28-cpu-tick-loop P02 | 4min | 2 tasks | 1 files |
+| Phase 29-agent-state-consolidation P01 | 5min | 2 tasks | 1 files |
+| Phase 29 P01 | 5min | 2 tasks | 1 files |
 
 ## Session Continuity
 
-Last session: 2026-03-19T02:02:29Z
-Stopped at: Completed 28-02-PLAN.md
+Last session: 2026-03-19T02:29:31.092Z
+Stopped at: Completed 29-01-PLAN.md
 Resume file: None
