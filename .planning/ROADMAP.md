@@ -155,7 +155,11 @@ Plans:
   3. Building highlight tints only recompute when agent occupancy changes (dirty flag set on state transitions), not on every frame
   4. Agent reparenting between containers and setAnimation calls happen inside state transition handlers, not in the per-frame tick poll
   5. Dashboard session list updates existing DOM elements in place (text content mutation, not element replacement); click-to-expand state survives data refreshes
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 28-01-PLAN.md -- Particle idle throttling + swap-and-pop removal (CPU-01, CPU-02)
+- [ ] 28-02-PLAN.md -- Dirty-flag highlights + state-driven reparenting + allocation cleanup (CPU-03, CPU-05, DOM-02)
+- [ ] 28-03-PLAN.md -- Dashboard in-place DOM updates + chokidar removal (DOM-01, DOM-03)
 
 ### Phase 29: Agent State Consolidation
 **Goal**: Per-agent tracking data lives in one Map instead of 13+, making agent lifecycle operations (create, update, delete) access a single location
@@ -200,6 +204,6 @@ Phases execute in numeric order: 26 → 27 → 28 → 29
 | 24. Resource Leak Fixes | v2.1 | 2/2 | Complete | 2026-03-16 |
 | 25. Soak Testing and Verification | v2.1 | 0/1 | Parked | - |
 | 26. I/O Pipeline | v2.2 | 3/3 | Complete | 2026-03-18 |
-| 27. GPU Rendering | 2/2 | Complete    | 2026-03-19 | - |
-| 28. CPU Tick Loop | v2.2 | 0/? | Not started | - |
+| 27. GPU Rendering | v2.2 | 2/2 | Complete | 2026-03-19 |
+| 28. CPU Tick Loop | v2.2 | 0/3 | Not started | - |
 | 29. Agent State Consolidation | v2.2 | 0/? | Not started | - |
