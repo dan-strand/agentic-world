@@ -1,4 +1,4 @@
-import { Application, Container, Graphics, Sprite } from 'pixi.js';
+import { Application, Container, Sprite } from 'pixi.js';
 import type { SessionInfo, ActivityType, SessionStatus } from '../shared/types';
 import {
   BACKGROUND_COLOR,
@@ -101,7 +101,7 @@ export class World {
   private buildingsContainer!: Container;
   private sceneryLayer!: Container;
   private nightGlowLayer!: Container;
-  private nightGlows: { gfx: Graphics; maxAlpha: number }[] = [];
+  private nightGlows: { gfx: Sprite; maxAlpha: number }[] = [];
   private ambientParticles!: AmbientParticles;
   private agentsContainer!: Container;
 
