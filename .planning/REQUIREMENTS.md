@@ -20,8 +20,8 @@ Requirements for performance polish release. Each maps to roadmap phases.
 
 ### I/O Cleanup
 
-- [ ] **IOCL-01**: Redundant statSync in UsageAggregator eliminated by passing lastModified from SessionDetector through SessionInfo
-- [ ] **IOCL-02**: Module-level sync constructors (HistoryStore.load, CrashLogger.checkPreviousCrash) deferred to after app.ready
+- [x] **IOCL-01**: Redundant statSync in UsageAggregator eliminated by passing lastModified from SessionDetector through SessionInfo
+- [x] **IOCL-02**: Module-level sync constructors (HistoryStore.load, CrashLogger.checkPreviousCrash) deferred to after app.ready
 
 ### DOM Cleanup
 
@@ -61,8 +61,8 @@ Requirements for performance polish release. Each maps to roadmap phases.
 | TICK-02 | Phase 30 | Complete |
 | TICK-03 | Phase 30 | Complete |
 | DOMCL-01 | Phase 30 | Complete |
-| IOCL-01 | Phase 31 | Pending |
-| IOCL-02 | Phase 31 | Pending |
+| IOCL-01 | Phase 31 | Complete |
+| IOCL-02 | Phase 31 | Complete |
 
 **Coverage:**
 - v2.3 requirements: 8 total

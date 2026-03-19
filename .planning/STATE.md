@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: Performance Polish
 status: completed
-stopped_at: Completed 30-01-PLAN.md (Phase 30 fully complete)
-last_updated: "2026-03-19T03:45:54.429Z"
-last_activity: 2026-03-19 -- Completed plan 30-01 GPU texture consolidation and sprite glow
+stopped_at: Completed 31-01-PLAN.md (Phase 31 fully complete)
+last_updated: "2026-03-19T03:53:47Z"
+last_activity: 2026-03-19 -- Completed plan 31-01 I/O and startup cleanup
 progress:
   total_phases: 2
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 2
   completed_plans: 2
   percent: 100
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-19)
 
 **Core value:** Instantly see the status of all Claude Code sessions so you know which one needs attention next.
-**Current focus:** v2.3 Performance Polish -- Phase 30 complete (both plans done)
+**Current focus:** v2.3 Performance Polish -- Phase 31 complete (milestone fully done)
 
 ## Current Position
 
-Phase: 30 of 31 (GPU and Renderer Cleanup) -- COMPLETE
-Plan: 2 of 2
+Phase: 31 of 31 (I/O and Startup Cleanup) -- COMPLETE
+Plan: 1 of 1
 Status: Phase complete
-Last activity: 2026-03-19 -- Completed plan 30-01 GPU texture consolidation and sprite glow
+Last activity: 2026-03-19 -- Completed plan 31-01 I/O and startup cleanup
 
 Progress: [██████████] 100%
 
@@ -61,6 +61,8 @@ Decisions are logged in PROJECT.md Key Decisions table.
 - [Phase 30]: Used 0.005 nightIntensity threshold consistent with Phase 27 glow update pattern
 - [Phase 30]: Kept GlowSprite field name 'gfx' when switching from Graphics to Sprite for minimal diff
 - [Phase 30]: Atlas consolidation uses putImageData per-frame for pixel-accurate color swap
+- [Phase 31]: Process-level error handlers stay at module level with crashLogger guard for pre-ready safety
+- [Phase 31]: Optional chaining on historyStore/store in before-quit for pre-ready quit edge case
 
 ### Blockers/Concerns
 
@@ -73,11 +75,12 @@ None
 | 6 | Fix avatar working in wrong area and disappearing behind bottom-left section | 2026-03-03 | 074b9e8 | [6-there-are-jobs-being-done-in-the-top-lef](./quick/6-there-are-jobs-being-done-in-the-top-lef/) |
 | 7 | Add ambient idle agents at campfire | 2026-03-03 | 37f9087 | [7-can-we-have-a-couple-of-idle-agents-arou](./quick/7-can-we-have-a-couple-of-idle-agents-arou/) |
 | 8 | Fix audio not playing when window unfocused | 2026-03-17 | 2c31f80 | [8-when-the-window-doesn-t-have-focus-it-no](./quick/8-when-the-window-doesn-t-have-focus-it-no/) |
+| Phase 31 P01 | 3min | 2 tasks | 4 files |
 | Phase 30 P02 | 2min | 2 tasks | 3 files |
 | Phase 30 P01 | 5min | 2 tasks | 5 files |
 
 ## Session Continuity
 
-Last session: 2026-03-19T03:43:04Z
-Stopped at: Completed 30-01-PLAN.md (Phase 30 fully complete)
+Last session: 2026-03-19T03:53:47Z
+Stopped at: Completed 31-01-PLAN.md (Phase 31 fully complete)
 Resume file: None
