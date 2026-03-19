@@ -77,4 +77,45 @@ describe('DayNightCycle', () => {
       );
     }
   });
+
+  it('getTintHex returns warm hex at dawn (progress 0)', () => {
+    const cycle = new DayNightCycle();
+    // At progress 0: R=Math.round(1.0*255)=255=0xFF, G=Math.round(0.91*255)=232=0xE8, B=Math.round(0.75*255)=191=0xBF
+    const hex = cycle.getTintHex();
+    assert.strictEqual(hex, 0xFFE8BF, `Expected 0xFFE8BF at dawn, got 0x${hex.toString(16).toUpperCase()}`);
+  });
+
+  it('getTintHex returns cool hex at peak night (progress 0.5)', () => {
+    const cycle = new DayNightCycle();
+    cycle.tick(DAY_NIGHT_CYCLE_MS * 0.5);
+    const hex = cycle.getTintHex();
+    const r = (hex >> 16) & 0xFF;
+    const b = hex & 0xFF;
+    assert.ok(r <= 0x66, `Expected R channel <= 0x66 at peak night, got 0x${r.toString(16)}`);
+    assert.ok(b >= 0xCC, `Expected B channel >= 0xCC at peak night, got 0x${b.toString(16)}`);
+  });
+
+  it('getTintHex returns value in valid hex range for all cycle points', () => {
+    for (let i = 0; i <= 100; i++) {
+      const cycle = new DayNightCycle();
+      cycle.tick(DAY_NIGHT_CYCLE_MS * (i / 100));
+      const hex = cycle.getTintHex();
+      assert.ok(hex >= 0x000000 && hex <= 0xFFFFFF,
+        `getTintHex at progress ${i / 100} returned 0x${hex.toString(16)}, expected [0x000000, 0xFFFFFF]`);
+    }
+  });
+
+  it('tint hex changes far fewer times than frames over full cycle', () => {
+    const cycle = new DayNightCycle();
+    const deltaMs = 600000 / 18000; // 33.33ms per tick at 30fps
+    const uniqueHexValues = new Set<number>();
+    for (let i = 0; i < 18000; i++) {
+      cycle.tick(deltaMs);
+      uniqueHexValues.add(cycle.getTintHex());
+    }
+    assert.ok(uniqueHexValues.size >= 30,
+      `Expected at least 30 unique hex values, got ${uniqueHexValues.size}`);
+    assert.ok(uniqueHexValues.size <= 200,
+      `Expected at most 200 unique hex values, got ${uniqueHexValues.size}`);
+  });
 });
