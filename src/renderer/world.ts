@@ -60,6 +60,24 @@ interface StatusDebounce {
   committedStatus: SessionStatus;
 }
 
+/** Consolidated per-agent tracking state. Replaces 14 separate Maps/Sets. */
+interface AgentTrackingState {
+  speechBubble: SpeechBubble;
+  lastActivity: ActivityType | undefined;
+  statusDebounce: StatusDebounce;
+  lastCommittedStatus: SessionStatus;
+  lastRawStatus: SessionStatus;
+  lastEntryType: string | undefined;
+  building: Building | undefined;
+  idleTimer: number;
+  hasPlayedReminder: boolean;
+  waitingTimer: number;
+  hasPlayedWaitingReminder: boolean;
+  spotIndex: number;
+  isInBuilding: boolean;
+  lastTickState: string | undefined;
+}
+
 /**
  * World -- PixiJS Application composing tilemap ground, static buildings,
  * agents, vehicles, speech bubbles into a living fantasy RPG world.
@@ -101,28 +119,12 @@ export class World {
   private questZones: Map<ActivityType, Building> = new Map();
   private agentFactory: AgentFactory = new AgentFactory();
 
-  // Speech bubbles managed per-agent
-  private speechBubbles: Map<string, SpeechBubble> = new Map();
-  // Track last known activity per agent for change detection
-  private lastActivity: Map<string, ActivityType> = new Map();
-
-  // Status debouncing (tracks raw -> committed status per agent)
-  private statusDebounce: Map<string, StatusDebounce> = new Map();
-
-  // Last committed status per agent (for active->idle completion detection)
-  private lastCommittedStatus: Map<string, SessionStatus> = new Map();
-
-  // Track last raw status received per agent (for tick-based debounce advancement)
-  private lastRawStatus: Map<string, SessionStatus> = new Map();
-
-  // Track last entry type per agent (for completion detection validation)
-  private lastEntryType: Map<string, string> = new Map();
+  // Consolidated per-agent tracking state (replaces 14 separate Maps/Sets)
+  private agentStates: Map<string, AgentTrackingState> = new Map();
 
   // Project-to-building assignment (max 4 active projects)
   private projectToBuilding: Map<string, Building> = new Map();
   private buildingSlots: Building[] = []; // ordered quest zone buildings for slot assignment
-  // Track which building each agent is currently assigned to (for work position and glow)
-  private agentBuilding: Map<string, Building> = new Map();
 
   // Dismissed sessions -- prevents resurrection from stale IPC data after fade-out removal
   // Map<sessionId, dismissalTimestamp> for age-based pruning
@@ -133,24 +135,8 @@ export class World {
   private static readonly PRUNE_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
   private static readonly DISMISS_MAX_AGE_MS = 30 * 60 * 1000; // 30 minutes
 
-  // Idle timeout tracking (ms of continuous committed-idle time per agent)
-  private idleTimers: Map<string, number> = new Map();
-
-  // Track whether the idle reminder sound has already played for each agent's current idle period
-  private hasPlayedReminder: Map<string, boolean> = new Map();
-
-  // Waiting reminder tracking: per-session timer for "ready to work" nudge from waiting status
-  private waitingTimers: Map<string, number> = new Map();
-  // Track whether the waiting reminder has played for the current waiting period (requires active cycle to reset)
-  private hasPlayedWaitingReminder: Map<string, boolean> = new Map();
   // Global throttle: timestamp of last reminder sound play (any session), prevents sound stacking
   private lastReminderPlayTime = 0;
-
-  // Track current work spot index per agent (for spot rotation on activity change)
-  private agentSpotIndex: Map<string, number> = new Map();
-
-  // Track which agents have been reparented into building interior containers
-  private agentsInBuildings: Set<string> = new Set();
 
   // Track the current tool label per building (for change detection)
   private buildingToolName: Map<Building, string> = new Map();
@@ -160,9 +146,6 @@ export class World {
 
   // Reusable set for highlight computation (avoids per-tick allocation)
   private activeBuildings: Set<Building> = new Set();
-
-  // Track last-tick state per agent for reparenting change detection
-  private lastTickState: Map<string, string> = new Map();
 
   // Reusable buffer for deferred agent removal (avoids per-tick allocation)
   private toRemoveBuffer: string[] = [];
@@ -327,16 +310,18 @@ export class World {
     for (const agent of this.agents.values()) {
       agent.tick(deltaMs);
 
+      const state = this.agentStates.get(agent.sessionId);
+      if (!state) continue;
+
       // Reparent only when agent state actually changes (not every frame)
       const currentState = agent.getState();
-      const prevState = this.lastTickState.get(agent.sessionId);
-      if (currentState !== prevState) {
+      if (currentState !== state.lastTickState) {
         this.handleAgentReparenting(agent);
-        this.lastTickState.set(agent.sessionId, currentState);
+        state.lastTickState = currentState;
       }
 
       // Capture previous committed status before debounce may update it
-      const prevCommitted = this.lastCommittedStatus.get(agent.sessionId);
+      const prevCommitted = state.lastCommittedStatus;
 
       // Advance status debounce and check for committed changes
       const newStatus = this.advanceStatusDebounce(agent.sessionId, deltaMs);
@@ -349,7 +334,7 @@ export class World {
           const agentState = agent.getState();
           if (agentState !== 'celebrating' && agentState !== 'fading_out') {
             // Release station before celebration (agent will walk back to campfire)
-            const celebBuilding = this.agentBuilding.get(agent.sessionId);
+            const celebBuilding = state.building;
             if (celebBuilding) {
               celebBuilding.releaseStation(agent.sessionId);
             }
@@ -361,44 +346,42 @@ export class World {
       }
 
       // Idle timeout: track continuous idle duration, play reminder, trigger fade-out
-      const committed = this.lastCommittedStatus.get(agent.sessionId);
+      const committed = state.lastCommittedStatus;
       if (committed === 'idle' && agent.getState() !== 'fading_out') {
-        const prev = this.idleTimers.get(agent.sessionId) ?? 0;
-        const next = prev + deltaMs;
-        this.idleTimers.set(agent.sessionId, next);
+        const next = state.idleTimer + deltaMs;
+        state.idleTimer = next;
 
         // Play reminder sound once after 1 minute of continuous idle (with global throttle)
-        if (next >= IDLE_REMINDER_MS && !this.hasPlayedReminder.get(agent.sessionId)) {
+        if (next >= IDLE_REMINDER_MS && !state.hasPlayedReminder) {
           const now = performance.now();
           if (now - this.lastReminderPlayTime >= REMINDER_THROTTLE_MS) {
             SoundManager.getInstance().playReminder();
             this.lastReminderPlayTime = now;
           }
-          this.hasPlayedReminder.set(agent.sessionId, true);
+          state.hasPlayedReminder = true;
         }
 
         if (next >= IDLE_TIMEOUT_MS) {
           agent.startFadeOut();
           this.highlightsDirty = true;
-          this.idleTimers.delete(agent.sessionId);
-          this.hasPlayedReminder.delete(agent.sessionId);
+          state.idleTimer = 0;
+          state.hasPlayedReminder = false;
         }
       } else {
         // Not idle or already fading -- reset timer and reminder flag
-        this.idleTimers.delete(agent.sessionId);
-        this.hasPlayedReminder.delete(agent.sessionId);
+        state.idleTimer = 0;
+        state.hasPlayedReminder = false;
       }
 
       // Waiting reminder: per-session timer for "ready to work" audio nudge (AUDIO-04/05/06/07)
       // Unlike idle timer (which triggers fadeout), waiting timer only plays a sound.
       // Fires from 'waiting' status, NOT 'idle'. Throttled globally so sounds never stack.
       if (committed === 'waiting' && agent.getState() !== 'fading_out') {
-        const wPrev = this.waitingTimers.get(agent.sessionId) ?? 0;
-        const wNext = wPrev + deltaMs;
-        this.waitingTimers.set(agent.sessionId, wNext);
+        const wNext = state.waitingTimer + deltaMs;
+        state.waitingTimer = wNext;
 
         // Play reminder once after WAITING_REMINDER_MS, with global throttle
-        if (wNext >= WAITING_REMINDER_MS && !this.hasPlayedWaitingReminder.get(agent.sessionId)) {
+        if (wNext >= WAITING_REMINDER_MS && !state.hasPlayedWaitingReminder) {
           const now = performance.now();
           if (now - this.lastReminderPlayTime >= REMINDER_THROTTLE_MS) {
             SoundManager.getInstance().playReminder();
@@ -406,17 +389,17 @@ export class World {
           }
           // Mark as played regardless of throttle -- this session's reminder is "consumed"
           // It won't retry; the next session's timer will fire its own reminder after the throttle gap
-          this.hasPlayedWaitingReminder.set(agent.sessionId, true);
+          state.hasPlayedWaitingReminder = true;
         }
       } else if (committed === 'active') {
         // Active-cycle reset: clear waiting timer and reminder flag when session goes active
         // This allows the reminder to fire again if the session returns to waiting (AUDIO-07)
-        this.waitingTimers.delete(agent.sessionId);
-        this.hasPlayedWaitingReminder.delete(agent.sessionId);
+        state.waitingTimer = 0;
+        state.hasPlayedWaitingReminder = false;
       } else {
         // Any other status (idle, error, fading) -- just reset the waiting timer
         // Do NOT clear hasPlayedWaitingReminder here -- only 'active' clears the flag (AUDIO-07)
-        this.waitingTimers.delete(agent.sessionId);
+        state.waitingTimer = 0;
       }
 
       // Visibility safeguard: warn if any non-fading agent has alpha < 0.4
@@ -447,13 +430,13 @@ export class World {
     this.ambientParticles.tick(deltaMs, nightIntensity, isIdle);
 
     // Tick speech bubbles (skip for fading agents)
-    for (const [sessionId, bubble] of this.speechBubbles) {
+    for (const [sessionId, agentState] of this.agentStates) {
       const agent = this.agents.get(sessionId);
       if (agent && agent.getState() === 'fading_out') {
-        bubble.visible = false;
+        agentState.speechBubble.visible = false;
         continue;
       }
-      bubble.tick(deltaMs);
+      agentState.speechBubble.tick(deltaMs);
     }
 
     // Periodically prune stale dismissed session entries
@@ -465,7 +448,7 @@ export class World {
       for (const agent of this.agents.values()) {
         const agentState = agent.getState();
         if (agentState === 'working' || agentState === 'walking_to_workspot') {
-          const building = this.agentBuilding.get(agent.sessionId);
+          const building = this.agentStates.get(agent.sessionId)?.building;
           if (building) {
             this.activeBuildings.add(building);
           }
@@ -532,14 +515,16 @@ export class World {
     const agent = this.agents.get(sessionId);
     if (!agent) return;
 
+    const state = this.agentStates.get(sessionId);
+
     // Release building station if assigned
-    const building = this.agentBuilding.get(sessionId);
+    const building = state?.building;
     if (building) {
       building.releaseStation(sessionId);
     }
 
     // Remove from whichever container the agent is in (building agentsLayer or global agentsContainer)
-    if (this.agentsInBuildings.has(sessionId) && building) {
+    if (state?.isInBuilding && building) {
       building.getAgentsLayer().removeChild(agent);
     } else {
       this.agentsContainer.removeChild(agent);
@@ -562,22 +547,9 @@ export class World {
       setTimeout(() => destroyCachedTextures(savedClass, savedPaletteIndex), 0);
     }
 
-    // Clean ALL tracking Maps
+    // Clean ALL tracking -- single delete replaces 14 individual deletes
     this.agents.delete(sessionId);
-    this.speechBubbles.delete(sessionId);
-    this.lastActivity.delete(sessionId);
-    this.statusDebounce.delete(sessionId);
-    this.lastCommittedStatus.delete(sessionId);
-    this.lastRawStatus.delete(sessionId);
-    this.lastEntryType.delete(sessionId);
-    this.agentBuilding.delete(sessionId);
-    this.idleTimers.delete(sessionId);
-    this.agentSpotIndex.delete(sessionId);
-    this.hasPlayedReminder.delete(sessionId);
-    this.waitingTimers.delete(sessionId);
-    this.hasPlayedWaitingReminder.delete(sessionId);
-    this.agentsInBuildings.delete(sessionId);
-    this.lastTickState.delete(sessionId);
+    this.agentStates.delete(sessionId);
 
     // Release factory slot
     this.agentFactory.releaseSlot(sessionId);
@@ -632,27 +604,42 @@ export class World {
 
         // Create speech bubble for the agent
         const bubble = new SpeechBubble();
-        this.speechBubbles.set(session.sessionId, bubble);
         agent.addChild(bubble);
 
-        // Initialize debounce for new agent
-        this.statusDebounce.set(session.sessionId, {
-          pendingStatus: session.status,
-          timer: 0,
-          committedStatus: session.status,
+        // Initialize consolidated tracking state
+        this.agentStates.set(session.sessionId, {
+          speechBubble: bubble,
+          lastActivity: undefined,
+          statusDebounce: {
+            pendingStatus: session.status,
+            timer: 0,
+            committedStatus: session.status,
+          },
+          lastCommittedStatus: session.status,
+          lastRawStatus: session.status,
+          lastEntryType: undefined,
+          building: undefined,
+          idleTimer: 0,
+          hasPlayedReminder: false,
+          waitingTimer: 0,
+          hasPlayedWaitingReminder: false,
+          spotIndex: 0,
+          isInBuilding: false,
+          lastTickState: undefined,
         });
-        this.lastCommittedStatus.set(session.sessionId, session.status);
-        this.lastRawStatus.set(session.sessionId, session.status);
 
         // Apply initial visual status immediately (no debounce needed for first)
         agent.applyStatusVisuals(session.status);
       }
 
+      // Get consolidated state for this agent (guaranteed to exist after creation block)
+      const state = this.agentStates.get(session.sessionId)!;
+
       // Store raw status for tick-based debounce advancement
-      this.lastRawStatus.set(session.sessionId, session.status);
+      state.lastRawStatus = session.status;
 
       // Store entry type for completion detection validation
-      this.lastEntryType.set(session.sessionId, session.lastEntryType);
+      state.lastEntryType = session.lastEntryType;
 
       // Route agent to building based on project name
       const activityType = session.activityType;
@@ -663,13 +650,13 @@ export class World {
           agent.cancelFadeOut();
           this.highlightsDirty = true;
           // Reinitialize debounce state for clean reactivation
-          this.statusDebounce.set(session.sessionId, {
+          state.statusDebounce = {
             pendingStatus: session.status,
             timer: 0,
             committedStatus: session.status,
-          });
-          this.lastCommittedStatus.set(session.sessionId, session.status);
-          this.lastRawStatus.set(session.sessionId, session.status);
+          };
+          state.lastCommittedStatus = session.status;
+          state.lastRawStatus = session.status;
           // Apply visual status immediately (bypass debounce for reactivation)
           agent.applyStatusVisuals(session.status);
           // Fall through to routing with fresh state
@@ -686,7 +673,7 @@ export class World {
           if (agentState === 'idle_at_hq') {
             // Assign station via building's station manager
             const stationIndex = building.assignStation(session.sessionId);
-            this.agentSpotIndex.set(session.sessionId, stationIndex);
+            state.spotIndex = stationIndex;
             // Enable interior mode (1.5x scale)
             agent.setInteriorMode(true);
             // Agent at campfire, needs to go work -- send to project building
@@ -694,22 +681,20 @@ export class World {
             const entrance = this.getBuildingEntrance(building);
             const workPos = this.getBuildingWorkPosition(building, session.sessionId);
             agent.assignToCompound(entrance, workPos);
-            this.agentBuilding.set(session.sessionId, building);
+            state.building = building;
             this.highlightsDirty = true;
             // BUBBLE-03: Show speech bubble on initial departure from campfire
-            const bubble = this.speechBubbles.get(session.sessionId);
-            if (bubble) bubble.show(activityType);
+            state.speechBubble.show(activityType);
           } else if (agentState === 'working') {
             // Check for tool change (lastToolName change triggers station switch)
-            const prevActivity = this.lastActivity.get(session.sessionId);
+            const prevActivity = state.lastActivity;
             if (prevActivity && prevActivity !== activityType) {
               // BUBBLE-03: Show speech bubble on activity change at same building
-              const bubble = this.speechBubbles.get(session.sessionId);
-              if (bubble) bubble.show(activityType);
+              state.speechBubble.show(activityType);
 
               // Reassign to a new station (different from current if possible)
               const newStationIndex = building.reassignStation(session.sessionId);
-              this.agentSpotIndex.set(session.sessionId, newStationIndex);
+              state.spotIndex = newStationIndex;
               const newWorkPos = building.getWorkSpot(newStationIndex);
               agent.updateActivity(newWorkPos);
             }
@@ -719,11 +704,11 @@ export class World {
           if (agentState !== 'idle_at_hq' && agentState !== 'walking_to_building') {
             // Reparent agent out of building if inside one
             this.reparentAgentOut(session.sessionId);
-            const prevBuilding = this.agentBuilding.get(session.sessionId);
+            const prevBuilding = state.building;
             if (prevBuilding) prevBuilding.releaseStation(session.sessionId);
             const idlePos = this.getCampfireIdlePosition(session.sessionId);
             agent.assignToHQ(idlePos);
-            this.agentBuilding.delete(session.sessionId);
+            state.building = undefined;
             this.highlightsDirty = true;
           }
         }
@@ -736,17 +721,17 @@ export class World {
         ) {
           // Reparent agent out of building if inside one
           this.reparentAgentOut(session.sessionId);
-          const prevBuilding = this.agentBuilding.get(session.sessionId);
+          const prevBuilding = state.building;
           if (prevBuilding) prevBuilding.releaseStation(session.sessionId);
           const idlePos = this.getCampfireIdlePosition(session.sessionId);
           agent.assignToHQ(idlePos);
-          this.agentBuilding.delete(session.sessionId);
+          state.building = undefined;
           this.highlightsDirty = true;
         }
       }
 
       // Track activity
-      this.lastActivity.set(session.sessionId, session.activityType);
+      state.lastActivity = session.activityType;
     }
 
     // Update tool name overlays on each active building
@@ -761,28 +746,35 @@ export class World {
         // Reparent out of building before fading so agent is in the correct
         // scene graph container for removal and fades at the right screen position
         this.reparentAgentOut(sessionId);
-        const building = this.agentBuilding.get(sessionId);
+        const fadingState = this.agentStates.get(sessionId);
+        const building = fadingState?.building;
         if (building) building.releaseStation(sessionId);
         agent.startFadeOut();
         this.highlightsDirty = true;
       }
     }
 
-    // Clean up debounce state for removed sessions
-    for (const [sessionId] of this.statusDebounce) {
+    // Clean up tracking state for removed sessions (partial cleanup -- agent still fading)
+    for (const [sessionId] of this.agentStates) {
       if (!currentIds.has(sessionId)) {
-        this.statusDebounce.delete(sessionId);
-        this.lastCommittedStatus.delete(sessionId);
-        this.lastRawStatus.delete(sessionId);
-        this.lastEntryType.delete(sessionId);
-        this.agentBuilding.delete(sessionId);
-        this.idleTimers.delete(sessionId);
-        this.agentSpotIndex.delete(sessionId);
-        this.hasPlayedReminder.delete(sessionId);
-        this.waitingTimers.delete(sessionId);
-        this.hasPlayedWaitingReminder.delete(sessionId);
-        this.agentsInBuildings.delete(sessionId);
-        this.lastTickState.delete(sessionId);
+        const cleanState = this.agentStates.get(sessionId)!;
+        // Reset fields that were individually deleted in the original code
+        // (statusDebounce, lastCommittedStatus, lastRawStatus, lastEntryType,
+        //  building, idleTimers, spotIndex, hasPlayedReminder,
+        //  waitingTimers, hasPlayedWaitingReminder, isInBuilding, lastTickState)
+        cleanState.statusDebounce = { pendingStatus: 'idle', timer: 0, committedStatus: 'idle' };
+        cleanState.lastCommittedStatus = 'idle';
+        cleanState.lastRawStatus = 'idle';
+        cleanState.lastEntryType = undefined;
+        cleanState.building = undefined;
+        cleanState.idleTimer = 0;
+        cleanState.spotIndex = 0;
+        cleanState.hasPlayedReminder = false;
+        cleanState.waitingTimer = 0;
+        cleanState.hasPlayedWaitingReminder = false;
+        cleanState.isInBuilding = false;
+        cleanState.lastTickState = undefined;
+        // NOTE: speechBubble and lastActivity are NOT reset here (matches original behavior)
       }
     }
 
@@ -841,11 +833,10 @@ export class World {
    * Called per-agent in tick() for smooth timing.
    */
   private advanceStatusDebounce(sessionId: string, deltaMs: number): SessionStatus | null {
-    const debounce = this.statusDebounce.get(sessionId);
-    if (!debounce) return null;
-
-    const rawStatus = this.lastRawStatus.get(sessionId);
-    if (!rawStatus) return debounce.committedStatus;
+    const state = this.agentStates.get(sessionId);
+    if (!state) return null;
+    const debounce = state.statusDebounce;
+    const rawStatus = state.lastRawStatus;
 
     if (rawStatus === debounce.committedStatus) {
       // Status unchanged from committed -- reset pending
@@ -861,7 +852,7 @@ export class World {
         // Debounce threshold met -- commit the change
         debounce.committedStatus = rawStatus;
         debounce.timer = 0;
-        this.lastCommittedStatus.set(sessionId, rawStatus);
+        state.lastCommittedStatus = rawStatus;
         return rawStatus; // signal: new committed status
       }
     } else {
@@ -897,7 +888,7 @@ export class World {
     if (prevCommitted !== 'active' || newCommittedStatus !== 'waiting') return false;
     // Require system entry type as definitive turn completion signal.
     // System entries (turn_duration) are ONLY written at true turn boundaries.
-    const entryType = this.lastEntryType.get(sessionId);
+    const entryType = this.agentStates.get(sessionId)?.lastEntryType;
     return entryType === 'system';
   }
 
@@ -999,11 +990,13 @@ export class World {
    */
   private handleAgentReparenting(agent: Agent): void {
     const sessionId = agent.sessionId;
-    const state = agent.getState();
-    const isInBuilding = this.agentsInBuildings.has(sessionId);
-    const building = this.agentBuilding.get(sessionId);
+    const agentState = agent.getState();
+    const trackingState = this.agentStates.get(sessionId);
+    if (!trackingState) return;
+    const isInBuilding = trackingState.isInBuilding;
+    const building = trackingState.building;
 
-    if ((state === 'walking_to_workspot' || state === 'working') && !isInBuilding && building) {
+    if ((agentState === 'walking_to_workspot' || agentState === 'working') && !isInBuilding && building) {
       // Reparent INTO building: convert global position to building-local
       this.agentsContainer.removeChild(agent);
       building.getAgentsLayer().addChild(agent);
@@ -1013,13 +1006,12 @@ export class World {
       agent.y = agent.y - building.y;
 
       // Update workspot target to local coordinates
-      const spotIndex = this.agentSpotIndex.get(sessionId) ?? 0;
-      const localSpot = building.getWorkSpot(spotIndex);
+      const localSpot = building.getWorkSpot(trackingState.spotIndex);
       agent.updateActivity(localSpot);
 
-      this.agentsInBuildings.add(sessionId);
+      trackingState.isInBuilding = true;
     } else if (
-      (state === 'walking_to_building' || state === 'idle_at_hq' || state === 'celebrating' || state === 'fading_out') &&
+      (agentState === 'walking_to_building' || agentState === 'idle_at_hq' || agentState === 'celebrating' || agentState === 'fading_out') &&
       isInBuilding && building
     ) {
       // Reparent OUT of building: convert building-local position to global
@@ -1030,7 +1022,7 @@ export class World {
       agent.x = agent.x + building.x;
       agent.y = agent.y + building.y;
 
-      this.agentsInBuildings.delete(sessionId);
+      trackingState.isInBuilding = false;
     }
   }
 
@@ -1039,9 +1031,10 @@ export class World {
    * Called explicitly when agent is leaving a building (e.g., returning to campfire).
    */
   private reparentAgentOut(sessionId: string): void {
-    if (!this.agentsInBuildings.has(sessionId)) return;
+    const trackingState = this.agentStates.get(sessionId);
+    if (!trackingState?.isInBuilding) return;
     const agent = this.agents.get(sessionId);
-    const building = this.agentBuilding.get(sessionId);
+    const building = trackingState.building;
     if (!agent || !building) return;
 
     building.getAgentsLayer().removeChild(agent);
@@ -1051,7 +1044,7 @@ export class World {
     agent.x = agent.x + building.x;
     agent.y = agent.y + building.y;
 
-    this.agentsInBuildings.delete(sessionId);
+    trackingState.isInBuilding = false;
   }
 
   // --- Private: Position Helpers ---
@@ -1069,7 +1062,7 @@ export class World {
    * Uses named work spots based on agent's current spot index.
    */
   private getBuildingWorkPosition(building: Building, sessionId: string): { x: number; y: number } {
-    const spotIndex = this.agentSpotIndex.get(sessionId) ?? 0;
+    const spotIndex = this.agentStates.get(sessionId)?.spotIndex ?? 0;
     const local = building.getWorkSpot(spotIndex);
     return { x: building.x + local.x, y: building.y + local.y };
   }
