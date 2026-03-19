@@ -188,7 +188,7 @@ export class SessionStore {
     const dashboardSessions: DashboardSession[] = [];
 
     for (const session of sessions) {
-      const usage = await this.usageAggregator.getUsageWithCost(session.sessionId, session.filePath);
+      const usage = await this.usageAggregator.getUsageWithCost(session.sessionId, session.filePath, session.lastModified);
       if (usage) {
         dashboardSessions.push({
           sessionId: session.sessionId,

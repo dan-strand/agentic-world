@@ -21,10 +21,16 @@ export class UsageAggregator {
     ino: number;
   }>();
 
-  async getUsage(sessionId: string, filePath: string): Promise<TokenUsageTotals | null> {
+  async getUsage(sessionId: string, filePath: string, lastModified?: number): Promise<TokenUsageTotals | null> {
     try {
-      const stat = await fsp.stat(filePath);
+      // Fast path: if caller provides lastModified and it matches the cached mtime,
+      // skip the stat call entirely (saves one async I/O per poll cycle per session)
       const cached = this.cache.get(sessionId);
+      if (lastModified !== undefined && cached && cached.mtimeMs === lastModified) {
+        return cached.totals;
+      }
+
+      const stat = await fsp.stat(filePath);
 
       if (cached && cached.mtimeMs === stat.mtimeMs) {
         return cached.totals;  // File unchanged -- return cached
@@ -63,7 +69,7 @@ export class UsageAggregator {
     }
   }
 
-  async getUsageWithCost(sessionId: string, filePath: string): Promise<{
+  async getUsageWithCost(sessionId: string, filePath: string, lastModified?: number): Promise<{
     inputTokens: number;
     outputTokens: number;
     cacheCreationTokens: number;
@@ -75,7 +81,7 @@ export class UsageAggregator {
     isEstimate: boolean;
     turnCount: number;
   } | null> {
-    const totals = await this.getUsage(sessionId, filePath);
+    const totals = await this.getUsage(sessionId, filePath, lastModified);
     if (!totals) return null;
 
     const { pricing, isEstimate } = resolveModelPricing(totals.model);
