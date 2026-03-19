@@ -68,21 +68,25 @@ Instantly see the status of all Claude Code sessions so you know which one needs
 - ✓ Night glow halos at lanterns, torches, windows, and campfire — v2.0 Phase 22
 - ✓ Enhanced atmospheric particles (forge sparks, dust motes, drifting leaves) — v2.0 Phase 22
 - ✓ Night-modulated chimney smoke and firefly brightness — v2.0 Phase 22
+- ✓ Async non-blocking session discovery via fs.promises — v2.2 Phase 26
+- ✓ Combined JSONL tail read (single file open per session per poll) — v2.2 Phase 26
+- ✓ Incremental offset-based JSONL usage parsing — v2.2 Phase 26
+- ✓ Adaptive poll backoff (3s → 30s when idle, instant reset) — v2.2 Phase 26
+- ✓ Container.tint replaces ColorMatrixFilter (eliminates double GPU render pass) — v2.2 Phase 27
+- ✓ Threshold-gated day/night tint updates (~99.7% skip rate) — v2.2 Phase 27
+- ✓ Static layer GPU texture caching (cacheAsTexture on tilemap/scenery) — v2.2 Phase 27
+- ✓ Night glow alpha threshold guard (~98% skip rate) — v2.2 Phase 27
+- ✓ Particle idle throttling (smoke/sparks skip at 5fps) — v2.2 Phase 28
+- ✓ O(1) swap-and-pop particle removal — v2.2 Phase 28
+- ✓ Dirty-flag building highlight tints — v2.2 Phase 28
+- ✓ State-driven agent reparenting (not per-frame polling) — v2.2 Phase 28
+- ✓ In-place dashboard DOM diffing (no innerHTML rebuild) — v2.2 Phase 28
+- ✓ Zero-allocation tick loop (reusable buffers/Sets) — v2.2 Phase 28
+- ✓ AgentTrackingState: 14 per-agent Maps consolidated into single Map — v2.2 Phase 29
 
 ### Active
 
-## Current Milestone: v2.2 Performance Optimization
-
-**Goal:** Eliminate the highest-impact CPU, GPU, and I/O inefficiencies identified by a comprehensive 4-agent performance audit.
-
-**Target features:**
-- Remove stage-level ColorMatrixFilter (doubles GPU work) and replace with per-container tints
-- Cache day/night filter values and gate updates on actual change thresholds
-- Throttle ambient particle updates at idle FPS and skip invisible subsystems
-- Combine redundant JSONL file reads into single-pass operations
-- Convert synchronous file I/O in session discovery to async (unblock main process)
-- Implement incremental JSONL usage parsing (offset-based, not full re-read)
-- Fix medium-impact items: night glow guards, per-agent state consolidation, building highlight caching, poll backoff, splice-to-swap-and-pop, DOM diffing, and more
+(None — next milestone not yet started)
 
 ### Out of Scope
 
@@ -102,7 +106,7 @@ Instantly see the status of all Claude Code sessions so you know which one needs
 
 - User runs multiple Claude Code sessions simultaneously in different bash terminals on Windows (MINGW64/Git Bash)
 - Shipped v1.0 through v2.0 in 7 days (2026-02-25 → 2026-03-03)
-- Codebase: 10,501 LOC TypeScript/JS (6,158 TS + 4,343 JS generators), ~30 source files, 4 pngjs generator scripts
+- Codebase: 8,494 LOC TypeScript (source), ~30 source files, 4 pngjs generator scripts
 - JSONL logs at `~/.claude/projects/{encoded-path}/{session-uuid}.jsonl` contain `message.usage` with `input_tokens`, `output_tokens`, `cache_creation_input_tokens`, `cache_read_input_tokens`, and `message.model`
 - Tech stack: Electron 40.6.1, PixiJS 8.16.0, TypeScript 5.7, pixi-filters 6.1.5, Webpack (Electron Forge)
 - Atlas-first asset pipeline: pngjs generates PNG atlases, JSON descriptors, loadAllAssets() with Promise.all
@@ -111,7 +115,7 @@ Instantly see the status of all Claude Code sessions so you know which one needs
 - Canvas-rendered static tilemap ground, static Building instances with agentsLayer, AnimatedSprite agents with palette-swapped textures
 - Scenery layer with 96 placed sprites (trees, bushes, flowers, props, lanterns, torches) using seeded random placement
 - Night glow layer with 19+ concentric circle Graphics glows synced to day/night cycle
-- DayNightCycle manager: 10-min sine-wave cycle, ColorMatrixFilter for global color temperature
+- DayNightCycle manager: 10-min sine-wave cycle, Container.tint on worldContainer for color temperature (ColorMatrixFilter removed v2.2)
 - Buildings: 464x336 landscape in 2x2 grid, detailed top-down interiors, station tracking, tool name banners
 - SoundManager singleton with HTML5 Audio API for jobs-done and ready-to-work sounds
 - Status debounce (2.5s) prevents visual flickering; dual-gate completion detection (status transition + system entry)
@@ -119,7 +123,8 @@ Instantly see the status of all Claude Code sessions so you know which one needs
 - tool_use content inspection keeps sessions active during multi-tool execution
 - Per-session waiting reminders (60s timer, 30s global throttle, active-cycle guard)
 - Dashboard panel (312px) below RPG world (768px) in 1024x1080 window with flex column layout
-- Streaming JSONL parser (readline + createReadStream) with mtime-cached UsageAggregator
+- Async session discovery (fs.promises) with combined single-pass JSONL tail read and incremental offset-based usage parsing
+- Adaptive poll backoff (3s → 30s idle, instant reset on activity)
 - MODEL_PRICING table with 10 Claude model entries and 4-step resolution (bare alias → exact → prefix → fallback)
 - DashboardPanel renders session rows with click-to-expand token breakdowns and cost estimates
 - HistoryStore persists daily aggregates to `~/.agent-world/history.json` with atomic writes and 30-day pruning
@@ -177,6 +182,14 @@ Instantly see the status of all Claude Code sessions so you know which one needs
 | Sine-wave day/night cycle (v2.0) | pow(1.5) sharpening for natural day-dominant feel; 10-min period | ✓ Good |
 | Concentric circles for glow (v2.0) | Avoids expensive PixiJS blur filters; adequate visual quality | ✓ Good |
 | nightIntensity as central signal (v2.0) | Single value threaded from cycle → glow, smoke, particles; no duplication | ✓ Good |
+| Container.tint replaces ColorMatrixFilter (v2.2) | Eliminates full-scene double render pass; tint is multiplicative and inherited | ✓ Good |
+| Hex integer comparison for tint threshold (v2.2) | Natural 1/255 quantization, ~99.7% skip rate, zero per-tick allocations | ✓ Good |
+| cacheAsTexture on static layers (v2.2) | Tilemap and scenery render once to GPU texture; ~100 draw calls → 2 | ✓ Good |
+| Async fs.promises for session discovery (v2.2) | Unblocks Electron main process event loop during polling | ✓ Good |
+| Incremental offset-based JSONL parsing (v2.2) | Reads only new bytes; falls back on truncation/inode change | ✓ Good |
+| setTimeout recursion for adaptive poll (v2.2) | Linear backoff 3s→30s; instant reset; no setInterval cleanup issues | ✓ Good |
+| AgentTrackingState single Map (v2.2) | 14 Maps → 1; agent removal is one delete(); ~3000 fewer Map lookups/sec | ✓ Good |
+| Dirty-flag building highlights (v2.2) | Recompute only on occupancy change, not every frame | ✓ Good |
 
 ---
-*Last updated: 2026-03-18 after v2.2 milestone start*
+*Last updated: 2026-03-19 after v2.2 milestone*

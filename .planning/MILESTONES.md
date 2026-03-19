@@ -1,5 +1,14 @@
 # Milestones
 
+## v2.2 Performance Optimization (Shipped: 2026-03-19)
+
+**Phases completed:** 4 phases, 9 plans, 0 tasks
+
+**Key accomplishments:**
+- (none recorded)
+
+---
+
 ## v2.0 World & Character Detail (Shipped: 2026-03-03)
 
 **Phases completed:** 3 phases, 7 plans, 0 tasks
