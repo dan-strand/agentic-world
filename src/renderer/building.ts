@@ -369,10 +369,21 @@ export class Building extends Container {
     const dt = deltaMs / 1000;
     const chimneyPos = CHIMNEY_POSITIONS[this.buildingType];
 
-    // Night-modulated smoke parameters
-    const maxSmoke = CHIMNEY_SMOKE_COUNT + Math.round(SMOKE_NIGHT_COUNT_BONUS * nightIntensity);
-    const spawnInterval = CHIMNEY_SMOKE_SPAWN_MS * (1 - nightIntensity * (1 - SMOKE_NIGHT_SPAWN_MULT));
-    const baseAlpha = 0.6 * (1 + (SMOKE_NIGHT_OPACITY_MULT - 1) * nightIntensity);
+    // Night-modulated smoke parameters (skip 3 multiplications during daytime)
+    let maxSmoke: number;
+    let spawnInterval: number;
+    let baseAlpha: number;
+
+    if (nightIntensity < 0.005) {
+      // Daytime: use constant values, skip 3 multiplications
+      maxSmoke = CHIMNEY_SMOKE_COUNT;
+      spawnInterval = CHIMNEY_SMOKE_SPAWN_MS;
+      baseAlpha = 0.6;
+    } else {
+      maxSmoke = CHIMNEY_SMOKE_COUNT + Math.round(SMOKE_NIGHT_COUNT_BONUS * nightIntensity);
+      spawnInterval = CHIMNEY_SMOKE_SPAWN_MS * (1 - nightIntensity * (1 - SMOKE_NIGHT_SPAWN_MULT));
+      baseAlpha = 0.6 * (1 + (SMOKE_NIGHT_OPACITY_MULT - 1) * nightIntensity);
+    }
 
     // Advance spawn timer
     this.smokeTimer += deltaMs;

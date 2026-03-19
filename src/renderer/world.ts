@@ -150,6 +150,9 @@ export class World {
   // Reusable buffer for deferred agent removal (avoids per-tick allocation)
   private toRemoveBuffer: string[] = [];
 
+  // Throttle visibility warnings to once per second per agent (TICK-02)
+  private warnThrottleMap: Map<string, number> = new Map();
+
   // Layout
   private centerX = 0;
   private centerY = 0;
@@ -405,8 +408,13 @@ export class World {
       // Visibility safeguard: warn if any non-fading agent has alpha < 0.4
       // This catches bugs where alpha leaks from breathing or other effects
       if (agent.getState() !== 'fading_out' && agent.alpha < 0.4) {
-        console.warn(`[world] Visibility warning: agent ${agent.sessionId} has alpha ${agent.alpha.toFixed(2)} in state ${agent.getState()}`);
-        agent.alpha = 1; // Force-fix to prevent invisible agents
+        const now = Date.now();
+        const lastWarn = this.warnThrottleMap.get(agent.sessionId) ?? 0;
+        if (now - lastWarn >= 1000) {
+          console.warn(`[world] Visibility warning: agent ${agent.sessionId} has alpha ${agent.alpha.toFixed(2)} in state ${agent.getState()}`);
+          this.warnThrottleMap.set(agent.sessionId, now);
+        }
+        agent.alpha = 1; // Force-fix always runs regardless of throttle
       }
     }
 
@@ -540,9 +548,13 @@ export class World {
     // Clean up palette swap textures if no other active agent shares the same class+palette combo.
     // Deferred to next frame via setTimeout(0) to avoid destroying textures that PixiJS
     // may still reference during the current render pass (causes null style crash in GlTextureSystem).
-    const shouldCleanup = ![...this.agents.values()].some(
-      a => a !== agent && a.characterClass === savedClass && a.paletteIndex === savedPaletteIndex,
-    );
+    let shouldCleanup = true;
+    for (const a of this.agents.values()) {
+      if (a !== agent && a.characterClass === savedClass && a.paletteIndex === savedPaletteIndex) {
+        shouldCleanup = false;
+        break;
+      }
+    }
     if (shouldCleanup) {
       setTimeout(() => destroyCachedTextures(savedClass, savedPaletteIndex), 0);
     }
@@ -550,6 +562,7 @@ export class World {
     // Clean ALL tracking -- single delete replaces 14 individual deletes
     this.agents.delete(sessionId);
     this.agentStates.delete(sessionId);
+    this.warnThrottleMap.delete(sessionId);
 
     // Release factory slot
     this.agentFactory.releaseSlot(sessionId);
