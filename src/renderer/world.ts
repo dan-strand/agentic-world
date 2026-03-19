@@ -155,6 +155,12 @@ export class World {
   // Track the current tool label per building (for change detection)
   private buildingToolName: Map<Building, string> = new Map();
 
+  // Dirty flag: building highlights only recompute when agent occupancy changes
+  private highlightsDirty = true; // true initially to force first computation
+
+  // Reusable set for highlight computation (avoids per-tick allocation)
+  private activeBuildings: Set<Building> = new Set();
+
   // Layout
   private centerX = 0;
   private centerY = 0;
@@ -337,6 +343,7 @@ export class World {
               celebBuilding.releaseStation(agent.sessionId);
             }
             agent.startCelebration();
+            this.highlightsDirty = true;
             SoundManager.getInstance().play();
           }
         }
@@ -361,6 +368,7 @@ export class World {
 
         if (next >= IDLE_TIMEOUT_MS) {
           agent.startFadeOut();
+          this.highlightsDirty = true;
           this.idleTimers.delete(agent.sessionId);
           this.hasPlayedReminder.delete(agent.sessionId);
         }
@@ -440,19 +448,22 @@ export class World {
     // Periodically prune stale dismissed session entries
     this.pruneDismissedSessions(deltaMs);
 
-    // Quest zone active highlights (ENV-04) -- based on project-to-building assignment
-    const activeBuildings = new Set<Building>();
-    for (const agent of this.agents.values()) {
-      const agentState = agent.getState();
-      if (agentState === 'working' || agentState === 'walking_to_workspot') {
-        const building = this.agentBuilding.get(agent.sessionId);
-        if (building) {
-          activeBuildings.add(building);
+    // Quest zone active highlights -- only recompute when occupancy changes (dirty flag)
+    if (this.highlightsDirty) {
+      this.activeBuildings.clear();
+      for (const agent of this.agents.values()) {
+        const agentState = agent.getState();
+        if (agentState === 'working' || agentState === 'walking_to_workspot') {
+          const building = this.agentBuilding.get(agent.sessionId);
+          if (building) {
+            this.activeBuildings.add(building);
+          }
         }
       }
-    }
-    for (const building of this.questZones.values()) {
-      building.tint = activeBuildings.has(building) ? 0xFFDD88 : 0xFFFFFF;
+      for (const building of this.questZones.values()) {
+        building.tint = this.activeBuildings.has(building) ? 0xFFDD88 : 0xFFFFFF;
+      }
+      this.highlightsDirty = false;
     }
   }
 
@@ -561,6 +572,9 @@ export class World {
 
     // Prevent resurrection from stale IPC data (timestamp for age-based pruning)
     this.dismissedSessions.set(sessionId, Date.now());
+
+    // Agent removed -- recompute building highlights
+    this.highlightsDirty = true;
   }
 
   // --- Private: Agent Management ---
@@ -635,6 +649,7 @@ export class World {
       if (agent.getState() === 'fading_out') {
         if (session.activityType !== 'idle' || session.status !== 'idle') {
           agent.cancelFadeOut();
+          this.highlightsDirty = true;
           // Reinitialize debounce state for clean reactivation
           this.statusDebounce.set(session.sessionId, {
             pendingStatus: session.status,
@@ -668,6 +683,7 @@ export class World {
             const workPos = this.getBuildingWorkPosition(building, session.sessionId);
             agent.assignToCompound(entrance, workPos);
             this.agentBuilding.set(session.sessionId, building);
+            this.highlightsDirty = true;
             // BUBBLE-03: Show speech bubble on initial departure from campfire
             const bubble = this.speechBubbles.get(session.sessionId);
             if (bubble) bubble.show(activityType);
@@ -696,6 +712,7 @@ export class World {
             const idlePos = this.getCampfireIdlePosition(session.sessionId);
             agent.assignToHQ(idlePos);
             this.agentBuilding.delete(session.sessionId);
+            this.highlightsDirty = true;
           }
         }
       } else {
@@ -712,6 +729,7 @@ export class World {
           const idlePos = this.getCampfireIdlePosition(session.sessionId);
           agent.assignToHQ(idlePos);
           this.agentBuilding.delete(session.sessionId);
+          this.highlightsDirty = true;
         }
       }
 
@@ -734,6 +752,7 @@ export class World {
         const building = this.agentBuilding.get(sessionId);
         if (building) building.releaseStation(sessionId);
         agent.startFadeOut();
+        this.highlightsDirty = true;
       }
     }
 
