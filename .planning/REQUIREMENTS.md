@@ -14,9 +14,9 @@ Requirements for performance polish release. Each maps to roadmap phases.
 
 ### Tick Efficiency
 
-- [ ] **TICK-01**: Building smoke baseAlpha/maxSmoke/spawnInterval gated on nightIntensity threshold (same 0.005 pattern as glow guard)
-- [ ] **TICK-02**: Console.warn in visibility check throttled to once per second per agent
-- [ ] **TICK-03**: Spread operator in removeAgent replaced with for-of early-return loop
+- [x] **TICK-01**: Building smoke baseAlpha/maxSmoke/spawnInterval gated on nightIntensity threshold (same 0.005 pattern as glow guard)
+- [x] **TICK-02**: Console.warn in visibility check throttled to once per second per agent
+- [x] **TICK-03**: Spread operator in removeAgent replaced with for-of early-return loop
 
 ### I/O Cleanup
 
@@ -25,7 +25,7 @@ Requirements for performance polish release. Each maps to roadmap phases.
 
 ### DOM Cleanup
 
-- [ ] **DOMCL-01**: escapeHtml caches a single reusable div element instead of creating one per call
+- [x] **DOMCL-01**: escapeHtml caches a single reusable div element instead of creating one per call
 
 ## Future Requirements
 
@@ -57,10 +57,10 @@ Requirements for performance polish release. Each maps to roadmap phases.
 |-------------|-------|--------|
 | TEX-01 | Phase 30 | Pending |
 | TEX-02 | Phase 30 | Pending |
-| TICK-01 | Phase 30 | Pending |
-| TICK-02 | Phase 30 | Pending |
-| TICK-03 | Phase 30 | Pending |
-| DOMCL-01 | Phase 30 | Pending |
+| TICK-01 | Phase 30 | Complete |
+| TICK-02 | Phase 30 | Complete |
+| TICK-03 | Phase 30 | Complete |
+| DOMCL-01 | Phase 30 | Complete |
 | IOCL-01 | Phase 31 | Pending |
 | IOCL-02 | Phase 31 | Pending |
 
