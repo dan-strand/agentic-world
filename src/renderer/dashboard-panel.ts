@@ -31,6 +31,7 @@ export class DashboardPanel {
   private historyBar: HTMLElement;
   private sessionList: HTMLElement;
   private expandedSessions: Set<string> = new Set();
+  private escapeDiv: HTMLDivElement = document.createElement('div');
 
   constructor(container: HTMLElement) {
     this.container = container;
@@ -249,8 +250,7 @@ export class DashboardPanel {
   }
 
   private escapeHtml(text: string): string {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+    this.escapeDiv.textContent = text;
+    return this.escapeDiv.innerHTML;
   }
 }
