@@ -63,7 +63,7 @@ Tasks 1 and 2 were committed together (intermediate state does not compile):
 
 1. **Tasks 1+2: Define AgentTrackingState and migrate all access sites** - `e60039a` (refactor)
 
-**Plan metadata:** [pending] (docs: complete plan)
+**Plan metadata:** `c859747` (docs: complete plan)
 
 ## Files Created/Modified
 - `src/renderer/world.ts` - Consolidated 14 per-agent Maps/Sets into AgentTrackingState interface and single agentStates Map; 136 insertions, 143 deletions (net -7 lines)
