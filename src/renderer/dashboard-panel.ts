@@ -48,6 +48,27 @@ export class DashboardPanel {
     this.sessionList = document.createElement('div');
     this.sessionList.className = 'session-list';
     this.container.appendChild(this.sessionList);
+
+    // Event delegation: single click handler on session list container
+    this.sessionList.addEventListener('click', (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const summary = target.closest('.session-summary') as HTMLElement | null;
+      if (!summary) return;
+      const row = summary.parentElement;
+      if (!row) return;
+      const sessionId = row.dataset.sessionId;
+      if (!sessionId) return;
+      const detail = row.querySelector('.session-detail') as HTMLElement | null;
+      if (!detail) return;
+
+      if (this.expandedSessions.has(sessionId)) {
+        this.expandedSessions.delete(sessionId);
+        detail.style.display = 'none';
+      } else {
+        this.expandedSessions.add(sessionId);
+        detail.style.display = 'block';
+      }
+    });
   }
 
   update(data: DashboardData): void {
@@ -88,15 +109,21 @@ export class DashboardPanel {
   }
 
   private renderSessions(sessions: DashboardSession[]): void {
-    this.sessionList.innerHTML = '';
-
     if (sessions.length === 0) {
-      const empty = document.createElement('div');
-      empty.className = 'empty-state';
-      empty.textContent = 'No active sessions';
-      this.sessionList.appendChild(empty);
+      // Show empty state (only if not already showing it)
+      if (!this.sessionList.querySelector('.empty-state')) {
+        this.sessionList.innerHTML = '';
+        const empty = document.createElement('div');
+        empty.className = 'empty-state';
+        empty.textContent = 'No active sessions';
+        this.sessionList.appendChild(empty);
+      }
       return;
     }
+
+    // Remove empty state if present
+    const emptyState = this.sessionList.querySelector('.empty-state');
+    if (emptyState) emptyState.remove();
 
     // Sort by status priority (active first), then by lastModified descending
     const sorted = [...sessions].sort((a, b) => {
@@ -106,52 +133,119 @@ export class DashboardPanel {
       return b.lastModified - a.lastModified;
     });
 
-    for (const session of sorted) {
-      const row = document.createElement('div');
-      row.className = 'session-row';
-      row.dataset.sessionId = session.sessionId;
-
-      const isExpanded = this.expandedSessions.has(session.sessionId);
-
-      // Summary row
-      const summary = document.createElement('div');
-      summary.className = 'session-summary';
-      summary.innerHTML =
-        `<span class="project-name">${this.escapeHtml(session.projectName)}</span>` +
-        `<span class="status-badge ${session.status}">${session.status}</span>` +
-        `<span class="model-badge">${this.escapeHtml(session.modelDisplayName)}</span>` +
-        `<span class="tool-name">${this.escapeHtml(session.lastToolName || '--')}</span>` +
-        `<span class="duration">${formatDuration(session.lastModified)}</span>` +
-        `<span class="cost">${formatCost(session.totalCostUsd, session.isEstimate)}</span>`;
-
-      // Detail panel
-      const detail = document.createElement('div');
-      detail.className = 'session-detail';
-      detail.style.display = isExpanded ? 'block' : 'none';
-      detail.innerHTML =
-        `<div class="token-row"><span class="token-label">Input:</span> <span class="token-value">${session.inputTokens.toLocaleString()}</span></div>` +
-        `<div class="token-row"><span class="token-label">Output:</span> <span class="token-value">${session.outputTokens.toLocaleString()}</span></div>` +
-        `<div class="token-row"><span class="token-label">Cache write:</span> <span class="token-value">${session.cacheCreationTokens.toLocaleString()}</span></div>` +
-        `<div class="token-row"><span class="token-label">Cache read:</span> <span class="token-value">${session.cacheReadTokens.toLocaleString()}</span></div>` +
-        `<div class="token-row cost-row"><span class="token-label">Cost:</span> <span class="token-value">${formatCost(session.totalCostUsd, session.isEstimate)}</span></div>` +
-        `<div class="token-row savings-row"><span class="token-label">Cache saved:</span> <span class="token-value">~$${session.cacheSavingsUsd.toFixed(2)}</span></div>` +
-        `<div class="token-row"><span class="token-label">Turns:</span> <span class="token-value">${session.turnCount}</span></div>`;
-
-      // Click to toggle expand
-      summary.addEventListener('click', () => {
-        if (this.expandedSessions.has(session.sessionId)) {
-          this.expandedSessions.delete(session.sessionId);
-          detail.style.display = 'none';
-        } else {
-          this.expandedSessions.add(session.sessionId);
-          detail.style.display = 'block';
-        }
-      });
-
-      row.appendChild(summary);
-      row.appendChild(detail);
-      this.sessionList.appendChild(row);
+    // Build a map of existing rows by sessionId
+    const existingRows = new Map<string, HTMLElement>();
+    for (const child of Array.from(this.sessionList.children)) {
+      const el = child as HTMLElement;
+      const id = el.dataset.sessionId;
+      if (id) existingRows.set(id, el);
     }
+
+    // Track which sessions are still present
+    const currentIds = new Set<string>();
+
+    // Update or create rows in sorted order
+    for (let i = 0; i < sorted.length; i++) {
+      const session = sorted[i];
+      currentIds.add(session.sessionId);
+
+      let row = existingRows.get(session.sessionId);
+      if (row) {
+        // UPDATE existing row in place (text content only, no element recreation)
+        this.updateSessionRow(row, session);
+      } else {
+        // CREATE new row
+        row = this.createSessionRow(session);
+      }
+
+      // Ensure correct DOM order: row should be at index i
+      const currentChild = this.sessionList.children[i];
+      if (currentChild !== row) {
+        this.sessionList.insertBefore(row, currentChild || null);
+      }
+    }
+
+    // REMOVE rows for sessions that no longer exist
+    for (const [id, row] of existingRows) {
+      if (!currentIds.has(id)) {
+        row.remove();
+        this.expandedSessions.delete(id);
+      }
+    }
+  }
+
+  private createSessionRow(session: DashboardSession): HTMLElement {
+    const row = document.createElement('div');
+    row.className = 'session-row';
+    row.dataset.sessionId = session.sessionId;
+
+    const isExpanded = this.expandedSessions.has(session.sessionId);
+
+    const summary = document.createElement('div');
+    summary.className = 'session-summary';
+    // Use spans with data attributes for targeted updates
+    summary.innerHTML =
+      `<span class="project-name">${this.escapeHtml(session.projectName)}</span>` +
+      `<span class="status-badge ${session.status}">${session.status}</span>` +
+      `<span class="model-badge">${this.escapeHtml(session.modelDisplayName)}</span>` +
+      `<span class="tool-name">${this.escapeHtml(session.lastToolName || '--')}</span>` +
+      `<span class="duration">${formatDuration(session.lastModified)}</span>` +
+      `<span class="cost">${formatCost(session.totalCostUsd, session.isEstimate)}</span>`;
+
+    const detail = document.createElement('div');
+    detail.className = 'session-detail';
+    detail.style.display = isExpanded ? 'block' : 'none';
+    this.updateDetailContent(detail, session);
+
+    // No per-row click handler -- event delegation on sessionList handles it
+    row.appendChild(summary);
+    row.appendChild(detail);
+    return row;
+  }
+
+  private updateSessionRow(row: HTMLElement, session: DashboardSession): void {
+    const summary = row.querySelector('.session-summary');
+    if (!summary) return;
+
+    // Update text content of each span (no innerHTML replacement, preserves DOM)
+    const projectName = summary.querySelector('.project-name');
+    if (projectName) projectName.textContent = session.projectName;
+
+    const statusBadge = summary.querySelector('.status-badge');
+    if (statusBadge) {
+      statusBadge.textContent = session.status;
+      statusBadge.className = `status-badge ${session.status}`;
+    }
+
+    const modelBadge = summary.querySelector('.model-badge');
+    if (modelBadge) modelBadge.textContent = session.modelDisplayName;
+
+    const toolName = summary.querySelector('.tool-name');
+    if (toolName) toolName.textContent = session.lastToolName || '--';
+
+    const duration = summary.querySelector('.duration');
+    if (duration) duration.textContent = formatDuration(session.lastModified);
+
+    const cost = summary.querySelector('.cost');
+    if (cost) cost.textContent = formatCost(session.totalCostUsd, session.isEstimate);
+
+    // Update detail panel content (preserves expand/collapse state)
+    const detail = row.querySelector('.session-detail') as HTMLElement | null;
+    if (detail) {
+      this.updateDetailContent(detail, session);
+      // Preserve expand state -- do NOT touch detail.style.display
+    }
+  }
+
+  private updateDetailContent(detail: HTMLElement, session: DashboardSession): void {
+    detail.innerHTML =
+      `<div class="token-row"><span class="token-label">Input:</span> <span class="token-value">${session.inputTokens.toLocaleString()}</span></div>` +
+      `<div class="token-row"><span class="token-label">Output:</span> <span class="token-value">${session.outputTokens.toLocaleString()}</span></div>` +
+      `<div class="token-row"><span class="token-label">Cache write:</span> <span class="token-value">${session.cacheCreationTokens.toLocaleString()}</span></div>` +
+      `<div class="token-row"><span class="token-label">Cache read:</span> <span class="token-value">${session.cacheReadTokens.toLocaleString()}</span></div>` +
+      `<div class="token-row cost-row"><span class="token-label">Cost:</span> <span class="token-value">${formatCost(session.totalCostUsd, session.isEstimate)}</span></div>` +
+      `<div class="token-row savings-row"><span class="token-label">Cache saved:</span> <span class="token-value">~$${session.cacheSavingsUsd.toFixed(2)}</span></div>` +
+      `<div class="token-row"><span class="token-label">Turns:</span> <span class="token-value">${session.turnCount}</span></div>`;
   }
 
   private escapeHtml(text: string): string {
